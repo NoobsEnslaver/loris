@@ -1,0 +1,17 @@
+{application, server,
+ [{description, "REST/WS/AUTH/File upload application"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {mod, { server_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

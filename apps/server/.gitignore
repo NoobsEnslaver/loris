@@ -1,6 +1,4 @@
-*~
-rebar.lock
-*.iml
+.rebar3
 _*
 .eunit
 *.o
@@ -16,4 +14,3 @@ erl_crash.dump
 logs
 _build
 .idea
-compile_commands.json
