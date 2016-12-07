@@ -27,9 +27,11 @@ start(_Type, _Args) ->
     Conf = get_conf(node(), ?APP_NAME),
     TcpOpts = proplists:get_value('tcp_params', Conf),
     Acceptors = proplists:get_value('acceptors', Conf),
+    StaticDir = proplists:get_value('static_dir', Conf),
     Dispatch = cowboy_router:compile(
                  [{'_',
-                    [{'_', server_404_handler, []}]
+                    [{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
+                    ,{'_', 'server_404_handler', []}]
                   }]),
     ProtocolOpts = #{env => #{dispatch => Dispatch}},
     {'ok', _Pid} = cowboy:start_clear(?LISTENER_NAME, Acceptors, TcpOpts, ProtocolOpts),
@@ -47,4 +49,5 @@ get_conf(_Node, _AppName) ->
     [{'tcp_params', [{'port', 5555}
                     ,{'buffer', 32768}
                     ,{'max_connections', 65536}]}
-    ,{'acceptors', 100}].
+    ,{'acceptors', 100}
+    ,{'static_dir', "/srv"}].
