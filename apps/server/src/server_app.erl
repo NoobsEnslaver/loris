@@ -10,12 +10,11 @@
 -behaviour(application).
 
 -include("server.hrl").
--include_lib("common/include/logging.hrl").
 
 -export([start/2
         ,stop/1]).
 
--define(LISTENER_NAME, 'websock_api').
+-define(LISTENER_NAME, 'server').
 
 %%====================================================================
 %% API
@@ -31,6 +30,7 @@ start(_Type, _Args) ->
     Dispatch = cowboy_router:compile(
                  [{'_',
                     [{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
+                    ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
                     ,{'_', 'server_404_handler', []}]
                   }]),
     ProtocolOpts = #{env => #{dispatch => Dispatch}},
@@ -46,7 +46,7 @@ stop(_) ->
 %% Internal functions
 %%====================================================================
 get_conf(_Node, _AppName) ->
-    [{'tcp_params', [{'port', 5555}
+    [{'tcp_params', [{'port', 8080}
                     ,{'buffer', 32768}
                     ,{'max_connections', 65536}]}
     ,{'acceptors', 100}
