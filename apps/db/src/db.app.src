@@ -1,0 +1,17 @@
+{application, db,
+ [{description, "Mnesia wrapper"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {mod, { db_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    mnesia
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
