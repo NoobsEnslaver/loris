@@ -10,7 +10,12 @@
     msgpack,
     common
    ]},
-  {env,[]},
+  {env, [{'tcp_params', [{'port', 8080}
+                        ,{'buffer', 32768}
+                        ,{'max_connections', 65536}]}
+        ,{'acceptors', 100}
+        ,{'static_dir', "/srv"}
+        ,{'max_file_size', 16777216}]},
   {modules, []},
 
   {maintainers, []},

@@ -23,14 +23,17 @@
 -spec start('normal' | {'failover',atom()} | {'takeover',atom()}, any()) -> {'ok', pid()} | {'error', any()}.
 start(_Type, _Args) ->
     lager:md([{'appname', ?APP_NAME}]),
-    Conf = get_conf(node(), ?APP_NAME),
-    TcpOpts = proplists:get_value('tcp_params', Conf),
-    Acceptors = proplists:get_value('acceptors', Conf),
-    StaticDir = proplists:get_value('static_dir', Conf),
+    TcpOpts = application:get_env(?APP_NAME, 'tcp_params', [{'port', 8080}
+                                                           ,{'buffer', 32768}
+                                                           ,{'max_connections', 65536}]),
+    Acceptors = application:get_env(?APP_NAME, 'acceptors', 100),
+    StaticDir = application:get_env(?APP_NAME, 'static_dir', "/srv"),
+    MaxFileSize = application:get_env(?APP_NAME, 'max_file_size', 16777216),
     Dispatch = cowboy_router:compile(
                  [{'_',
                     [{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
+                    ,{"/upload", file_upload_handler, [MaxFileSize]}
                     ,{'_', 'server_404_handler', []}]
                   }]),
     ProtocolOpts = #{env => #{dispatch => Dispatch}},
@@ -45,9 +48,3 @@ stop(_) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-get_conf(_Node, _AppName) ->
-    [{'tcp_params', [{'port', 8080}
-                    ,{'buffer', 32768}
-                    ,{'max_connections', 65536}]}
-    ,{'acceptors', 100}
-    ,{'static_dir', "/srv"}].
