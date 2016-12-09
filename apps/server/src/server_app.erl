@@ -33,7 +33,7 @@ start(_Type, _Args) ->
                  [{'_',
                     [{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
-                    ,{"/upload", file_upload_handler, [MaxFileSize]}
+                    ,{"/upload/[:token]", file_upload_handler, [MaxFileSize]}
                     ,{'_', 'server_404_handler', []}]
                   }]),
     ProtocolOpts = #{env => #{dispatch => Dispatch}},

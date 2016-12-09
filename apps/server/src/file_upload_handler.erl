@@ -20,9 +20,8 @@
 %%%===================================================================
 -spec init(cowboy_req:req(), list()) -> {'ok', cowboy_req:req(), []}.
 init(Req, [MaxFileSize]) ->
-    #{token := Token} = cowboy_req:match_cookies([{token, [], <<>>}], Req),
+    Token = cowboy_req:binding('token', Req, <<>>),
     IsAuthorized = is_authorized(Token),                      %TODO
-    io:format("Headers: ~p~n", [cowboy_req:headers(Req)]),
     Resp = case cowboy_req:body_length(Req) of
                'undefined' ->
                    cowboy_req:reply(411, #{}, <<>>, Req); %Length Required error
