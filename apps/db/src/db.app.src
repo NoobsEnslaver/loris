@@ -5,10 +5,11 @@
   {mod, { db_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    mnesia
+    stdlib
    ]},
-  {env,[]},
+  {env,[
+        {nodes, []}
+       ]},
   {modules, []},
 
   {maintainers, []},

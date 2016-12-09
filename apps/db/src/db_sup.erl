@@ -10,7 +10,7 @@
 -module(db_sup).
 
 -behaviour(supervisor).
-
+-include("db.hrl").
 %% API
 -export([start_link/0]).
 
@@ -24,6 +24,7 @@
 %%====================================================================
 
 start_link() ->
+    lager:md([{'appname', ?APP_NAME}]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%====================================================================
