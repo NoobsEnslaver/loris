@@ -1,0 +1,6 @@
+-sname {{node_name}}
+
+-setcookie {{cookie}}
+
++K true
++A30
