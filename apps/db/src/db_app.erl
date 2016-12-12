@@ -49,5 +49,10 @@ stop(_State) ->
 %%====================================================================
 create_tables()->
     lists:foreach(fun({Name, Opts}) ->
-                          mnesia:create_table(Name, Opts)
+                          io:format("~nTry to create ~p with options: ~p", [Name, Opts]),
+                          case mnesia:create_table(Name, Opts) of
+                              {'atomic', 'ok'} -> 'ok';
+                              {'error', Reason} ->
+                                  lager:console("error on create table ~p, reason: ~p~n", [Name, Reason]) %TODO
+                          end
                   end, ?DEFAULT_SCHEMA).

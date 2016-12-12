@@ -22,7 +22,7 @@
 -spec init(cowboy_req:req(), list()) -> {'ok', cowboy_req:req(), []}.
 init(Req, [MaxFileSize]) ->
     Token = cowboy_req:binding('token', Req, <<>>),
-    {OwnerId, _UserName, _Pid} = get_session(Token),            %TODO
+    [#session{owner_id = OwnerId}] = sessions:get(Token),         %TODO
     IsAuthorized = is_authorized(Token),                        %TODO
     Resp = case cowboy_req:body_length(Req) of
                'undefined' ->
@@ -65,14 +65,10 @@ receive_file(Req, Buffer, MaxFileSize) ->
 save_file(Name, Type, Data, OwnerId) ->
     Hash = crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/binary>>),
     Fun = fun()->
-                  mnesia:write(#files{hash=Hash, name=Name, content_type = Type, data=Data, owner_id = OwnerId})
+                  mnesia:write(#file{hash=Hash, name=Name, content_type = Type, data=Data, owner_id = OwnerId})
           end,
     mnesia:transaction(Fun),
     Hash.
 
 is_authorized(_Token)->
     'true'.
-
--spec get_session(binary()) -> {binary(), binary(), pid()}.
-get_session(_Token)->
-    {<<>>, <<>>, self()}.
