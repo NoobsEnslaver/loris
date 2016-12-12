@@ -8,7 +8,8 @@
 %%%-------------------------------------------------------------------
 -module(file_upload_handler).
 -behaviour(cowboy_handler).
--include_lib("server.hrl").
+-include("server.hrl").
+-include_lib("common/include/tables.hrl").
 
 -export([init/2
         ,terminate/3
@@ -21,7 +22,8 @@
 -spec init(cowboy_req:req(), list()) -> {'ok', cowboy_req:req(), []}.
 init(Req, [MaxFileSize]) ->
     Token = cowboy_req:binding('token', Req, <<>>),
-    IsAuthorized = is_authorized(Token),                      %TODO
+    {OwnerId, _UserName, _Pid} = get_session(Token),            %TODO
+    IsAuthorized = is_authorized(Token),                        %TODO
     Resp = case cowboy_req:body_length(Req) of
                'undefined' ->
                    cowboy_req:reply(411, #{}, <<>>, Req); %Length Required error
@@ -32,7 +34,8 @@ init(Req, [MaxFileSize]) ->
                _NormalSize ->
                    {Name, ContentType, Data, Req1} = receive_file(Req, MaxFileSize),
                    io:format("Name: ~p~nContentType: ~p~nDataLength: ~p~nToken: ~p~n", [Name, ContentType, byte_size(Data), Token]),
-                   InDBId = save_file(Name, ContentType, Data),
+                   InDBId = save_file(Name, ContentType, Data, OwnerId),
+                   io:format("~nFile ~s saved with Id: ~p~n", [Name, InDBId]),
                    cowboy_req:reply(201, #{<<"content-type">> => <<"text/html">>}, InDBId, Req1)
            end,
     {'ok', Resp, []}.
@@ -58,9 +61,18 @@ receive_file(Req, Buffer, MaxFileSize) ->
             receive_file(Req1, NewBuf, MaxFileSize)
     end.
 
--spec save_file(binary(), binary(), binary()) -> binary().
-save_file(_Name, _Type, _Data) ->
-    <<"id_in_database">>.
+-spec save_file(binary(), binary(), binary(), binary()) -> binary().
+save_file(Name, Type, Data, OwnerId) ->
+    Hash = crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/binary>>),
+    Fun = fun()->
+                  mnesia:write(#files{hash=Hash, name=Name, content_type = Type, data=Data, owner_id = OwnerId})
+          end,
+    mnesia:transaction(Fun),
+    Hash.
 
 is_authorized(_Token)->
     'true'.
+
+-spec get_session(binary()) -> {binary(), binary(), pid()}.
+get_session(_Token)->
+    {<<>>, <<>>, self()}.

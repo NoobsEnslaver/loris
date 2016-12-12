@@ -8,7 +8,8 @@
     stdlib,
     cowboy,
     msgpack,
-    common
+    common,
+    db
    ]},
   {env, [{'tcp_params', [{'port', 8080}
                         ,{'buffer', 32768}

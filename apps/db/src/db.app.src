@@ -5,7 +5,8 @@
   {mod, { db_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    common
    ]},
   {env,[
         {nodes, []}
