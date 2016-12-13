@@ -25,7 +25,7 @@ get(Token)->
 
 new(AccessLevel, WSPid, OwnerId, LiveTime) ->
     RandBytes = crypto:strong_rand_bytes(32),
-    Token = list_to_binary([[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= RandBytes]]),
+    Token = common:bin2hex(RandBytes),
     {MSec, Sec, _} = erlang:timestamp(),
     ExpirationTime = MSec * 1000000 + Sec + LiveTime,
     Session = #session{token = Token

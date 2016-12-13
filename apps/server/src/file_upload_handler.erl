@@ -63,7 +63,7 @@ receive_file(Req, Buffer, MaxFileSize) ->
 
 -spec save_file(binary(), binary(), binary(), binary()) -> binary().
 save_file(Name, Type, Data, OwnerId) ->
-    Hash = crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/binary>>),
+    Hash = common:bin2hex(crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/binary>>)),
     Fun = fun()->
                   mnesia:write(#file{hash=Hash, name=Name, content_type = Type, data=Data, owner_id = OwnerId})
           end,
