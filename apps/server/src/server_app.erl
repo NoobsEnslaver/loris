@@ -31,7 +31,8 @@ start(_Type, _Args) ->
     MaxFileSize = application:get_env(?APP_NAME, 'max_file_size', 16777216),
     Dispatch = cowboy_router:compile(
                  [{'_',
-                    [{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
+                    [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}}
+                    ,{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
                     ,{"/upload/[:token]", file_upload_handler, [MaxFileSize]}
                     ,{'_', 'server_404_handler', []}]
