@@ -8,10 +8,17 @@
 %%%-------------------------------------------------------------------
 -module(rest_protocol_behaviour).
 
--callback get(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback head(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback post(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback put(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback patch(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback delete(Req :: cowboy_req:req(), Opts :: list()) -> any().
--callback options(Req :: cowboy_req:req(), Opts :: list()) -> any().
+-callback get(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback head(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback post(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback put(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback patch(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback delete(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.
+-callback options(Req :: cowboy_req:req(), State :: map(), AllArgs :: [binary()]) ->
+    {Resp :: cowboy_req:req(), NewState :: map(), NotMyArgs :: [binary()]}.

@@ -19,23 +19,30 @@
 %%% TCP handlers
 %%%===================================================================
 -spec init(cowboy_req:req(), list()) -> {'ok', cowboy_req:req(), []}.
-init(Req, Opts) ->
+init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
-    Protocol = cowboy_req:binding('protocol', Req, <<"default">>),
+    Query = cowboy_req:path_info(Req),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
-    ProtocolModule = binary_to_existing_atom(<<"rest_", Protocol/binary, "_protocol_", Ver/binary>>, 'utf8'),
-    lager:info("using rest protocol ~p", [ProtocolModule]),
-    Resp = case cowboy_req:method(Req) of
-               <<"GET">>    -> ProtocolModule:get(Req, Opts);
-               <<"HEAD">>   -> ProtocolModule:head(Req, Opts);
-               <<"POST">>   -> ProtocolModule:post(Req, Opts);
-               <<"PUT">>    -> ProtocolModule:put(Req, Opts);
-               <<"PATCH">>  -> ProtocolModule:patch(Req, Opts);
-               <<"DELETE">> -> ProtocolModule:delete(Req, Opts);
-               <<"OPTIONS">>->ProtocolModule:options(Req, Opts)
-           end,
+    State = maps:new(),
+    Resp = fold(Req, Ver, State, Query),
     {'ok', Resp, []}.
 
 -spec terminate(any(), cowboy_req:req(), any()) -> 'ok'.
 terminate(_Reason, _Req, _State)->
     'ok'.
+
+-spec fold(cowboy_req:req(), binary(), map(), [binary()]) -> cowboy_req:req().
+fold(Req, _Ver, _State, []) ->
+    Req;
+fold(Req, Ver, State, [Mod | Args]) ->
+    Module = binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8'),
+    {Req1, State1, Query1} = case cowboy_req:method(Req) of
+                                 <<"GET">>    -> Module:get(Req, State, Args);
+                                 <<"HEAD">>   -> Module:head(Req, State, Args);
+                                 <<"POST">>   -> Module:post(Req, State, Args);
+                                 <<"PUT">>    -> Module:put(Req, State, Args);
+                                 <<"PATCH">>  -> Module:patch(Req, State, Args);
+                                 <<"DELETE">> -> Module:delete(Req, State, Args);
+                                 <<"OPTIONS">>-> Module:options(Req, State, Args)
+                             end,
+    fold(Req1, Ver, State1, Query1).
