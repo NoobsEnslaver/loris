@@ -23,8 +23,8 @@ init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
     Query = cowboy_req:path_info(Req),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
-    State = maps:new(),
-    Resp = fold(Req, Ver, State, Query),
+    {Req1, State} = fold(Req, Ver, #q_state{}, Query),
+    Resp = cowboy_req:reply(State#q_state.code, State#q_state.headers, State#q_state.body, Req1),
     {'ok', Resp, []}.
 
 -spec terminate(any(), cowboy_req:req(), any()) -> 'ok'.
@@ -32,8 +32,8 @@ terminate(_Reason, _Req, _State)->
     'ok'.
 
 -spec fold(cowboy_req:req(), binary(), map(), [binary()]) -> cowboy_req:req().
-fold(Req, _Ver, _State, []) ->
-    Req;
+fold(Req, _Ver, State, []) ->
+    {Req, State};
 fold(Req, Ver, State, [Mod | Args]) ->
     Module = binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8'),
     {Req1, State1, Query1} = case cowboy_req:method(Req) of
