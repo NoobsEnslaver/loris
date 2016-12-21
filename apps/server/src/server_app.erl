@@ -23,15 +23,16 @@
 -spec start('normal' | {'failover',atom()} | {'takeover',atom()}, any()) -> {'ok', pid()} | {'error', any()}.
 start(_Type, _Args) ->
     lager:md([{'appname', ?APP_NAME}]),
-    TcpOpts = application:get_env(?APP_NAME, 'tcp_params', [{'port', 8080}
+    TcpOpts = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'tcp_params', [{'port', 8080}
                                                            ,{'buffer', 32768}
                                                            ,{'max_connections', 65536}]),
-    Acceptors = application:get_env(?APP_NAME, 'acceptors', 100),
-    StaticDir = application:get_env(?APP_NAME, 'static_dir', "/srv"),
-    MaxFileSize = application:get_env(?APP_NAME, 'max_file_size', 16777216),
+    Acceptors = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'acceptors', 100),
+    StaticDir = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'static_dir', "/srv"),
+    MaxFileSize = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'max_file_size', 16777216),
     Dispatch = cowboy_router:compile(
                  [{'_',
-                    [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}}
+                    [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}} %TODO: redirect to '/static'
+                    ,{"/static", 'cowboy_static', {file, StaticDir ++"/index.html"}}
                     ,{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
                     ,{"/upload/[:token]", file_upload_handler, [MaxFileSize]}

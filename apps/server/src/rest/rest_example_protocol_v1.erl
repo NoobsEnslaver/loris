@@ -30,9 +30,6 @@ get(Req, State, [Arg1]) ->
 get(Req, State, []) ->
     get(Req, State, [<<"none">>, <<"none">>]).
 
-
-
-
 -spec head(cowboy_req:req(), map(), [binary()]) -> {cowboy_req:req(), map(), [binary()]}.
 head(Req, _State, _Args) ->
     Resp = cowboy_req:reply(501, #{<<"content-type">> => <<"text/html">>}, <<"Not implemented">>, Req),
