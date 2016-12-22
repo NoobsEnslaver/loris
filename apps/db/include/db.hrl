@@ -10,8 +10,8 @@
 
 -define(DEFAULT_SCHEMA, [?GET_FIELDS(file, [{disc_only_copies,[node() | nodes()]}])
                         ,?GET_FIELDS(session, [{ram_copies,[node() | nodes()]}])
-                        ,?GET_FIELDS(user, [{index, [#user.id]}])
-                        ,?GET_FIELDS(index, [])
+                        ,?GET_FIELDS(user, [{index, [#user.id]}, {disc_copies,[node() | nodes()]}])
+                        ,?GET_FIELDS(index, [{disc_copies,[node() | nodes()]}])
                         ]).
 
 -endif.

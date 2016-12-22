@@ -10,7 +10,7 @@
 -include_lib("common/include/tables.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([authorize/2
-        ,new/5
+        ,new/4
         ,delete/1
         ,get/1
         ,get_by_id/1
@@ -26,8 +26,10 @@ authorize(Login, Password)->
         _ -> 'false'
     end.
 
--spec new(binary(), binary(), binary(), non_neg_integer(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
-new(Login, Pwd, Name, Created, AccessLevel) ->
+-spec new(binary(), binary(), binary(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
+new(Login, Pwd, Name, AccessLevel) ->
+    {MSec, Sec, _} = erlang:timestamp(),
+    Created = MSec * 1000000 + Sec,
     case get(Login) of
         #user{} ->
             'exists';
