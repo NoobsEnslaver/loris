@@ -13,4 +13,10 @@
                  ,owner_id::binary()
                  ,expiration_time::non_neg_integer()}).
 
+-record(user, {login :: binary()
+              ,id :: non_neg_integer()
+              ,pwd_hash :: binary()
+              ,name :: binary()
+              ,created :: non_neg_integer()
+              ,access_level :: non_neg_integer()}).
 -endif.

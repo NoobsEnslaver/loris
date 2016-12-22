@@ -7,20 +7,18 @@
 %%% Created :  12 Dec 2016
 %%%-------------------------------------------------------------------
 -module(sessions).
--include("server.hrl").
 -include_lib("common/include/tables.hrl").
 
 -export([get/1
         ,new/4
-        ,authorize/2
         ]).
 
 -spec get(binary()) -> #session{}.
 get(Token)->
     Fun = fun()->
-                  mnesia:read(session, Token)
+                  mnesia:read('session', Token)
           end,
-    {'atomic', Result} = mnesia:transaction(Fun),
+    {'atomic', [Result]} = mnesia:transaction(Fun),
     Result.
 
 new(AccessLevel, WSPid, OwnerId, LiveTime) ->
@@ -39,6 +37,3 @@ new(AccessLevel, WSPid, OwnerId, LiveTime) ->
           end,
     mnesia:transaction(Fun),
     Token.
-
-authorize(_Login, _Password)->
-    'true'.
