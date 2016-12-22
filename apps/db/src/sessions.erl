@@ -10,7 +10,7 @@
 -include_lib("common/include/tables.hrl").
 
 -export([get/1
-        ,new/4
+        ,new/3
         ]).
 
 -spec get(binary()) -> #session{}.
@@ -21,15 +21,14 @@ get(Token)->
     {'atomic', [Result]} = mnesia:transaction(Fun),
     Result.
 
-new(AccessLevel, WSPid, OwnerId, LiveTime) ->
+new(User, WSPid, LiveTime) ->
     RandBytes = crypto:strong_rand_bytes(32),
     Token = common:bin2hex(RandBytes),
     {MSec, Sec, _} = erlang:timestamp(),
     ExpirationTime = MSec * 1000000 + Sec + LiveTime,
     Session = #session{token = Token
-                      ,access_level = AccessLevel
+                      ,user = User
                       ,ws_pid = WSPid
-                      ,owner_id = OwnerId
                       ,expiration_time = ExpirationTime},
     io:format("Token: ~s~n", [Token]),
     Fun = fun()->

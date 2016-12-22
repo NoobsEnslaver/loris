@@ -1,17 +1,11 @@
 -ifndef(TABLES_HRL).
 -define(TABLES_HRL, 'true').
 
--record(file, {hash::binary()
-              ,content_type::binary()
-              ,name::binary()
-              ,data::binary()
-              ,owner_id::binary()}).
-
--record(session, {token::binary()
-                 ,access_level::non_neg_integer()
-                 ,ws_pid::pid()
-                 ,owner_id::binary()
-                 ,expiration_time::non_neg_integer()}).
+-record(file, {hash :: binary()
+              ,content_type :: binary()
+              ,name :: binary()
+              ,data :: binary()
+              ,owner_id :: binary()}).
 
 -record(user, {login :: binary()
               ,id :: non_neg_integer()
@@ -19,4 +13,13 @@
               ,name :: binary()
               ,created :: non_neg_integer()
               ,access_level :: non_neg_integer()}).
+
+-record(session, {token :: binary()
+                 ,user :: #user{}
+                 ,ws_pid :: pid()
+                 ,expiration_time :: non_neg_integer()}).
+
+-record(index, {name :: binary()
+               ,value :: non_neg_integer()}).
+
 -endif.

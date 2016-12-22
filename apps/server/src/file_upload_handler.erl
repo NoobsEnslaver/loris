@@ -23,7 +23,7 @@
 init(Req, [MaxFileSize]) ->
     lager:md([{'appname', ?APP_NAME}]),
     Token = cowboy_req:binding('token', Req, <<>>),
-    [#session{owner_id = OwnerId}] = sessions:get(Token),         %TODO
+    [#session{user = #user{id = OwnerId}}] = sessions:get(Token),         %TODO
     IsAuthorized = is_authorized(Token),                        %TODO
     Resp = case cowboy_req:body_length(Req) of
                'undefined' ->

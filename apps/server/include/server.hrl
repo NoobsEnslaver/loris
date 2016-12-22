@@ -6,6 +6,7 @@
 -define(APP_NAME, <<"server">>).
 -define(TIMEOUT, 60000).
 -define(ASYNC_WORK_TIMEOUT, 5000).
+-define(DEFAULT_SESSION_LIVE_TIME, 3600000).    %1 hour
 -record(q_state, {code = 200 :: non_neg_integer()
                  ,headers = #{} :: map()
                  ,body = <<>> :: binary()
