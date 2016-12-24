@@ -20,14 +20,14 @@
 -spec post(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 post(Req, _State, _Args) ->
     {'ok', Body, Req2} = cowboy_req:read_urlencoded_body(Req),
-    io:format("Body: ~p~n", [Body]),
+    SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
     {<<"user">>, Login} = lists:keyfind(<<"user">>, 1, Body),
     {<<"password">>, PwdHash} = lists:keyfind(<<"password">>, 1, Body),
     NewState = case users:authorize(Login, PwdHash) of
                    'false' ->
                        #q_state{body = <<>>, code = 401, headers = #{}};
                    User ->
-                       Token = sessions:new(User, 'undefined', ?DEFAULT_SESSION_LIVE_TIME),
+                       Token = sessions:new(User, 'undefined', SessionLiveTime),
                        #q_state{body = Token, code = 200, headers = #{}}
                end,
     {Req2, NewState, []}.

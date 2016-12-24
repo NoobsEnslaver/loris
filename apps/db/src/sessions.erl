@@ -13,15 +13,17 @@
         ,new/3
         ]).
 
--spec get(binary()) -> #session{}.
+-spec get(binary()) -> #session{} | 'false'.
 get(Token)->
     Fun = fun()->
                   mnesia:read('session', Token)
           end,
-    {'atomic', [Result]} = mnesia:transaction(Fun),
-    Result.
+    case mnesia:transaction(Fun) of
+        {'atomic', [Result]} -> Result;
+        _ -> 'false'
+    end.
 
-new(User, WSPid, LiveTime) ->
+new(User, WSPid, LiveTime) ->                   %LiveTime in sec
     RandBytes = crypto:strong_rand_bytes(32),
     Token = common:bin2hex(RandBytes),
     {MSec, Sec, _} = erlang:timestamp(),
