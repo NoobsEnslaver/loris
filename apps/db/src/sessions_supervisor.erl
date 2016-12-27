@@ -144,13 +144,13 @@ cleaning() ->
     lager:info("start sessions cleaning"),
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
-    MatchHead = #session{token = '$1', expiration_time = '$2', user = '$3', ws_pid = '$4'},
+    MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'},
     Guard = {'>', Now, '$2'},
     Result = ['$1', '$2', '$3', '$4'],
     Fun = fun() ->
                   List = mnesia:select('session',[{MatchHead, [Guard], [Result]}]),
-                  lists:foreach(fun([T,E,U,W]) ->
-                                        mnesia:delete_object(#session{token = T, expiration_time = E, user = U, ws_pid = W})
+                  lists:foreach(fun([T,E,OID,W]) ->
+                                        mnesia:delete_object(#session{token = T, expiration_time = E, owner_id = OID, ws_pid = W})
                                 end, List)
           end,
     mnesia:transaction(Fun).

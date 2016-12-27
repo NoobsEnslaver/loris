@@ -60,16 +60,15 @@ delete(Login) ->
 get(Login)->
     Fun = fun()-> mnesia:read('user', Login) end,
     case mnesia:transaction(Fun) of
-        {atomic, []} -> 'false';
-        {atomic, [User]} -> User;
+        {'atomic', [User]} -> User;
         _ -> 'false'
     end.
 
 -spec get_by_id(binary()) -> #user{} | 'false'.
 get_by_id(Id)->
-    Fun = fun()-> mnesia:index_read(user, Id, #user.id) end,
+    Fun = fun()-> mnesia:index_read('user', Id, #user.id) end,
     case mnesia:transaction(Fun) of
-        {atomic, []} -> 'false';
-        {atomic, [User]} -> User;
+        {'atomic', []} -> 'false';
+        {'atomic', [User]} -> User;
         _ -> 'false'
     end.

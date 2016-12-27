@@ -19,7 +19,8 @@
         ,options/3]).
 
 -spec get(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-get(Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{session := #session{user = #user{name = N}}}} = State, [Arg1 | [Arg2 | _Other]]) ->
+get(Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{session := #session{owner_id = OID}}} = State, [Arg1 | [Arg2 | _Other]]) ->
+    #user{name = N} = users:get_by_id(OID),
     QS = cowboy_req:parse_qs(Req),
     Data1 = ["<p>" ++ binary_to_list(Key) ++ " = "++ binary_to_list(Val) ++ "</p>" || {Key, Val} <- QS],
     Data2 = Data1 ++ ["<h1>Arg1 = " ++ binary_to_list(Arg1) ++ "</h1><br>"],

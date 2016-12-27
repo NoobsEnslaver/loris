@@ -15,7 +15,7 @@
               ,access_level :: non_neg_integer()}).
 
 -record(session, {token :: binary()
-                 ,user :: #user{}
+                 ,owner_id :: binary()
                  ,ws_pid :: pid()
                  ,expiration_time :: non_neg_integer()}).
 

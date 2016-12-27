@@ -23,16 +23,15 @@
 init(Req, [MaxFileSize]) ->
     lager:md([{'appname', ?APP_NAME}]),
     Token = cowboy_req:binding('token', Req, <<>>),
-    [#session{user = #user{id = OwnerId}}] = sessions:get(Token),         %TODO
-    IsAuthorized = is_authorized(Token),                        %TODO
-    Resp = case cowboy_req:body_length(Req) of
-               'undefined' ->
+    Session = sessions:get(Token),                      %TODO
+    Resp = case {cowboy_req:body_length(Req), Session} of
+               {'undefined', _} ->
                    cowboy_req:reply(411, #{}, <<>>, Req); %Length Required error
-               _Mastodonic when _Mastodonic > MaxFileSize ->
+               {_Mastodonic, _} when _Mastodonic > MaxFileSize ->
                    cowboy_req:reply(413, #{}, <<>>, Req); %Request Entity Too Large error
-               _NormalSize when IsAuthorized /= 'true' ->
+               {_NormalSize, 'false'} ->
                    cowboy_req:reply(401, #{}, <<>>, Req); %Unauthorized error
-               _NormalSize ->
+               {_NormalSize, #session{owner_id = OwnerId}} ->
                    {Name, ContentType, Data, Req1} = receive_file(Req, MaxFileSize),
                    io:format("Name: ~p~nContentType: ~p~nDataLength: ~p~nToken: ~p~n", [Name, ContentType, byte_size(Data), Token]),
                    InDBId = save_file(Name, ContentType, Data, OwnerId),
@@ -70,6 +69,3 @@ save_file(Name, Type, Data, OwnerId) ->
           end,
     mnesia:transaction(Fun),
     Hash.
-
-is_authorized(_Token)->
-    'true'.
