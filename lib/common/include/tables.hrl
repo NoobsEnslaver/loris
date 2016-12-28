@@ -5,7 +5,8 @@
               ,content_type :: binary()
               ,name :: binary()
               ,data :: binary()
-              ,owner_id :: binary()}).
+              ,owner_id :: non_neg_integer()
+              ,size :: non_neg_integer()}).
 
 -record(user, {login :: binary()
               ,id :: non_neg_integer()
@@ -15,7 +16,7 @@
               ,access_level :: non_neg_integer()}).
 
 -record(session, {token :: binary()
-                 ,owner_id :: binary()
+                 ,owner_id :: non_neg_integer()
                  ,ws_pid :: pid()
                  ,expiration_time :: non_neg_integer()}).
 
