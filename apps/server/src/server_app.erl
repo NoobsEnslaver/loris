@@ -28,14 +28,12 @@ start(_Type, _Args) ->
                                                            ,{'max_connections', 65536}]),
     Acceptors = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'acceptors', 100),
     StaticDir = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'static_dir', "/srv"),
-    MaxFileSize = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'max_file_size', 16777216),
     Dispatch = cowboy_router:compile(
                  [{'_',
                     [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}} %TODO: redirect to '/static'
                     ,{"/static", 'cowboy_static', {file, StaticDir ++"/index.html"}}
                     ,{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
-                    ,{"/upload/[:token]", file_upload_handler, [MaxFileSize]}
                     ,{"/:version/[...]", server_rest_handler, []}
                     ,{'_', 'server_404_handler', []}]
                   }]),
