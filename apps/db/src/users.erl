@@ -14,6 +14,7 @@
         ,delete/1
         ,get/1
         ,get_by_id/1
+        ,extract/2
         ]).
 
 -spec authorize(binary(), binary()) -> #user{} | 'false'.
@@ -50,7 +51,9 @@ new(Login, Pwd, Name, AccessLevel) ->
             end
     end.
 
--spec delete(binary()) -> 'abort' | 'ok'.
+-spec delete(#user{} | binary()) -> 'abort' | 'ok'.
+delete(#user{login = Login}) ->
+    delete(Login);
 delete(Login) ->
     mnesia:transaction(fun()->
                                mnesia:delete({'user', Login})
@@ -72,3 +75,14 @@ get_by_id(Id)->
         {'atomic', [User]} -> User;
         _ -> 'false'
     end.
+
+%%%-------------------------------------------------------------------
+%%% Data extractors
+%%%-------------------------------------------------------------------
+-spec extract(#user{}, login|id|pwd_hash|name|created|access_level) -> binary() | non_neg_integer().
+extract(#user{login = Login}, 'login')-> Login;
+extract(#user{id = Id}, 'id')-> Id;
+extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
+extract(#user{name = Name}, 'name')-> Name;
+extract(#user{created = Created}, 'created')-> Created;
+extract(#user{access_level = AccessLevel}, 'access_level')-> AccessLevel.

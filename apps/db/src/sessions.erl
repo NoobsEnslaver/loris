@@ -13,6 +13,7 @@
         ,get_by_owner_id/1
         ,get_tokens/0
         ,new/3
+        ,extract/2
         ]).
 
 -spec get_tokens() -> [binary()].
@@ -74,3 +75,12 @@ new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
           end,
     mnesia:transaction(Fun),
     Token.
+
+%%%-------------------------------------------------------------------
+%%% Data extractors
+%%%-------------------------------------------------------------------
+-spec extract(#session{}, token|owner_id|ws_pid|expiration_time) -> binary() | non_neg_integer() | pid().
+extract(#session{token = Token}, 'token')-> Token;
+extract(#session{owner_id = OwnerId}, 'owner_id')-> OwnerId;
+extract(#session{ws_pid = WsPid}, 'ws_pid')-> WsPid;
+extract(#session{expiration_time = ExpirationTime}, 'expiration_time')-> ExpirationTime.

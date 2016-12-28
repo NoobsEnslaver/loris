@@ -10,8 +10,8 @@
 -include_lib("common/include/tables.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([extract/2
-         ,get/1
-        ,save/4
+        ,get/1
+        ,save/4, save/5
         ,delete/1
         ,get_list/0
         ,get_list_by_owner_id/1
@@ -19,9 +19,18 @@
 
 -spec save(binary(), binary(), binary(), binary()) -> binary().
 save(Name, Type, Data, OwnerId) ->
+    AccessLevel = users:extract(users:get_by_id(OwnerId), 'access_level'),
+    save(Name, Type, Data, OwnerId, AccessLevel).
+save(Name, Type, Data, OwnerId, AccessLevel)->
     Hash = common:bin2hex(crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/integer>>)),
     Fun = fun()->
-                  mnesia:write(#file{hash=Hash, name=Name, content_type = Type, data=Data, owner_id = OwnerId, size = byte_size(Data)})
+                  mnesia:write(#file{hash=Hash
+                                    ,name=Name
+                                    ,content_type = Type
+                                    ,data=Data
+                                    ,owner_id = OwnerId
+                                    ,size = byte_size(Data)
+                                    ,access_level = AccessLevel})
           end,
     mnesia:transaction(Fun),
     Hash.
@@ -80,4 +89,5 @@ extract(#file{content_type = ContentType}, 'content_type')-> ContentType;
 extract(#file{name = Name}, 'name')-> Name;
 extract(#file{data = Data}, 'data')-> Data;
 extract(#file{owner_id = OwnerId}, 'owner_id')-> OwnerId;
+extract(#file{access_level = AccessLevel}, 'access_level')-> AccessLevel;
 extract(#file{size = Size}, 'size')-> Size.
