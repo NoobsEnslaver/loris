@@ -17,7 +17,8 @@
         ,get_list_by_owner_id/1
         ]).
 
--spec save(binary(), binary(), binary(), binary()) -> binary().
+-spec save(binary(), binary(), binary(), non_neg_integer()) -> binary().
+-spec save(binary(), binary(), binary(), non_neg_integer(), non_neg_integer()) -> binary().
 save(Name, Type, Data, OwnerId) ->
     AccessLevel = users:extract(users:get_by_id(OwnerId), 'access_level'),
     save(Name, Type, Data, OwnerId, AccessLevel).
@@ -55,28 +56,28 @@ get(FileId)->
 
 -spec get_list() -> [#file{}].
 get_list()->
-    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', data='_'},
-    Result = ['$1', '$2', '$3', '$4', '$5'],
+    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', access_level = '$6', data='_'},
+    Result = ['$1', '$2', '$3', '$4', '$5', '$6'],
     Fun = fun() ->
                   mnesia:select('file',[{MatchHead, [], [Result]}])
           end,
     case mnesia:transaction(Fun) of
         {'atomic', Files} ->
-            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, data = <<>>} || [H, CT, N, OID, S] <- Files];
+            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, access_level = AL, data = <<>>} || [H, CT, N, OID, S, AL] <- Files];
         _ -> 'false'
     end.
 
 -spec get_list_by_owner_id(binary()) -> [#file{}].
 get_list_by_owner_id(Id)->
-    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', data='_'},
+    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', access_level = '$6', data='_'},
     Guard = {'==', Id, '$4'},
-    Result = ['$1', '$2', '$3', '$4', '$5'],
+    Result = ['$1', '$2', '$3', '$4', '$5', '$6'],
     Fun = fun() ->
                   mnesia:select('file',[{MatchHead, [Guard], [Result]}])
           end,
     case mnesia:transaction(Fun) of
         {'atomic', Files} ->
-            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, data = <<>>} || [H, CT, N, OID, S] <- Files];
+            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, access_level = AL, data = <<>>} || [H, CT, N, OID, S, AL] <- Files];
         _ -> 'false'
     end.
 
