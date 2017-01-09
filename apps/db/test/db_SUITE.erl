@@ -12,7 +12,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
-
+-define(TEST_INTENSITY, 10).
 %%--------------------------------------------------------------------
 %% COMMON TEST CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -34,7 +34,7 @@
 %% @end
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap,{seconds, 60}}].
+    [{timetrap,{seconds, ?TEST_INTENSITY*5}}].
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -104,6 +104,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, _Config) ->
     ok.
 
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Initialization before each test case
@@ -165,13 +166,13 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-    [{'files', [{repeat_until_any_fail, 10}, parallel],
+    [{'files', [{repeat_until_any_fail, ?TEST_INTENSITY}, parallel],
       ['test_files_write_read_data'
       ,'test_files_read_not_exists_data'
       ,'test_files_delete_data'
       ,'test_files_get_list'
       ,'test_files_get_list_by_owner_id']}
-    ,{'users', [{repeat_until_any_fail, 10}, parallel],
+    ,{'users', [{repeat_until_any_fail, ?TEST_INTENSITY}, parallel],
       ['test_users_new'
       ,'test_users_new_exists'
       ,'test_users_new_get_by_id'
@@ -180,7 +181,15 @@ groups() ->
       ,'test_users_delete'
       ,'test_users_authorize_success'
       ,'test_users_authorize_not_exists'
-      ,'test_users_authorize_failed']}].
+      ,'test_users_authorize_failed']}
+    ,{'sessions', [{repeat_until_any_fail, ?TEST_INTENSITY}, parallel],
+      ['test_sessions_new'
+      ,'test_sessions_new_replace'
+      ,'test_sessions_delete'
+      ,'test_sessions_delete_not_exists'
+      ,'test_sessions_get_tokens'
+      ,'test_sessions_get_by_owner_id'
+      ,'test_sessions_get_by_owner_id_not_exists']}].
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -200,7 +209,8 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [{'group', 'files'}
-    ,{'group', 'users'}].
+    ,{'group', 'users'}
+    ,{'group', 'sessions'}].
 
 
 %%--------------------------------------------------------------------
@@ -304,16 +314,14 @@ test_users_new_exists(_Config)->
     'ok'.
 
 test_users_new_get_by_id(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    Password = <<"Password1">>,
-    User1 = users:new(Login, Password, <<"name">>, 0),
+    User1 = create_new_user(),
     Id = users:extract(User1, 'id'),
     User1 = users:get_by_id(Id),
     'ok'.
 
 test_users_get_not_exists(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    'false' = users:get(Login),
+    create_new_user(),
+    'false' = users:get(crypto:strong_rand_bytes(32)),
     'ok'.
 
 test_users_get_by_id_not_exists(_Config)->
@@ -322,29 +330,103 @@ test_users_get_by_id_not_exists(_Config)->
     'ok'.
 
 test_users_delete(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    Password = <<"Password1">>,
-    users:new(Login, Password, <<"name">>, 0),
+    Login = users:extract(create_new_user(), 'login'),
     'ok' = users:delete(Login),
     'false' = users:get(Login),
     'ok'.
 
 test_users_authorize_success(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    Password = <<"Password1">>,
-    User1 = users:new(Login, Password, <<"name">>, 0),
-    User1 = users:authorize(Login, common:bin2hex(crypto:hash('md5', Password))),
+    User = create_new_user(),
+    Login = users:extract(User, 'login'),
+    PwdHash = users:extract(User, 'pwd_hash'),
+    User = users:authorize(Login, PwdHash),
     'ok'.
 
 test_users_authorize_not_exists(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    Password = <<"Password1">>,
+    User = create_new_user(),
+    Login = users:extract(User, 'login'),
+    Password = users:extract(User, 'pwd_hash'),
     'false' = users:authorize(Login, common:bin2hex(crypto:hash('md5', Password))),
     'ok'.
 
 test_users_authorize_failed(_Config)->
-    Login = crypto:strong_rand_bytes(32),
-    Password = <<"Password1">>,
-    users:new(Login, Password, <<"name">>, 0),
-    'false' = users:authorize(Login, <<"qwe">>),
+    create_new_user(),
+    'false' = users:authorize(crypto:strong_rand_bytes(32), <<"qwe">>),
     'ok'.
+
+%%--------------------------------------------------------------------
+%%    Sessions
+%%--------------------------------------------------------------------
+test_sessions_new(_Config)->
+    User = create_new_user(),
+    Token = sessions:new(User, self(), 10000),
+    Session = sessions:get(Token),
+    UserId = users:extract(User, 'id'),
+    UserId = sessions:extract(Session, 'owner_id'),
+    'ok'.
+
+test_sessions_new_replace(_Config)->
+    User = create_new_user(),
+    Token = sessions:new(User, self(), 10000),
+    Session = sessions:get(Token),
+    ExpTime = sessions:extract(Session, 'expiration_time'),
+    timer:sleep(1100),
+    Token2 = sessions:new(User, self(), 10000),
+    Session2 = sessions:get(Token2),
+    ExpTime2 = sessions:extract(Session2, 'expiration_time'),
+    io:format("ExpTime:~p~nExpTime2:~p~n", [ExpTime, ExpTime2]),
+    'true' = Token /= Token2,
+    'true' = (ExpTime < ExpTime2),
+    'ok'.
+
+test_sessions_delete(_Config)->
+    User = create_new_user(),
+    UserId = users:extract(User, 'id'),
+    Token = sessions:new(User, self(), 10000),
+    Session = sessions:get(Token),
+    UserId = sessions:extract(Session, 'owner_id'),
+    'ok' = sessions:delete(Token),
+    'false' = sessions:get(Token),
+    'ok'.
+
+test_sessions_delete_not_exists(_Config)->
+    'ok' = sessions:delete(crypto:strong_rand_bytes(32)),
+    'ok'.
+
+test_sessions_get_tokens(_Config)->
+    User1 = create_new_user(),
+    Token1 = sessions:new(User1, self(), 10000),
+    User2 = create_new_user(),
+    Token2 = sessions:new(User2, self(), 10000),
+    User3 = create_new_user(),
+    Token3 = sessions:new(User3, self(), 10000),
+    Tokens = sessions:get_tokens(),
+    'true' = lists:member(Token1, Tokens),
+    'true' = lists:member(Token2, Tokens),
+    'true' = lists:member(Token3, Tokens),
+    'ok'.
+
+test_sessions_get_by_owner_id(_Config)->
+    User1 = create_new_user(),
+    UserId = users:extract(User1, 'id'),
+    sessions:new(User1, self(), 10000),
+    sessions:new(create_new_user(), self(), 10000),
+    sessions:new(create_new_user(), self(), 10000),
+    Session = sessions:get_by_owner_id(UserId),
+    UserId = sessions:extract(Session, 'owner_id'),
+    'ok'.
+
+test_sessions_get_by_owner_id_not_exists(_Config)->
+    sessions:new(create_new_user(), self(), 10000),
+    sessions:new(create_new_user(), self(), 10000),
+    sessions:new(create_new_user(), self(), 10000),
+    'false' = sessions:get_by_owner_id(crypto:rand_uniform(10000, 20000)),
+    'ok'.
+
+%% ---------------------------------
+%% Internal functions
+%% ---------------------------------
+create_new_user()->
+    Login1 = crypto:strong_rand_bytes(32),
+    Password1 = <<"Password1">>,
+    users:new(Login1, Password1, <<"name1">>, 1).

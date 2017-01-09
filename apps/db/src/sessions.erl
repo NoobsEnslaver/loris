@@ -12,6 +12,7 @@
 -export([get/1
         ,get_by_owner_id/1
         ,get_tokens/0
+        ,delete/1
         ,new/3
         ,extract/2
         ]).
@@ -54,7 +55,7 @@ delete(Token) ->
     mnesia:transaction(Fun),
     'ok'.
 
--spec new(binary() | #user{}, pid(), non_neg_integer()) -> binary().
+-spec new(non_neg_integer() | #user{}, pid(), non_neg_integer()) -> binary().
 new(#user{id=Id}, WSPid, LiveTime) ->
     new(Id, WSPid, LiveTime);
 new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
