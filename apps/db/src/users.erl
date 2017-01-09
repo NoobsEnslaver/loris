@@ -51,13 +51,17 @@ new(Login, Pwd, Name, AccessLevel) ->
             end
     end.
 
--spec delete(#user{} | binary()) -> 'abort' | 'ok'.
+-spec delete(#user{} | binary()) -> 'abort' | 'ok' | 'false'.
 delete(#user{login = Login}) ->
     delete(Login);
 delete(Login) ->
-    mnesia:transaction(fun()->
-                               mnesia:delete({'user', Login})
-                       end).
+    Fun = fun()->
+                  mnesia:delete({'user', Login})
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Result} -> Result;
+        _ -> 'false'
+    end.
 
 -spec get(binary()) -> #user{} | 'false'.
 get(Login)->
@@ -67,7 +71,7 @@ get(Login)->
         _ -> 'false'
     end.
 
--spec get_by_id(binary()) -> #user{} | 'false'.
+-spec get_by_id(non_neg_integer()) -> #user{} | 'false'.
 get_by_id(Id)->
     Fun = fun()-> mnesia:index_read('user', Id, #user.id) end,
     case mnesia:transaction(Fun) of

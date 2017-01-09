@@ -170,7 +170,17 @@ groups() ->
       ,'test_files_read_not_exists_data'
       ,'test_files_delete_data'
       ,'test_files_get_list'
-      ,'test_files_get_list_by_owner_id']}].
+      ,'test_files_get_list_by_owner_id']}
+    ,{'users', [{repeat_until_any_fail, 10}, parallel],
+      ['test_users_new'
+      ,'test_users_new_exists'
+      ,'test_users_new_get_by_id'
+      ,'test_users_get_not_exists'
+      ,'test_users_get_by_id_not_exists'
+      ,'test_users_delete'
+      ,'test_users_authorize_success'
+      ,'test_users_authorize_not_exists'
+      ,'test_users_authorize_failed']}].
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -189,7 +199,8 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [{'group', 'files'}].
+    [{'group', 'files'}
+    ,{'group', 'users'}].
 
 
 %%--------------------------------------------------------------------
@@ -212,6 +223,10 @@ all() ->
 %%           ok | exit() | {skip,Reason} | {comment,Comment} |
 %%           {save_config,Config1} | {skip_and_save,Reason,Config1}
 %% @end
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%%    Files
 %%--------------------------------------------------------------------
 test_files_write_read_data(_Config) ->
     RandData = crypto:strong_rand_bytes(32),
@@ -265,4 +280,71 @@ test_files_get_list_by_owner_id(_Config) ->
     files:delete(Id3),
     List1 = files:get_list(),
     0 = length(lists:filter(P, List1)),
+    'ok'.
+
+%%--------------------------------------------------------------------
+%%    Users
+%%--------------------------------------------------------------------
+test_users_new(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    {MSec, Sec, _} = erlang:timestamp(),
+    Created = MSec * 1000000 + Sec,
+    User1 = users:new(Login, Password, <<"name">>, 0),
+    Login = users:extract(User1, 'login'),
+    'true' = (users:extract(User1, 'created') - Created) < 5,
+    User1 = users:get(Login),
+    'ok'.
+
+test_users_new_exists(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    users:new(Login, Password, <<"name">>, 0),
+    'exists' = users:new(Login, Password, <<"name">>, 0),
+    'ok'.
+
+test_users_new_get_by_id(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    User1 = users:new(Login, Password, <<"name">>, 0),
+    Id = users:extract(User1, 'id'),
+    User1 = users:get_by_id(Id),
+    'ok'.
+
+test_users_get_not_exists(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    'false' = users:get(Login),
+    'ok'.
+
+test_users_get_by_id_not_exists(_Config)->
+    Id = crypto:rand_uniform(10000, 91000),
+    'false' = users:get_by_id(Id),
+    'ok'.
+
+test_users_delete(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    users:new(Login, Password, <<"name">>, 0),
+    'ok' = users:delete(Login),
+    'false' = users:get(Login),
+    'ok'.
+
+test_users_authorize_success(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    User1 = users:new(Login, Password, <<"name">>, 0),
+    User1 = users:authorize(Login, common:bin2hex(crypto:hash('md5', Password))),
+    'ok'.
+
+test_users_authorize_not_exists(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    'false' = users:authorize(Login, common:bin2hex(crypto:hash('md5', Password))),
+    'ok'.
+
+test_users_authorize_failed(_Config)->
+    Login = crypto:strong_rand_bytes(32),
+    Password = <<"Password1">>,
+    users:new(Login, Password, <<"name">>, 0),
+    'false' = users:authorize(Login, <<"qwe">>),
     'ok'.
