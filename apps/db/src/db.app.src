@@ -10,7 +10,7 @@
    ]},
   {env,[
         {'nodes', []}
-       ,{'sessions_cleaning_interval', 300}      %5 min
+       ,{'sessions_cleaning_interval', 3600}      %1 hour
        ]},
   {modules, []},
 

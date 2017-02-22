@@ -15,7 +15,15 @@
         ,put/3
         ,patch/3
         ,delete/3
-        ,options/3]).
+        ,options/3
+        ,required_auth/0
+        ,get_access_level/0
+        ,head_access_level/0
+        ,post_access_level/0
+        ,put_access_level/0
+        ,patch_access_level/0
+        ,delete_access_level/0
+        ,options_access_level/0]).
 
 -spec post(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 post(Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} = State, _Args) ->
@@ -33,9 +41,7 @@ post(Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} =
             io:format("~nFile ~s saved with Id: ~p~n", [Name, InDBId]),
             NewState = State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = <<B/binary, InDBId/binary>>},
             {Req1, NewState, _Args}
-    end;
-post(Req, State, _Args) ->
-    {Req, State#q_state{code = 401}, _Args}.                          %Unauthorized error
+    end.
 
 -spec get(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 get(Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
@@ -53,9 +59,7 @@ get(Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = 
             {Req, State#q_state{code = 200, body = <<B/binary,Data/binary>>, headers = NewHeaders}, _Args};
         _ ->
                 {Req, State#q_state{code = 403}, _Args}
-    end;
-get(Req, State, [_|_Args]) ->
-    {Req, State#q_state{code = 401}, _Args}.
+    end.
 
 -spec head(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 head(Req, State, Args) ->
@@ -76,6 +80,23 @@ delete(Req, State, Args) ->
 -spec options(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 options(Req, State, Args) ->
     post(Req, State, Args).
+
+required_auth() ->
+    'true'.
+get_access_level()->
+    5.
+head_access_level() ->
+    5.
+post_access_level()->
+    5.
+put_access_level()->
+    5.
+patch_access_level()->
+    5.
+delete_access_level()->
+    5.
+options_access_level()->
+    5.
 
 
 %%%===================================================================

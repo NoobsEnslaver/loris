@@ -19,11 +19,12 @@
 
 -spec authorize(binary(), binary()) -> #user{} | 'false'.
 authorize(Login, Password)->
+    HPassword = list_to_binary(string:to_upper(binary_to_list(Password))),
     Fun = fun()->
                   mnesia:read('user', Login)
           end,
     case mnesia:transaction(Fun) of
-        {'atomic',  [#user{pwd_hash = Password} = User]} -> User;
+        {'atomic',  [#user{pwd_hash = HPassword} = User]} -> User;
         _ -> 'false'
     end.
 

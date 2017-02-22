@@ -15,7 +15,15 @@
         ,put/3
         ,patch/3
         ,delete/3
-        ,options/3]).
+        ,options/3
+        ,required_auth/0
+        ,get_access_level/0
+        ,head_access_level/0
+        ,post_access_level/0
+        ,put_access_level/0
+        ,patch_access_level/0
+        ,delete_access_level/0
+        ,options_access_level/0]).
 
 -spec post(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 post(_Req, #q_state{tmp_state = TmpState} = State, [Token | _Other]) ->
@@ -44,3 +52,20 @@ delete(Req, State, Args) ->
 -spec options(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 options(Req, State, Args) ->
     post(Req, State, Args).
+
+required_auth() ->
+    'false'.
+get_access_level()->
+    'infinity'.
+head_access_level() ->
+    'infinity'.
+post_access_level()->
+    'infinity'.
+put_access_level()->
+    'infinity'.
+patch_access_level()->
+    'infinity'.
+delete_access_level()->
+    'infinity'.
+options_access_level()->
+    'infinity'.
