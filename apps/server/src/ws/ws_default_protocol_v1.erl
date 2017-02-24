@@ -13,12 +13,15 @@
 -export([construct_msg/1
         ,do_action/2
         ,wrap_data/3, wrap_data/4
-        ,default_user_state/0]).
+        ,default_user_state/0
+        ,default_user_state/1]).
 
--record(user_state, {authorized = false}).
+-record(user_state, {authorized = 'false'}).
 
 default_user_state()->
-    #user_state{}.
+    #user_state{authorized = 'false'}.
+default_user_state(_Session)->
+    #user_state{authorized = 'true'}.
 
 -spec construct_msg(map()) -> msg_type().
 construct_msg(_Msg = #{<<"msg_type">> := 1})  -> #some_bad_async_work{};

@@ -33,6 +33,7 @@ start(_Type, _Args) ->
                     [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}} %TODO: redirect to '/static'
                     ,{"/static", 'cowboy_static', {file, StaticDir ++"/index.html"}}
                     ,{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
+                    ,{"/session/[:token]/ws/[:protocol]/[:version]", server_ws_handler, []}
                     ,{"/ws/[:protocol]/[:version]", server_ws_handler, []}
                     ,{"/:version/[...]", server_rest_handler, []}
                     ,{'_', 'server_404_handler', []}]

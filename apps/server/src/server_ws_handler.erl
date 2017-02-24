@@ -36,16 +36,36 @@ init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
     Protocol = cowboy_req:binding('protocol', Req, <<"default">>),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
+    Token = cowboy_req:binding('token', Req),
     ProtocolModule = binary_to_existing_atom(<<"ws_", Protocol/binary, "_protocol_", Ver/binary>>, 'utf8'),
     Transport = ws_utils:supported_transport(Req),
-    US = ProtocolModule:default_user_state(),
+    AL = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'ws_access_level', 10),
     case Transport /= [] andalso ws_utils:is_going_upgrade_to(Req, <<"websocket">>) of
         'true' ->
-            Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
-            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = ProtocolModule, user_state = US}, ?TIMEOUT};       %TODO: test timeout influence to peroformance
+            case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'ws_secured', 'false') of
+                'true' when Token == 'undefined'->
+                    Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
+                    {'ok', Resp, #state{}};                                %close connection, forbidden
+                'true' ->
+                    Session = sessions:get(Token),
+                    UAL = sessions:extract(Session, 'access_level'),
+                    if
+                        AL < UAL ->
+                            Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
+                            {'ok', Resp, #state{}};                                %close connection, forbidden;
+                        'true' ->
+                            US = ProtocolModule:default_user_state(Session),
+                            Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
+                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = ProtocolModule, user_state = US}, ?TIMEOUT}         %open authorized websocket connection
+                    end;
+                _False ->
+                    US = ProtocolModule:default_user_state(),
+                    Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),                                                %open unauthorized websocket connection
+                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = ProtocolModule, user_state = US}, ?TIMEOUT}                 %TODO: test timeout influence to peroformance
+            end;
         _False ->
-            Resp = cowboy_req:reply(501, #{<<"content-type">> => <<"text/html">>}, <<"Not implemented">>, Req),
-            {'ok', Resp, #state{}}                                %close connection
+            Resp = cowboy_req:reply(501, #{}, <<"">>, Req),
+            {'ok', Resp, #state{}}                                %close connection, not implemented
     end.
 
 terminate(_Reason, _Req, _State)->
