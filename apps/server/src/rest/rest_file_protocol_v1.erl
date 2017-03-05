@@ -9,24 +9,11 @@
 -module(rest_file_protocol_v1).
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
--export([get/3
-        ,head/3
-        ,post/3
-        ,put/3
-        ,patch/3
-        ,delete/3
-        ,options/3
-        ,required_auth/0
-        ,get_access_level/0
-        ,head_access_level/0
-        ,post_access_level/0
-        ,put_access_level/0
-        ,patch_access_level/0
-        ,delete_access_level/0
-        ,options_access_level/0]).
+-export([handle/4
+        ,access_level/1]).
 
--spec post(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-post(Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} = State, _Args) ->
+-spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
+handle(<<"POST">>, Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} = State, _Args) ->
     UserId = sessions:extract(Session, 'owner_id'),
     MaxFileSize = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'max_file_size', 16777216),
     case cowboy_req:body_length(Req) of
@@ -41,10 +28,8 @@ post(Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} =
             io:format("~nFile ~s saved with Id: ~p~n", [Name, InDBId]),
             NewState = State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = <<B/binary, InDBId/binary>>},
             {Req1, NewState, _Args}
-    end.
-
--spec get(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-get(Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
+    end;
+handle(<<"GET">>, Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
     UserId = sessions:extract(Session, 'owner_id'),
     User = users:get_by_id(UserId),
     UserAccessLevel = users:extract(User, 'access_level'),
@@ -59,45 +44,12 @@ get(Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = 
             {Req, State#q_state{code = 200, body = <<B/binary,Data/binary>>, headers = NewHeaders}, _Args};
         _ ->
                 {Req, State#q_state{code = 403}, _Args}
-    end.
+    end;
+handle(_Method, Req, State, _Other)->
+    {Req, State#q_state{code = 405}, []}.
 
--spec head(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-head(Req, State, Args) ->
-    post(Req, State, Args).
-
--spec put(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-put(Req, State, Args) ->
-    post(Req, State, Args).
-
--spec patch(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-patch(Req, State, Args) ->
-    post(Req, State, Args).
-
--spec delete(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-delete(Req, State, Args) ->
-    post(Req, State, Args).
-
--spec options(cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-options(Req, State, Args) ->
-    post(Req, State, Args).
-
-required_auth() ->
-    'true'.
-get_access_level()->
+access_level(_Method)->
     5.
-head_access_level() ->
-    5.
-post_access_level()->
-    5.
-put_access_level()->
-    5.
-patch_access_level()->
-    5.
-delete_access_level()->
-    5.
-options_access_level()->
-    5.
-
 
 %%%===================================================================
 %%% internal functions

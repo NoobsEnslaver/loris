@@ -35,77 +35,24 @@ terminate(_Reason, _Req, _State)->
 fold(Req, _Ver, State, []) ->
     {Req, State};
 fold(Req, Ver, State, [Mod | Args]) ->
-    Module = binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8'),
-    {Req1, State1, Query1} = case Module:required_auth() of
-                                 'true' ->
-                                     QState = State#q_state.tmp_state,
-                                     Session = maps:get('session', QState, 'false'),
-                                     case Session of
-                                         'false' ->
+    try binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8') of
+        Module ->
+            Method = cowboy_req:method(Req),
+            QState = State#q_state.tmp_state,
+            Session = maps:get('session', QState, 'false'),
+            {Req1, State1, Query1} = case Module:access_level(Method) of
+                                         'infinity' ->
+                                             Module:handle(Method, Req, State, Args);
+                                         _ModuleAL when Session == 'false' ->
                                              {Req, State#q_state{code = 403}, []};
-                                         _Else ->
+                                         ModuleAL ->
                                              AL = sessions:extract(Session, 'access_level'),
-                                             case cowboy_req:method(Req) of
-                                                 <<"GET">>    ->
-                                                     case Module:get_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:get(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"HEAD">>   ->
-                                                     case Module:head_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:head(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"POST">>   ->
-                                                     case Module:post_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:post(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"PUT">>    ->
-                                                     case Module:put_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:put(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"PATCH">>  ->
-                                                     case Module:patch_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:patch(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"DELETE">> ->
-                                                     case Module:delete_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:delete(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end;
-                                                 <<"OPTIONS">>->
-                                                     case Module:options_access_level() >= AL of
-                                                         'true' ->
-                                                             Module:options(Req, State, Args);
-                                                         _False ->
-                                                             {Req, State#q_state{code = 403}, []}
-                                                     end
+                                             if  ModuleAL >= AL -> Module:handle(Method, Req, State, Args);
+                                                 'true'         -> {Req, State#q_state{code = 403}, []}
                                              end
-                                     end;
-                                 _False ->
-                                     case cowboy_req:method(Req) of
-                                         <<"GET">>    -> Module:get(Req, State, Args);
-                                         <<"HEAD">>   -> Module:head(Req, State, Args);
-                                         <<"POST">>   -> Module:post(Req, State, Args);
-                                         <<"PUT">>    -> Module:put(Req, State, Args);
-                                         <<"PATCH">>  -> Module:patch(Req, State, Args);
-                                         <<"DELETE">> -> Module:delete(Req, State, Args);
-                                         <<"OPTIONS">>-> Module:options(Req, State, Args)
-                                     end
-                             end,
-    fold(Req1, Ver, State1, Query1).
+                                     end,
+            fold(Req1, Ver, State1, Query1)
+    catch
+        _:_ ->
+            {Req, State#q_state{code = 404}}
+    end.

@@ -11,4 +11,6 @@
                  ,body = <<>> :: binary()
                  ,tmp_state = #{} :: map()}).
 
+-type method() :: binary().
+
 -endif.
