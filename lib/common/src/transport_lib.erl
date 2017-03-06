@@ -21,11 +21,16 @@
 -spec decode(binary(), binary()) -> map().
 decode(Bin, ?MSGPACK) ->
     {'ok', Map} = msgpack:unpack(Bin, [{unpack_str, as_binary}]),
-    Map.
+    Map;
+decode(Bin, ?JSON) ->
+    jsone:decode(Bin, {object_format, map}).
 
--spec encode(map(), binary()) -> binary().
+-spec encode(map() | list(), binary()) -> binary().
 encode(Map, ?MSGPACK) ->
-    msgpack:pack(Map, [{pack_str, from_binary}]).
+    msgpack:pack(Map, [{pack_str, from_binary}]);
+encode(Data, ?JSON) ->
+    jsone:encode(Data).
+
 
 
 %%--------------------------------------------------------------------

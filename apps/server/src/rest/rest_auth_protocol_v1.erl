@@ -14,17 +14,20 @@
         ,access_level/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-handle(<<"POST">>, Req, _State, _Args) ->
-    Body = common:get_body_data(Req),
+handle(<<"POST">>, Req, #q_state{body = B} = State, _Args) ->
     SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
-    {<<"user">>, Login} = lists:keyfind(<<"user">>, 1, Body),
-    {<<"password">>, PwdHash} = lists:keyfind(<<"password">>, 1, Body),
-    NewState = case users:authorize(Login, PwdHash) of
-                   'false' ->
-                       #q_state{body = <<>>, code = 401, headers = #{}};
-                   User ->
-                       Token = sessions:new(User, 'undefined', SessionLiveTime),
-                       #q_state{body = Token, code = 200, headers = #{}}
+    NewState = case common:get_body_data(Req) of
+                   #{<<"user">> := Login
+                    ,<<"password">> := PwdHash} ->
+                       case users:authorize(Login, PwdHash) of
+                           'false' ->
+                               State#q_state{code = 401}; %unauthorized
+                           User ->
+                               Token = sessions:new(User, 'undefined', SessionLiveTime),
+                               State#q_state{body = <<B/binary, Token/binary>>, code = 200}
+                       end;
+                   _ ->
+                       State#q_state{code = 400} %bad request
                end,
     {Req, NewState, []};
 handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body} = State, _Other) ->
@@ -32,7 +35,7 @@ handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body} = State, _Other) ->
     NewHeaders = Hdrs#{<<"content-type">> => <<"text/html">>},
     {Req, State#q_state{code = 200, body = <<Body/binary, BData/binary>>, headers = NewHeaders}, _Other};
 handle(_Method, Req, State, _Other)->
-    {Req, State#q_state{code = 405}, []}.
+    {Req, State#q_state{code = 405}, []}.       %method not allowed
 
 access_level(_Method) ->
     'infinity'.

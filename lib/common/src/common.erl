@@ -1,4 +1,5 @@
 -module(common).
+-include("transport_lib.hrl").
 
 %% API exports
 -export([bin2hex/1
@@ -13,11 +14,17 @@ bin2hex(Bytes)->
 get_body_data(Req)->
     case cowboy_req:header(<<"content-type">>, Req) of
         <<"application/json">> ->
-            {'ok', B, _Req2} = cowboy_req:read_body(Req),
-            jsone:decode(B, [{object_format, proplist}]);
+            {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
+            transport_lib:decode(Bin, ?JSON);
+        <<"application/msgpack">> ->
+            {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
+            transport_lib:decode(Bin, ?MSGPACK);
+        <<"application/x-msgpack">> ->
+            {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
+            transport_lib:decode(Bin, ?MSGPACK);
         _ ->
-            {'ok', B, _Req2} = cowboy_req:read_urlencoded_body(Req),
-            B
+            {'ok', List, _Req2} = cowboy_req:read_urlencoded_body(Req),
+            maps:from_list(List)
     end.
 %%====================================================================
 %% Internal functions
