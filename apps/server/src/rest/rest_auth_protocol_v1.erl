@@ -15,14 +15,7 @@
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, _State, _Args) ->
-    Body = case cowboy_req:header(<<"content-type">>, Req) of
-               <<"application/json">> ->
-                   {'ok', B, _Req2} = cowboy_req:read_body(Req),
-                   jsone:decode(B, [{object_format, proplist}]);
-               _ ->
-                   {'ok', B, _Req2} = cowboy_req:read_urlencoded_body(Req),
-                   B
-           end,
+    Body = common:get_body_data(Req),
     SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
     {<<"user">>, Login} = lists:keyfind(<<"user">>, 1, Body),
     {<<"password">>, PwdHash} = lists:keyfind(<<"password">>, 1, Body),
