@@ -19,6 +19,7 @@
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()
                  ,ws_pid :: pid()
+                 ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).
 
 -record(index, {name :: binary()

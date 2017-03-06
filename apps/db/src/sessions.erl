@@ -60,28 +60,33 @@ new(#user{id=Id}, WSPid, LiveTime) ->
     new(Id, WSPid, LiveTime);
 new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
     case get_by_owner_id(Id) of
-        #session{token = T} -> delete(T);
-        _ -> 'ok'
-    end,
-    RandBytes = crypto:strong_rand_bytes(32),
-    Token = common:bin2hex(RandBytes),
-    {MSec, Sec, _} = erlang:timestamp(),
-    ExpirationTime = MSec * 1000000 + Sec + LiveTime,
-    Session = #session{token = Token
-                      ,owner_id = Id
-                      ,ws_pid = WSPid
-                      ,expiration_time = ExpirationTime},
-    Fun = fun()->
-                  mnesia:write(Session)
-          end,
-    mnesia:transaction(Fun),
-    Token.
+        #session{token = T} ->
+            T;
+        _ ->
+            RandBytes = crypto:strong_rand_bytes(16),
+            Token = common:bin2hex(RandBytes),
+            {MSec, Sec, _} = erlang:timestamp(),
+            ExpirationTime = MSec * 1000000 + Sec + LiveTime,
+            User = users:get_by_id(Id),
+            AccessLevel = users:extract(User, 'access_level'),
+            Session = #session{token = Token
+                              ,owner_id = Id
+                              ,ws_pid = WSPid
+                              ,access_level = AccessLevel
+                              ,expiration_time = ExpirationTime},
+            Fun = fun()->
+                          mnesia:write(Session)
+                  end,
+            mnesia:transaction(Fun),
+            Token
+    end.
 
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
--spec extract(#session{}, token|owner_id|ws_pid|expiration_time) -> binary() | non_neg_integer() | pid().
+-spec extract(#session{}, access_level|token|owner_id|ws_pid|expiration_time) -> binary() | non_neg_integer() | pid().
 extract(#session{token = Token}, 'token')-> Token;
 extract(#session{owner_id = OwnerId}, 'owner_id')-> OwnerId;
 extract(#session{ws_pid = WsPid}, 'ws_pid')-> WsPid;
+extract(#session{access_level = AL}, 'access_level')-> AL;
 extract(#session{expiration_time = ExpirationTime}, 'expiration_time')-> ExpirationTime.

@@ -10,7 +10,7 @@
 -include_lib("common/include/tables.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([authorize/2
-        ,new/4
+        ,new/4, new/5
         ,delete/1
         ,get/1
         ,get_by_id/1
@@ -51,6 +51,30 @@ new(Login, Pwd, Name, AccessLevel) ->
                 Error -> Error
             end
     end.
+
+-spec new(binary(), binary(), binary(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
+new(Login, Pwd, Name, AccessLevel, 'nohash') ->
+    {MSec, Sec, _} = erlang:timestamp(),
+    Created = MSec * 1000000 + Sec,
+    case get(Login) of
+        #user{} ->
+            'exists';
+        {'aborted', Reason} ->
+            {'aborted', Reason};
+        _ ->
+            Id = mnesia:dirty_update_counter('index', 'user', 1),
+            User = #user{login = Login
+                        ,id = Id
+                        ,pwd_hash = Pwd
+                        ,name = Name
+                        ,created = Created
+                        ,access_level = AccessLevel},
+            case mnesia:transaction(fun()-> mnesia:write(User) end) of
+                {'atomic', 'ok'} -> User;
+                Error -> Error
+            end
+    end.
+
 
 -spec delete(#user{} | binary()) -> 'abort' | 'ok' | 'false'.
 delete(#user{login = Login}) ->
