@@ -14,7 +14,14 @@
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(_Method, _Req, #q_state{tmp_state = TmpState} = State, [Token | _Other]) ->
-    {_Req, State#q_state{tmp_state = TmpState#{'session' => sessions:get(Token)}}, _Other}.
+    Session = sessions:get(Token),
+    if Session == 'false' ->
+                   {IP, _Port} = cowboy_req:peer(_Req),
+                   lager:md([{'appname', <<"server->session">>}]),
+                   lager:info("try to get unexisting session from IP: ~p", [IP]);
+              'true' -> 'ok'
+           end,
+    {_Req, State#q_state{tmp_state = TmpState#{'session' => Session}}, _Other}.
 
 access_level(_Method) ->
     'infinity'.
