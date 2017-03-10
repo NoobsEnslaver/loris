@@ -59,6 +59,11 @@ init([]) ->
     CleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 300) * 1000, %5 min
     erlang:send_after(CleaningInterval, self(), 'let_clean'),
     lager:info("sessions cleaner started"),
+    case mnesia:transaction(fun()-> mnesia:table_info('users', 'size') end) of
+        {'atomic', 0} ->
+            erlang:send_after(1000, self(), 'need_administrator');
+        _ -> 'ok'
+    end,
     {'ok', CleaningInterval}.
 
 %%--------------------------------------------------------------------
@@ -107,6 +112,12 @@ handle_info('let_clean', CleaningInterval) ->
     erlang:send_after(CleaningInterval, self(), 'let_clean'),
     cleaning(),
     {'noreply', CleaningInterval};
+handle_info('need_administrator', _CleaningInterval) ->
+    %% User = list_to_binary(io:get_line("Administrator login: ") -- "\n"),
+    %% Pwd = list_to_binary(io:get_line("Administrator password: ") -- "\n"),
+    %% Name = list_to_binary(io:get_line("Administrator name: ") -- "\n"),
+    %% users:new(User, Pwd, Name, 'administrators', 0),
+    {'noreply', _CleaningInterval};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
     {'noreply', _State}.

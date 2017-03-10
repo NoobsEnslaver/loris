@@ -35,7 +35,8 @@ start(_StartType, _StartArgs) ->
             end,
     mnesia:start(),
     case IsNew of
-        'new' -> create_tables();
+        'new' ->
+            create_tables();
         _ -> 'ok'
     end,
     db_sup:start_link().
