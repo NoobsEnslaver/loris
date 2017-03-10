@@ -13,3 +13,5 @@
     {Resp :: cowboy_req:req(), NewState :: #q_state{}, NotMyArgs :: [binary()]}.
 
 -callback access_level(method()) -> non_neg_integer() | 'infinity'.
+
+-callback allowed_groups(method()) -> [atom()].

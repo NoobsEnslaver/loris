@@ -10,7 +10,8 @@
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 -export([handle/4
-        ,access_level/1]).
+        ,access_level/1
+        ,allowed_groups/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} = State, _Args) ->
@@ -70,3 +71,6 @@ receive_file(Req, Buffer, MaxFileSize) ->
             NewBuf = <<Buffer/binary, Data/binary>>,
             receive_file(Req1, NewBuf, MaxFileSize)
     end.
+
+allowed_groups(_Method) ->
+    ['users', 'administrators'].

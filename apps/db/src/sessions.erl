@@ -69,8 +69,10 @@ new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
             ExpirationTime = MSec * 1000000 + Sec + LiveTime,
             User = users:get_by_id(Id),
             AccessLevel = users:extract(User, 'access_level'),
+            Group = users:extract(User, 'group'),
             Session = #session{token = Token
                               ,owner_id = Id
+                              ,group = Group
                               ,ws_pid = WSPid
                               ,access_level = AccessLevel
                               ,expiration_time = ExpirationTime},
@@ -87,6 +89,7 @@ new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
 -spec extract(#session{}, access_level|token|owner_id|ws_pid|expiration_time) -> binary() | non_neg_integer() | pid().
 extract(#session{token = Token}, 'token')-> Token;
 extract(#session{owner_id = OwnerId}, 'owner_id')-> OwnerId;
+extract(#session{group = G}, 'group')-> G;
 extract(#session{ws_pid = WsPid}, 'ws_pid')-> WsPid;
 extract(#session{access_level = AL}, 'access_level')-> AL;
 extract(#session{expiration_time = ExpirationTime}, 'expiration_time')-> ExpirationTime.

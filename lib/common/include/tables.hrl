@@ -11,6 +11,7 @@
 
 -record(user, {login :: binary()
               ,id :: non_neg_integer()
+              ,group ::'guests'|'users'|'administrators'
               ,pwd_hash :: binary()
               ,name :: binary()
               ,created :: non_neg_integer()
@@ -18,6 +19,7 @@
 
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()
+                 ,group :: 'guests'|'users'|'administrators'
                  ,ws_pid :: pid()
                  ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).

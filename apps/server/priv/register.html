@@ -5,10 +5,15 @@
  </head>
  <body>
  <form method="post">
-  <p><input type="text" name="login"></p>
-  <p><input id="pass" type="password" name="password_hash"></p>
-  <p><input id="name" type="text" name="name"></p>
-  <p><input id="access_level" type="text" name="access_level"></p>
+  <p><input type="text" name="login">Login</p>
+  <p><input id="pass" type="password" name="password_hash">Password</p>
+  <p><input id="name" type="text" name="name">Name</p>
+  <p><input id="access_level" type="text" name="access_level">AccessLevel</p>
+  <p><select name="group">
+                  <option value="users">Users</option>
+                  <option value="guests">Guests</option>
+                  <option value="administrators">Administrators</option>
+  </select>Group</p>
   <p><input type="submit" value="Отправить" onclick='get_hash()'></p>
  </form>
  </body>

@@ -10,7 +10,7 @@
 -include_lib("common/include/tables.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([authorize/2
-        ,new/4, new/5
+        ,new/5, new/6
         ,delete/1
         ,get/1
         ,get_by_id/1
@@ -28,8 +28,8 @@ authorize(Login, Password)->
         _ -> 'false'
     end.
 
--spec new(binary(), binary(), binary(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
-new(Login, Pwd, Name, AccessLevel) ->
+-spec new(binary(), binary(), binary(), atom(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
+new(Login, Pwd, Name, Group, AccessLevel) ->
     {MSec, Sec, _} = erlang:timestamp(),
     Created = MSec * 1000000 + Sec,
     case get(Login) of
@@ -42,6 +42,7 @@ new(Login, Pwd, Name, AccessLevel) ->
             Id = mnesia:dirty_update_counter('index', 'user', 1),
             User = #user{login = Login
                         ,id = Id
+                        ,group = Group
                         ,pwd_hash = PwdHash
                         ,name = Name
                         ,created = Created
@@ -52,8 +53,8 @@ new(Login, Pwd, Name, AccessLevel) ->
             end
     end.
 
--spec new(binary(), binary(), binary(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
-new(Login, Pwd, Name, AccessLevel, 'nohash') ->
+-spec new(binary(), binary(), binary(), atom(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
+new(Login, Pwd, Name, Group, AccessLevel, 'nohash') ->
     {MSec, Sec, _} = erlang:timestamp(),
     Created = MSec * 1000000 + Sec,
     case get(Login) of
@@ -65,6 +66,7 @@ new(Login, Pwd, Name, AccessLevel, 'nohash') ->
             Id = mnesia:dirty_update_counter('index', 'user', 1),
             User = #user{login = Login
                         ,id = Id
+                        ,group = Group
                         ,pwd_hash = Pwd
                         ,name = Name
                         ,created = Created
@@ -111,6 +113,7 @@ get_by_id(Id)->
 -spec extract(#user{}, login|id|pwd_hash|name|created|access_level) -> binary() | non_neg_integer().
 extract(#user{login = Login}, 'login')-> Login;
 extract(#user{id = Id}, 'id')-> Id;
+extract(#user{group = G}, 'group')-> G;
 extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
 extract(#user{name = Name}, 'name')-> Name;
 extract(#user{created = Created}, 'created')-> Created;

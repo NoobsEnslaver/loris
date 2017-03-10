@@ -31,6 +31,9 @@ init(Req, _Opts) ->
 terminate(_Reason, _Req, _State)->
     'ok'.
 
+%%%===================================================================
+%%% internal functions
+%%%===================================================================
 -spec fold(cowboy_req:req(), binary(), map(), [binary()]) -> cowboy_req:req().
 fold(Req, _Ver, State, []) ->
     {Req, State};
@@ -40,18 +43,32 @@ fold(Req, Ver, State, [Mod | Args]) ->
             Method = cowboy_req:method(Req),
             QState = State#q_state.tmp_state,
             Session = maps:get('session', QState, 'false'),
-            {Req1, State1, Query1} = case Module:access_level(Method) of
-                                         'infinity' ->
-                                             Module:handle(Method, Req, State, Args);
-                                         _ModuleAL when Session == 'false' ->
-                                             {Req, State#q_state{code = 403}, []};
-                                         ModuleAL ->
-                                             AL = sessions:extract(Session, 'access_level'),
-                                             if  ModuleAL >= AL -> Module:handle(Method, Req, State, Args);
-                                                 'true'         -> {Req, State#q_state{code = 403}, []}
-                                             end
-                                     end,
-            fold(Req1, Ver, State1, Query1)
+            io:format("Session: ~p~n", [Session]),
+            AllowedGroups = Module:allowed_groups(Method),
+            GroupAccessGranted = case Session of
+                                     'false' ->
+                                         lists:member('guests', AllowedGroups);
+                                     _ ->
+                                         Group = sessions:extract(Session, 'group'),
+                                         lists:member(Group, AllowedGroups)
+                                 end,
+            case GroupAccessGranted of
+                'false' ->
+                    {Req, State#q_state{code = 403}};
+                'true' ->
+                    {Req1, State1, Query1} = case Module:access_level(Method) of
+                                                 'infinity' ->
+                                                     Module:handle(Method, Req, State, Args);
+                                                 _ModuleAL when Session == 'false' ->
+                                                     {Req, State#q_state{code = 403}, []};
+                                                 ModuleAL ->
+                                                     AL = sessions:extract(Session, 'access_level'),
+                                                     if  ModuleAL >= AL -> Module:handle(Method, Req, State, Args);
+                                                         'true'         -> {Req, State#q_state{code = 403}, []}
+                                                     end
+                                             end,
+                    fold(Req1, Ver, State1, Query1)
+            end
     catch
         _:_ ->
             {Req, State#q_state{code = 404}}

@@ -11,7 +11,8 @@
 -include("server.hrl").
 
 -export([handle/4
-        ,access_level/1]).
+        ,access_level/1
+        ,allowed_groups/1]).
 
 %% Required fields:
 %% login, password_hash, name, access_level :: number() | binary().
@@ -24,25 +25,27 @@ handle(<<"POST">>, Req, #q_state{tmp_state = #{'session' := Session}} = State, _
                    #{<<"login">> := Login
                     ,<<"password_hash">> := Pwd
                     ,<<"name">> := Name
-                    ,<<"access_level">> := AL1} ->
+                    ,<<"group">> := BGroup
+                    ,<<"access_level">> := AL1} when BGroup =:= <<"users">> orelse BGroup =:= <<"guests">> orelse BGroup =:= <<"administrators">> ->
+                       Group = binary_to_existing_atom(BGroup, 'utf8'),
                        case AL1 of
                            AL when is_number(AL) andalso AL > CurrentAccessLevel ->
-                               lager:info("user ~p creating user ~p with access level ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, IP]),
-                               new_user(Login, Pwd, Name, AL, State);
+                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
+                               new_user(Login, Pwd, Name, Group, AL, State);
                            <<"infinity">> ->
-                               lager:info("user ~p creating user ~p with access level ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, 'infinity', IP]),
-                               new_user(Login, Pwd, Name, 'infinity', State);
+                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, 'infinity', Group, IP]),
+                               new_user(Login, Pwd, Name, Group, 'infinity', State);
                            BinNum when is_binary(BinNum) ->
                                AL = binary_to_integer(BinNum),
                                if  CurrentAccessLevel < AL->
-                                       lager:info("user ~p creating user ~p with access level ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, IP]),
-                                       new_user(Login, Pwd, Name, AL, State);
+                                       lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
+                                       new_user(Login, Pwd, Name, Group, AL, State);
                                    'true' ->
-                                       lager:info("user ~p try to create user ~p with access level ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, IP]),
+                                       lager:info("user id=~p try to create user ~p with access level ~p on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
                                        State#q_state{code = 403} % forbidden
                                end;
                            _ ->
-                               lager:info("user ~p try to create user ~p with unexpected access level: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, IP]),
+                               lager:info("user id=~p try to create user ~p with unexpected access level on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, Group, IP]),
                                State#q_state{code = 403} % forbidden
                        end;
                    _ ->
@@ -59,11 +62,14 @@ handle(_Method, Req, State, _Other)->
 access_level(_Method) ->
     100.
 
+allowed_groups(_Method) ->
+    ['administrators'].
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
-new_user(Login, Password, Name, AL, State)->
-    case users:new(Login, Password, Name, AL, 'nohash') of
+new_user(Login, Password, Name, Group, AL, State)->
+    case users:new(Login, Password, Name, Group, AL, 'nohash') of
         'exists' ->
             State#q_state{code = 409};          % conflict
         'false' ->

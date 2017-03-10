@@ -11,7 +11,8 @@
 -include("server.hrl").
 
 -export([handle/4
-        ,access_level/1]).
+        ,access_level/1
+        ,allowed_groups/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, _Req, #q_state{body = B} = State, _Args) ->
@@ -43,3 +44,6 @@ handle(_Method, Req, State, _Other)->
 
 access_level(_Method) ->
     'infinity'.
+
+allowed_groups(_Method) ->
+    ['users', 'administrators', 'guests'].

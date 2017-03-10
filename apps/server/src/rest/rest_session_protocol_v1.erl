@@ -10,7 +10,8 @@
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 -export([handle/4
-        ,access_level/1]).
+        ,access_level/1
+        ,allowed_groups/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(_Method, _Req, #q_state{tmp_state = TmpState} = State, [Token | _Other]) ->
@@ -25,3 +26,6 @@ handle(_Method, _Req, #q_state{tmp_state = TmpState} = State, [Token | _Other]) 
 
 access_level(_Method) ->
     'infinity'.
+
+allowed_groups(_Method) ->
+    ['users', 'administrators', 'guests'].

@@ -10,10 +10,11 @@
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 -export([handle/4
-        ,access_level/1]).
+        ,access_level/1
+        ,allowed_groups/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{session := Session}} = State, [Arg1 | [Arg2 | _Other]]) ->
+handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{session := Session}} = State, [Arg1 | [Arg2 | _Other]]) when Session /= 'false'->
     OID = sessions:extract(Session, 'owner_id'),
     Name = users:extract(users:get_by_id(OID), 'name'),
     QS = cowboy_req:parse_qs(Req),
@@ -41,3 +42,6 @@ handle(_Method, Req, State, _Other)->
 
 access_level(_Method)->
     'infinity'.
+
+allowed_groups(_Method) ->
+    ['users', 'administrators', 'guests'].
