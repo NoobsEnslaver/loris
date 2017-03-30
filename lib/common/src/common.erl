@@ -1,3 +1,10 @@
+%%% @author Vorontsov Nikita <noobsenslaver@mail.ru>
+%%% @copyright (C) 2017,
+%%% @doc
+%%%
+%%% @end
+%%% Created : 30 Mar 2017
+
 -module(common).
 -include("transport_lib.hrl").
 
