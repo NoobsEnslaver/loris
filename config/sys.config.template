@@ -12,7 +12,7 @@
                                             ,{formatter, lager_default_formatter}
                                             ,{formatter_config, [time," [",severity,"] ", "|", module, ":", line, " (",pid, ") ", message, "\n"]}
                                             ]}
-                      ,{lager_syslog_backend, ["loris", local0, {{syslog_log_level}}
+                      ,{lager_syslog_backend, ["egg", local0, {{syslog_log_level}}
                                               ,{lager_default_formatter, ["|", appname, ":", module, ":", line, " (",pid, ") ", message, "\n"]}
                                               ]}
                       ]}
