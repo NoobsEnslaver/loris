@@ -15,7 +15,7 @@
         ,allowed_groups/1]).
 
 %% Required fields:
-%% login, password_hash, name, access_level :: number() | binary().
+%% login, password_hash, name, group, access_level :: number() | binary().
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{tmp_state = #{'session' := Session}} = State, _Args) ->
     lager:md([{'appname', <<"server->register">>}]),
