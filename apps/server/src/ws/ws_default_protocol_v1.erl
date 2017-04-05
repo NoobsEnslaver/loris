@@ -9,17 +9,18 @@
 -module(ws_default_protocol_v1).
 -include("ws_default_protocol_v1_messages.hrl").
 -include("server.hrl").
-
+-behaviour(ws_protocol_behaviour).
 -export([construct_msg/1
         ,do_action/2
         ,wrap_data/3, wrap_data/4
-        ,default_user_state/0
-        ,default_user_state/1]).
+        ,default_user_state/1
+        ,allowed_groups/0
+        ,access_level/0]).
 
 -record(user_state, {authorized = 'false'}).
 
-default_user_state()->
-    #user_state{authorized = 'false'}.
+default_user_state('false')->
+    #user_state{authorized = 'false'};
 default_user_state(_Session)->
     #user_state{authorized = 'true'}.
 
@@ -76,3 +77,9 @@ do_action(#sync_get_socket_info{}, State) ->
 do_action(_Msg, _State) ->
     lager:info("unknown message type: ~p", [_Msg]),
     {<<"error">>, <<"unknown_msg">>, _State}.
+
+allowed_groups() ->
+    ['users', 'administrators'].
+
+access_level() ->
+    10.

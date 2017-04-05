@@ -18,8 +18,6 @@
         ,{'static_dir', "/srv"}
         ,{'max_file_size', 16777216}
         ,{'sessions_live_time', 2592000}             %30 days
-        ,{'ws_secured', 'true'}
-        ,{'ws_access_level', 10}
         ]},
   {modules, []},
 
