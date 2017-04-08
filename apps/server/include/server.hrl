@@ -10,6 +10,11 @@
                  ,headers = #{} :: map()
                  ,body = <<>> :: binary()
                  ,tmp_state = #{} :: map()}).
+-record(async_start, {work_id :: binary()}).
+-record(async_done, {work_id :: binary()
+                    ,result :: tuple()}).
+-record(async_error, {work_id :: binary()
+                     ,error_code = 500 :: integer()}).
 
 -type method() :: binary().
 

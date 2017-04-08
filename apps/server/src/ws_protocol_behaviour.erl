@@ -13,10 +13,10 @@
 
 -callback allowed_groups() -> [atom()].
 
--callback wrap_data(binary(), map(), binary()) -> binary().
+-callback wrap_msg(tuple(), binary()) -> binary().
 
--callback do_action(MsgType :: tuple(), UserState :: tuple()) -> {'ok', UserState :: tuple()} | {'async', pid(), reference(), UserState :: tuple()} | {Type :: binary(), Msg :: map() | integer(), UserState :: tuple()}.
+-callback do_action(Msg :: tuple(), UserState :: tuple()) -> {'ok', UserState :: tuple()} | {'async', pid(), reference(), UserState :: tuple()} | {Msg :: tuple(), UserState :: tuple()}.
 
--callback construct_msg(map()) -> MsgType :: tuple().
+-callback unwrap_msg(Msg :: map()) -> Msg2 :: tuple().
 
 -callback default_user_state('false' | tuple()) -> tuple().

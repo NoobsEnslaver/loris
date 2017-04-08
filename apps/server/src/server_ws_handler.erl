@@ -42,9 +42,7 @@ init(Req, _Opts) ->
         'true' ->
             try binary_to_existing_atom(<<"ws_", Protocol/binary, "_protocol_", Ver/binary>>, 'utf8') of
                 Module ->
-                    AL = Module:access_level(),
-                    Method = cowboy_req:method(Req),
-                    AllowedGroups = Module:allowed_groups(Method),
+                    AllowedGroups = Module:allowed_groups(),
                     Session = sessions:get(Token),
                     GroupAccessGranted = case Session of
                                              'false' ->
@@ -58,11 +56,11 @@ init(Req, _Opts) ->
                             Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
                             {'ok', Resp, #state{}};                               %close connection, forbidden
                         'true' ->
-                            case Module:access_level(Method) of
+                            case Module:access_level() of
                                 'infinity' ->
                                     US = Module:default_user_state(Session),
                                     Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
-                                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, ?TIMEOUT};         %open websocket connection
+                                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
                                 _ModuleAL when Session == 'false' ->
                                     Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
                                     {'ok', Resp, #state{}};                               %close connection, forbidden
@@ -71,7 +69,7 @@ init(Req, _Opts) ->
                                     if  ModuleAL >= AL ->
                                             US = Module:default_user_state(Session),
                                             Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
-                                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, ?TIMEOUT};         %open websocket connection
+                                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
                                         'true'         ->
                                             Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
                                             {'ok', Resp, #state{}}                               %close connection, forbidden
@@ -103,17 +101,17 @@ websocket_init(_State) ->
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
 websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state = US, async_works = AW, protocol = Protocol} = State) ->
     RawMsg = ws_utils:decode_message(BinData, T),
-    Msg = Protocol:construct_msg(RawMsg),
+    Msg = Protocol:unwrap_msg(RawMsg),
     case Protocol:do_action(Msg, US) of
-        {Type, RawResp, NewUS} ->
-            Resp = Protocol:wrap_data(Type, RawResp, T),
+        {'ok', NewUS} ->
+            {'ok', State#state{user_state = NewUS}, 'hibernate'};
+        {RawResp, NewUS} ->
+            Resp = Protocol:wrap_msg(RawResp, T),
             {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'};
         {'async', Pid, Ref, NewUS} ->
-            Resp = Protocol:wrap_data(<<"async_start">>, list_to_binary(erlang:ref_to_list(Ref)), <<>>, T),
+            Resp = Protocol:wrap_msg(#async_start{work_id = list_to_binary(erlang:ref_to_list(Ref))}, T),
             TimerRef = erlang:send_after(?ASYNC_WORK_TIMEOUT, self(), {'async_timeout', Pid}),
-            {'reply', {'binary', Resp}, State#state{async_works = AW#{Pid => {Ref, TimerRef}}, user_state = NewUS}, 'hibernate'};
-        {'ok', NewUS} ->
-            {'ok', State#state{user_state = NewUS}, 'hibernate'}
+            {'reply', {'binary', Resp}, State#state{async_works = AW#{Pid => {Ref, TimerRef}}, user_state = NewUS}, 'hibernate'}
     end;
 websocket_handle(Frame = {'text', _Data}, State) ->
     {'reply', Frame, State, 'hibernate'};
@@ -128,7 +126,7 @@ websocket_info({'async_timeout', Pid}, State) ->
     {'ok', State, 'hibernate'};
 websocket_info({'async_done', Pid, RawResp}, #state{async_works = AW, transport = T, protocol = Protocol} = State) ->
     {'ok', {Ref, TimerRef}} = maps:find(Pid, AW),
-    Resp = Protocol:wrap_data(<<"async_done">>, list_to_binary(erlang:ref_to_list(Ref)), RawResp, T),
+    Resp = Protocol:wrap_msg(#async_done{work_id = list_to_binary(erlang:ref_to_list(Ref)), result = RawResp}, T),
     erlang:cancel_timer(TimerRef),
     NewAW = maps:remove(Pid, AW),
     {'reply', {'binary', Resp}, State#state{async_works = NewAW}, 'hibernate'};
@@ -140,7 +138,7 @@ websocket_info({'DOWN', MonitorRef, _Type, Pid, ErrorReason}, #state{async_works
         {'ok', {_MonitorRef, TimerRef}} ->
             erlang:cancel_timer(TimerRef),
             NewAW = maps:remove(Pid, AW),
-            Resp = Protocol:wrap_data(<<"async_error">>, list_to_binary(erlang:ref_to_list(MonitorRef)), <<>>, T),
+            Resp = Protocol:wrap_msg(#async_error{work_id = list_to_binary(erlang:ref_to_list(MonitorRef))}, T), %TODO: return error code
             {'reply', {'binary', Resp}, State#state{async_works = NewAW}, 'hibernate'};
         _ -> {'ok', State, 'hibernate'}
     end;
