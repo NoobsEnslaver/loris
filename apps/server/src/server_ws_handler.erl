@@ -142,8 +142,18 @@ websocket_info({'DOWN', MonitorRef, _Type, Pid, ErrorReason}, #state{async_works
             {'reply', {'binary', Resp}, State#state{async_works = NewAW}, 'hibernate'};
         _ -> {'ok', State, 'hibernate'}
     end;
-websocket_info(_Info, State) ->
-    {'ok', State}.
+websocket_info(Msg, #state{transport = T, user_state = US, async_works = AW, protocol = Protocol} = State) ->
+    case Protocol:do_action(Msg, US) of
+        {'ok', NewUS} ->
+            {'ok', State#state{user_state = NewUS}, 'hibernate'};
+        {RawResp, NewUS} ->
+            Resp = Protocol:wrap_msg(RawResp, T),
+            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'};
+        {'async', Pid, Ref, NewUS} ->           %старт асинхронной работы (процесс, запущенный с помощью ws_utils:do_async_work)
+            Resp = Protocol:wrap_msg(#async_start{work_id = list_to_binary(erlang:ref_to_list(Ref))}, T),
+            TimerRef = erlang:send_after(?ASYNC_WORK_TIMEOUT, self(), {'async_timeout', Pid}), %устанавилваем таймаут на выполнение работы
+            {'reply', {'binary', Resp}, State#state{async_works = AW#{Pid => {Ref, TimerRef}}, user_state = NewUS}, 'hibernate'} %запоминаем Pid и timestamp в стэйте процесса
+    end.
 
 %%%===================================================================
 %%% Internal functions
