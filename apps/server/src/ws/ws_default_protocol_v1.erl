@@ -36,14 +36,14 @@ unwrap_msg(_) -> 'undefined'.
 -spec wrap_msg(server_msg_type(), binary()) -> binary().
 wrap_msg('error', Transport) ->
     transport_lib:encode(#{<<"error">> => <<"500">>}, Transport);
-wrap_msg(#async_start{work_id = WID}, Transport) ->
-    Data = #{<<"msg_type">> => 1
+wrap_msg(#async_start{work_id = WID}, Transport) -> %Не забываем про встроенные типы сообщений:
+    Data = #{<<"msg_type">> => 1                    %async_start, async_done, async_error
             ,<<"work_id">> => WID},
     transport_lib:encode(Data, Transport);
 wrap_msg(#async_done{work_id = WID, result = R}, Transport) ->
     Data = #{<<"msg_type">> => 2
             ,<<"work_id">> => WID
-            ,<<"data">> => transport_lib:decode(wrap_msg(R, Transport), Transport)},
+            ,<<"data">> => transport_lib:decode(wrap_msg(R, Transport), Transport)}, %вложенные map конвертируются хорошо, а когда уже закодирована часть - ошибка
     transport_lib:encode(Data, Transport);
 wrap_msg(#async_error{work_id = WID, error_code = EC}, Transport) ->
     Data = #{<<"msg_type">> => 3
@@ -106,7 +106,7 @@ do_action(#sync_get_socket_info{}, State) ->
     {Data, State};
 do_action(_Msg, _State) ->
     lager:info("unknown message type: ~p", [_Msg]),
-    {'error', _State}.
+    {'error', _State}.                          %не забываем написать хэндлер на 'error' в wrap_msg
 
 allowed_groups() ->
     ['users', 'administrators'].
