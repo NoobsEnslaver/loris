@@ -20,7 +20,7 @@
 -record(user_state, {}).
 
 -define(R2M(Record, RecName),
-        maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))).
+        maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))). %TODO: это костыль
 
 default_user_state('false')->
     #user_state{};
