@@ -23,7 +23,7 @@ decode(Bin, ?MSGPACK) ->
     {'ok', Map} = msgpack:unpack(Bin, [{unpack_str, as_binary}]),
     Map;
 decode(Bin, ?JSON) ->
-    jsone:decode(Bin, {object_format, map}).
+    jsone:decode(Bin).
 
 -spec encode(map() | list(), binary()) -> binary().
 encode(Map, ?MSGPACK) ->

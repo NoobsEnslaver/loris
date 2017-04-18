@@ -60,7 +60,7 @@ handle(_Method, Req, State, _Other)->
     {Req, State#q_state{code = 405}, []}.
 
 access_level(_Method) ->
-    100.
+    'infinity'.
 
 allowed_groups(_Method) ->
     ['administrators'].

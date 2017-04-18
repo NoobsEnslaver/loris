@@ -20,13 +20,13 @@ bin2hex(Bytes)->
 
 get_body_data(Req)->
     case cowboy_req:header(<<"content-type">>, Req) of
-        <<"application/json">> ->
+        <<"application/json", _/binary>> ->
             {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
             transport_lib:decode(Bin, ?JSON);
-        <<"application/msgpack">> ->
+        <<"application/msgpack", _/binary>> ->
             {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
             transport_lib:decode(Bin, ?MSGPACK);
-        <<"application/x-msgpack">> ->
+        <<"application/x-msgpack", _/binary>> ->
             {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
             transport_lib:decode(Bin, ?MSGPACK);
         _ ->
