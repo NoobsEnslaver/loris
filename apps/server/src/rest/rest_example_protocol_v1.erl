@@ -16,7 +16,7 @@
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{session := Session}} = State, [Arg1 | [Arg2 | _Other]]) when Session /= 'false'->
     OID = sessions:extract(Session, 'owner_id'),
-    Name = users:extract(users:get_by_id(OID), 'name'),
+    Name = users:extract(users:get(OID), 'name'),
     QS = cowboy_req:parse_qs(Req),
     Data1 = ["<p>" ++ binary_to_list(Key) ++ " = "++ binary_to_list(Val) ++ "</p>" || {Key, Val} <- QS],
     Data2 = Data1 ++ ["<h1>Arg1 = " ++ binary_to_list(Arg1) ++ "</h1><br>"],

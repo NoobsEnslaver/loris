@@ -47,6 +47,7 @@ get_by_owner_id(OID) ->
         _ -> 'false'
     end.
 
+%% TODO: close WS too
 -spec delete(binary()) -> 'ok'.
 delete(Token) ->
     Fun = fun()->
@@ -56,10 +57,10 @@ delete(Token) ->
     'ok'.
 
 -spec new(non_neg_integer() | #user{}, pid(), non_neg_integer()) -> binary().
-new(#user{id=Id}, WSPid, LiveTime) ->
-    new(Id, WSPid, LiveTime);
-new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
-    case get_by_owner_id(Id) of
+new(#user{msisdn = MSISDN}, WSPid, LiveTime) ->
+    new(MSISDN, WSPid, LiveTime);
+new(MSISDN, WSPid, LiveTime) ->                   %LiveTime in sec
+    case get_by_owner_id(MSISDN) of
         #session{token = T} ->
             T;
         _ ->
@@ -67,11 +68,11 @@ new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
             Token = common:bin2hex(RandBytes),
             {MSec, Sec, _} = erlang:timestamp(),
             ExpirationTime = MSec * 1000000 + Sec + LiveTime,
-            User = users:get_by_id(Id),
+            User = users:get(MSISDN),
             AccessLevel = users:extract(User, 'access_level'),
             Group = users:extract(User, 'group'),
             Session = #session{token = Token
-                              ,owner_id = Id
+                              ,owner_id = MSISDN
                               ,group = Group
                               ,ws_pid = WSPid
                               ,access_level = AccessLevel

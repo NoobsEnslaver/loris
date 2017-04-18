@@ -113,10 +113,10 @@ handle_info('let_clean', CleaningInterval) ->
     cleaning(),
     {'noreply', CleaningInterval};
 handle_info('need_administrator', _CleaningInterval) ->
-    %% User = list_to_binary(io:get_line("Administrator login: ") -- "\n"),
+    %% MSISDN = list_to_binary(io:get_line("Administrator MSISDN: ") -- "\n"),
     %% Pwd = list_to_binary(io:get_line("Administrator password: ") -- "\n"),
     %% Name = list_to_binary(io:get_line("Administrator name: ") -- "\n"),
-    %% users:new(User, Pwd, Name, 'administrators', 0),
+    %% users:new(MSISDN, Pwd, Name, 'administrators', 0),
     {'noreply', _CleaningInterval};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
@@ -155,7 +155,7 @@ cleaning() ->
     lager:info("start sessions cleaning"),
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
-    MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'},
+    MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'}, %TODO: will close websocket
     Guard = {'>', Now, '$2'},
     Result = ['$1', '$2', '$3', '$4'],
     Fun = fun() ->

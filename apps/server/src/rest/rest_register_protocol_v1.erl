@@ -15,37 +15,53 @@
         ,allowed_groups/1]).
 
 %% Required fields:
-%% login, password_hash, name, group, access_level :: number() | binary().
+%% msisdn|group|pwd_hash|fname|lname|age|is_male|access_level
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{tmp_state = #{'session' := Session}} = State, _Args) ->
     lager:md([{'appname', <<"server->register">>}]),
     CurrentAccessLevel = sessions:extract(Session, 'access_level'),
     {IP, _Port} = cowboy_req:peer(Req),
     NewState = case common:get_body_data(Req) of
-                   #{<<"login">> := Login
-                    ,<<"password_hash">> := Pwd
-                    ,<<"name">> := Name
+                   #{<<"msisdn">> := BMSISDN
+                    ,<<"pwd_hash">> := Pwd
                     ,<<"group">> := BGroup
+                    ,<<"fname">> := FName
+                    ,<<"lname">> := LName
+                    ,<<"age">> := BAge
+                    ,<<"is_male">> := BIsMale
                     ,<<"access_level">> := AL1} when BGroup =:= <<"users">> orelse BGroup =:= <<"guests">> orelse BGroup =:= <<"administrators">> ->
                        Group = binary_to_existing_atom(BGroup, 'utf8'),
+                       IsMale = case BIsMale of
+                                    B when is_boolean(BIsMale) -> B;
+                                    <<"true">> -> true;
+                                    <<"false">> -> false;
+                                    <<"male">> -> true;
+                                    <<"female">> -> false
+                                end,
+                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
+                                    true -> BMSISDN
+                                end,
+                       Age = if  is_binary(BAge) -> binary_to_integer(BAge);
+                                 true -> BAge
+                             end,
                        case AL1 of
                            AL when is_number(AL) andalso AL > CurrentAccessLevel ->
-                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
-                               new_user(Login, Pwd, Name, Group, AL, State);
+                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, AL, Group, IP]),
+                               new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AL, State);
                            <<"infinity">> ->
-                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, 'infinity', Group, IP]),
-                               new_user(Login, Pwd, Name, Group, 'infinity', State);
+                               lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, 'infinity', Group, IP]),
+                               new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, 'infinity', State);
                            BinNum when is_binary(BinNum) ->
                                AL = binary_to_integer(BinNum),
                                if  CurrentAccessLevel < AL->
-                                       lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
-                                       new_user(Login, Pwd, Name, Group, AL, State);
+                                       lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, AL, Group, IP]),
+                                       new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AL, State);
                                    'true' ->
-                                       lager:info("user id=~p try to create user ~p with access level ~p on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, AL, Group, IP]),
+                                       lager:info("user id=~p try to create user ~p with access level ~p on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, AL, Group, IP]),
                                        State#q_state{code = 403} % forbidden
                                end;
                            _ ->
-                               lager:info("user id=~p try to create user ~p with unexpected access level on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), Login, Group, IP]),
+                               lager:info("user id=~p try to create user ~p with unexpected access level on group ~p: permission denied (not enought access right) from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, Group, IP]),
                                State#q_state{code = 403} % forbidden
                        end;
                    _ ->
@@ -68,8 +84,8 @@ allowed_groups(_Method) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-new_user(Login, Password, Name, Group, AL, State)->
-    case users:new(Login, Password, Name, Group, AL, 'nohash') of
+new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel, State) ->
+    case users:new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') of
         'exists' ->
             State#q_state{code = 409};          % conflict
         'false' ->

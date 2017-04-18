@@ -20,7 +20,7 @@
 -spec save(binary(), binary(), binary(), non_neg_integer()) -> binary().
 -spec save(binary(), binary(), binary(), non_neg_integer(), non_neg_integer()) -> binary().
 save(Name, Type, Data, OwnerId) ->
-    AccessLevel = users:extract(users:get_by_id(OwnerId), 'access_level'),
+    AccessLevel = users:extract(users:get(OwnerId), 'access_level'),
     save(Name, Type, Data, OwnerId, AccessLevel).
 save(Name, Type, Data, OwnerId, AccessLevel)->
     Hash = common:bin2hex(crypto:hash('md5', <<Data/binary, Name/binary, OwnerId/integer>>)),

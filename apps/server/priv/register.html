@@ -5,10 +5,14 @@
  </head>
  <body>
  <form method="post">
-  <p><input type="text" name="login">Login</p>
-  <p><input id="pass" type="password" name="password_hash">Password</p>
-  <p><input id="name" type="text" name="name">Name</p>
-  <p><input id="access_level" type="text" name="access_level">AccessLevel</p>
+         <!-- msisdn|group|pwd_hash|fname|lname|age|is_male|access_level -->
+  <p><input type="tel" name="msisdn">MSISDN</p>
+  <p><input id="pass" type="password" name="pwd_hash">Password</p>
+  <p><input type="text" name="fname">First Name</p>
+  <p><input type="text" name="lname">Last Name</p>
+  <p><input type="number" name="age">Age</p>
+  <p><input type="radio" name="is_male" value="male">Male</br><input type="radio" name="is_male" value="female">Female</p>
+  <p><input type="text" name="access_level">AccessLevel</p>
   <p><select name="group">
                   <option value="users">Users</option>
                   <option value="guests">Guests</option>

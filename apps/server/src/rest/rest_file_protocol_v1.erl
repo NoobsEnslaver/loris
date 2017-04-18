@@ -32,7 +32,7 @@ handle(<<"POST">>, Req, #q_state{headers = H, body = B, tmp_state = #{'session' 
     end;
 handle(<<"GET">>, Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
     UserId = sessions:extract(Session, 'owner_id'),
-    User = users:get_by_id(UserId),
+    User = users:get(UserId),
     UserAccessLevel = users:extract(User, 'access_level'),
     File = files:get(FileId),
     FileOwnerId = files:extract(File, 'owner_id'),
