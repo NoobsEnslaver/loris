@@ -43,7 +43,6 @@ fold(Req, Ver, State, [Mod | Args]) ->
             Method = cowboy_req:method(Req),
             QState = State#q_state.tmp_state,
             Session = maps:get('session', QState, 'false'),
-            io:format("Session: ~p~n", [Session]),
             AllowedGroups = Module:allowed_groups(Method),
             GroupAccessGranted = case Session of
                                      'false' ->

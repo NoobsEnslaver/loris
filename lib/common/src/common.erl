@@ -10,7 +10,8 @@
 
 %% API exports
 -export([bin2hex/1
-        ,get_body_data/1]).
+        ,get_body_data/1
+        ,trace_it/1]).
 
 %%====================================================================
 %% API functions
@@ -33,6 +34,11 @@ get_body_data(Req)->
             {'ok', List, _Req2} = cowboy_req:read_urlencoded_body(Req),
             maps:from_list(List)
     end.
+
+trace_it(Module)->
+    dbg:tracer(),
+    dbg:p(all, c),
+    dbg:tpl(Module, '_', '_', []).
 %%====================================================================
 %% Internal functions
 %%====================================================================
