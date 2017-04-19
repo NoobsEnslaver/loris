@@ -29,8 +29,7 @@ authorize(MSISDN, Password)->
 
 -spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
 new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
-    {MSec, Sec, _} = erlang:timestamp(),
-    Created = MSec * 1000000 + Sec,
+    Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
             'exists';
@@ -55,8 +54,7 @@ new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
 
 -spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
 new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
-    {MSec, Sec, _} = erlang:timestamp(),
-    Created = MSec * 1000000 + Sec,
+    Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
             'exists';

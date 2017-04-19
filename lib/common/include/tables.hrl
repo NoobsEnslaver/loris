@@ -30,6 +30,11 @@
                  ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).
 
+-record(message, {msg_id :: non_neg_integer()
+                 ,msg_body :: binary()
+                 ,timestamp :: non_neg_integer()
+                 ,status :: 'pending' | 'delivered' | 'readed'}).
+
 -record(index, {name :: binary()
                ,value :: non_neg_integer()}).
 

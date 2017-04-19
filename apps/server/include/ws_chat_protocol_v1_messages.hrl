@@ -71,9 +71,9 @@
 -record(s2c_message, {chat_id, msg_body, timestamp, status, msg_id}).
 -record(s2c_message_update, {chat_id, msg_id, msg_body}).
 -record(s2c_message_update_status, {chat_id, msg_id}).
--record(s2c_user_info, {user_msisdn, fname, lname, age, sex}).
+-record(s2c_user_info, {user_msisdn, fname, lname, age, is_male}).
 -record(s2c_user_status, {user_msisdn, is_online = 'false', last_visit_timestamp}).
--record(s2c_user_set_info_result, {result_code, fname, lname, age, sex}).
+-record(s2c_user_set_info_result, {result_code, fname, lname, age, is_male}).
 -record(s2c_user_search_result, {user_msisdn = []}).
 -record(s2c_room_list, {room_id = []}).
 -record(s2c_room_info, {room_id, subroom_id = [], user_msisdn = [], chat_id = []}).

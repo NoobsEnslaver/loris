@@ -11,6 +11,7 @@
 %% API exports
 -export([bin2hex/1
         ,get_body_data/1
+        ,timestamp/0
         ,trace_it/1]).
 
 %%====================================================================
@@ -34,6 +35,10 @@ get_body_data(Req)->
             {'ok', List, _Req2} = cowboy_req:read_urlencoded_body(Req),
             maps:from_list(List)
     end.
+
+timestamp()->
+    {MegaSecs,Secs,MicroSecs} = erlang:timestamp(),
+        (MegaSecs*1000000 + Secs)*1000000 + MicroSecs.
 
 trace_it(Module)->
     dbg:tracer(),

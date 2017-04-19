@@ -30,8 +30,9 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    User = users:new(89628323872, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-    [{user, User} | Config].
+    User1 = users:new(89628323872, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+    User2 = users:new(89628323873, <<"121">>, <<"Daniil">>, <<"Vorontsov">>, 18, 'true', 'administrators', 0),
+    [{user1, User} | [{user2, User} | Config]].
 
 %%--------------------------------------------------------------------
 %% @spec end_per_suite(Config0) -> term() | {save_config,Config1}
@@ -39,8 +40,10 @@ init_per_suite(Config) ->
 %% @end
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
-    User = proplists:get_value(user, Config),
-    users:delete(User),
+    User1 = proplists:get_value(user1, Config),
+    User2 = proplists:get_value(user2, Config),
+    users:delete(User1),
+    users:delete(User2),
     ok.
 
 %%--------------------------------------------------------------------
