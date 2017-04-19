@@ -9,6 +9,7 @@
 %%====================================================================
 -export([connect_to_ws/2
         ,send_packet/3
+        ,receive_packet/1
         ,disconnect/1
         ,authorize/2]).
 
@@ -58,10 +59,18 @@ disconnect(ConnPid) ->
 -spec send_packet(pid(), map() | ping, binary()) -> ok.
 send_packet(Connection, ping, _Transport) ->
     gun:ws_send(Connection, ping);
-send_packet(ConnPid, Data, Transport) ->
+send_packet(ConnPid, Data, Transport) when is_map(Data) ->
     BData = transport_lib:encode(Data, Transport),
+    gun:ws_send(ConnPid, {binary, BData});
+send_packet(ConnPid, BData, _Transport) when is_binary(BData) ->
     gun:ws_send(ConnPid, {binary, BData}).
 
+receive_packet(Transport)->
+    receive
+        {gun_ws, ConnPid, {close, _, _}} -> {close, ConnPid};
+        {gun_ws, ConnPid, {binary, Frame}} -> {ConnPid, transport_lib:decode(Frame, Transport)}
+    after 500 -> {error, timeout}
+    end.
 %%====================================================================
 %% Internal functions
 %%====================================================================
