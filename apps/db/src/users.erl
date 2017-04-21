@@ -14,6 +14,9 @@
         ,delete/1
         ,get/1
         ,extract/2
+        ,invite_to_chat/3
+        ,accept_invatation/2
+        ,reject_invatatoin/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -97,16 +100,67 @@ get(MSISDN)->
         _ -> 'false'
     end.
 
+invite_to_chat(ChatId, MSISDN, AccessGroup) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  CI = User#user.chats_invatations,
+                  case proplists:get_value(ChatId, CI) of
+                      'undefined' ->
+                          mnesia:write(User#user{chats_invatations = [{ChatId, AccessGroup} | CI]});
+                      _ ->
+                          'exists'
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.
+
+accept_invatation(ChatId, MSISDN) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  CI = User#user.chats_invatations,
+                  Chats = User#user.chats,
+                  case proplists:get_value(ChatId, CI) of
+                      'undefined' ->
+                          'not_exists';
+                      AccessGroup ->
+                          mnesia:write(User#user{chats_invatations = proplists:delete(ChatId, CI)
+                                                ,chats = [{ChatId, AccessGroup} | Chats]})
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.
+
+reject_invatatoin(ChatId, MSISDN) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  CI = User#user.chats_invatations,
+                  case proplists:get_value(ChatId, CI) of
+                      'undefined' ->
+                          'not_exists';
+                      _AccessGroup ->
+                          mnesia:write(User#user{chats_invatations = proplists:delete(ChatId, CI)})
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.
+
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
--spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|rooms|chats|is_male|access_level) -> binary() | non_neg_integer() | 'infinity' | access_group().
+-spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|rooms|chats|chats_invatations|is_male|access_level) -> binary() | non_neg_integer() | 'infinity' | access_group().
 extract(#user{msisdn = MSISDN}, 'msisdn')-> MSISDN;
 extract(#user{group = G}, 'group')-> G;
 extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
 extract(#user{created = Created}, 'created')-> Created;
 extract(#user{chats = Chats}, 'chats')-> Chats;
 extract(#user{rooms = Rooms}, 'rooms')-> Rooms;
+extract(#user{chats_invatations = CI}, 'chats_invatations')-> CI;
 extract(#user{age = Age}, 'age')-> Age;
 extract(#user{fname = FName}, 'fname')-> FName;
 extract(#user{lname = LName}, 'lname')-> LName;

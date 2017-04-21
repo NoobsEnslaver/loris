@@ -9,7 +9,6 @@
 -module(chats).
 -include("db.hrl").
 -include_lib("stdlib/include/qlc.hrl").
--compile({no_auto_import,[get/1]}).
 -export([new/0
         ,send_message/2
         ,update_message/3
@@ -17,6 +16,10 @@
         ,get_messages_from/2, get_messages_from/3
         ,subscribe/1
         ,unsubscribe/1
+        ,invite_to_chat/3
+        ,accept_invatation/2
+        ,reject_invatatoin/2
+        ,delete/1
         ]).
 
 
@@ -86,6 +89,36 @@ subscribe(TableId) ->
 unsubscribe(TableId)->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     mnesia:unsubscribe({table, TableName, simple}).
+
+invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
+    users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
+    case sessions:get_by_owner_id(UserMSISDN) of
+        #session{ws_pid = WsPid} when is_pid(WsPid)->
+            WsPid ! {chat_invatation, ChatId};
+        _ ->
+            'ok'
+    end.
+
+accept_invatation(ChatId, UserMSISDN) ->
+    users:accept_invatation(ChatId, UserMSISDN),
+    case sessions:get_by_owner_id(UserMSISDN) of
+        #session{ws_pid = WsPid} when is_pid(WsPid)->
+            WsPid ! {accept_invatation, ChatId};
+        _ ->
+            'ok'
+    end.
+
+reject_invatatoin(ChatId, UserMSISDN) ->
+    users:reject_invatatoin(ChatId, UserMSISDN),
+    case sessions:get_by_owner_id(UserMSISDN) of
+        #session{ws_pid = WsPid} when is_pid(WsPid)->
+            WsPid ! {reject_invatation, ChatId};
+        _ ->
+            'ok'
+    end.
+
+delete(_ChatId) ->                               %TODO: delete table, table_info, user#chats
+    ok.
 
 %%%===================================================================
 %%% internal functions

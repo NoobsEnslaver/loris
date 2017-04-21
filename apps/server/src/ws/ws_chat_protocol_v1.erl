@@ -17,15 +17,18 @@
         ,allowed_groups/0
         ,access_level/0]).
 
--record(user_state, {}).
+-record(user_state, {chats, rooms, token}).
 
 -define(R2M(Record, RecName),
         maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))). %TODO: это костыль
 
-default_user_state('false')->
-    #user_state{};
-default_user_state(_Session)->
-    #user_state{}.
+default_user_state(Session)->
+    UserMSISDN = sessions:extract(Session, owner_id),
+    User = users:get(UserMSISDN),
+    #user_state{chats = users:extract(User, chats)
+               ,msisdn = users:extract(User, msisdn)
+               ,rooms = users:extract(User, rooms)
+               ,token = sessions:extract(Session, token)}.
 
 %%%===================================================================
 %%% Parse users message
@@ -133,14 +136,21 @@ wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
 %%% Handle users request
 %%%===================================================================
 -spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {'async', pid(), reference(), #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
-do_action(_Msg = #c2s_chat_get_list{}, _State) ->
-    Resp = #s2c_chat_list{},
-    {Resp, _State};
-do_action(_Msg = #c2s_chat_get_info{}, _State) ->
+do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
+    Resp = #s2c_chat_list{chat_id = Chats},
+    {Resp, State};
+do_action(#c2s_chat_get_info{chat_id = ChatId}, _State) ->
     Resp = #s2c_chat_info{},
     {Resp, _State};
-do_action(_Msg = #c2s_chat_create{}, _State) ->
-    Resp = #s2c_chat_create_result{},
+do_action(#c2s_chat_create{name = ChatName, user_msisdn = Users}, #user_state{msisdn = MSISDN, token = T} = State) ->
+    ChatId = chats:new(),
+    lists:foreach(fun(U)->
+                          chats:invite_to_chat(ChatId, U, 'users')
+                  end, Users),
+    chats:invite_to_chat(ChatId, MSISDN, 'administrators'),
+    chats:accept_invatation(ChatId, MSISDN),
+    chat_info:new(ChatId, ChatName, [MSISDN | Users]),
+    Resp = #s2c_chat_create_result{chat_id = ChatId},
     {Resp, _State};
 do_action(_Msg = #c2s_chat_leave{}, _State) ->
     Resp = #s2c_chat_leave_result{},

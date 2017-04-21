@@ -61,9 +61,9 @@
 %% Server-to-Client
 -record(s2c_chat_list, {chat_id = [] :: [integer()]}).
 -record(s2c_chat_info, {chat_id, name, user_msisdn = [], is_muted, is_writable, chat_owner}).
--record(s2c_chat_create_result, {result_code, chat_id}).
--record(s2c_chat_leave_result, {result_code, chat_id}).
--record(s2c_chat_delete_result, {result_code, chat_id}).
+-record(s2c_chat_create_result, {chat_id}).
+-record(s2c_chat_leave_result, {chat_id}).
+-record(s2c_chat_delete_result, {chat_id}).
 -record(s2c_chat_invite_user_result, {result_code, chat_id, user_msisdn}).
 -record(s2c_chat_mute_result, {result_code, chat_id}).
 -record(s2c_chat_unmute_result, {result_code, chat_id}).

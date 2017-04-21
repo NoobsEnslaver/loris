@@ -15,6 +15,7 @@
         ,delete/1
         ,new/3
         ,extract/2
+        ,bind_pid_to_session/2
         ]).
 
 -spec get_tokens() -> [binary()].
@@ -82,6 +83,12 @@ new(MSISDN, WSPid, LiveTime) ->                   %LiveTime in sec
             mnesia:transaction(Fun),
             Token
     end.
+
+bind_pid_to_session(SessionId, Pid) ->
+    Session = sessions:get(SessionId),
+    mnesia:transaction(fun()->
+                            mnesia:write(Session#session{ws_pid = Pid})
+                       end).
 
 %%%-------------------------------------------------------------------
 %%% Data extractors
