@@ -17,20 +17,64 @@
         ,remove_user/2
         ]).
 
-new(_ChatId, _Name, _Users)->
-    ok.
+new(ChatId, Name, OwnerId)->
+    Fun = fun() -> mnesia:write(#chat_info{chat_id = ChatId
+                                          ,name = Name
+                                          ,users = OwnerId
+                                          ,chat_owner = OwnerId})
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> 'false'
+    end.
 
-get(_ChatId) ->
-    ok.
+get(ChatId) ->
+    Fun = fun()-> mnesia:read(ChatId) end,
+    case mnesia:transaction(Fun) of
+        {atomic, [ChatInfo]} -> ChatInfo;
+        _Error -> 'false'
+    end.
 
-delete(_ChatId) ->
-    ok.
+delete(ChatId) ->
+    Fun = fun()->
+                  mnesia:delete({'chat_info', ChatId})
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Result} -> Result;
+        _ -> 'false'
+    end.
 
 rename(_ChatId, _Name) ->
     ok.
 
-add_user(_ChatId, _MSISDN) ->
-    ok.
+add_user(ChatId, MSISDN) ->
+    Fun = fun()->
+                  [ChatInfo] = mnesia:read('chat_info', ChatId), %TODO: handle no table
+                  Users = ChatInfo#chat_info.users,
+                  case lists:member(MSISDN, Users) of
+                      'true' ->
+                          'exists';
+                      _False ->
+                          mnesia:write(ChatInfo#chat_info{users = [MSISDN | Users]})
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.
 
-remove_user(_ChatId, _MSISDN) ->
-    ok.
+remove_user(ChatId, MSISDN) ->
+    Fun = fun()->
+                  [ChatInfo] = mnesia:read('chat_info', ChatId), %TODO: handle no table
+                  Users = ChatInfo#chat_info.users,
+                  case lists:member(MSISDN, Users) of
+                      'false' ->
+                          'not_exists';
+                      _True ->
+                          mnesia:write(ChatInfo#chat_info{users = lists:delete(MSISDN, Users)})
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.

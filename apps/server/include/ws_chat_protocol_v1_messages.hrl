@@ -3,11 +3,11 @@
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {}).
--record(c2s_chat_get_info, {chat_id  :: integer()}).
--record(c2s_chat_create, {name :: binary(), user_msisdn :: [integer()]}).
--record(c2s_chat_leave, {chat_id :: integer()}).
--record(c2s_chat_delete, {chat_id :: integer()}).
--record(c2s_chat_invite_user, {chat_id :: integer(), user_msisdn :: integer() }).
+-record(c2s_chat_get_info, {chat_id  :: binary()}).
+-record(c2s_chat_create, {name :: binary(), users :: [binary()]}).
+-record(c2s_chat_leave, {chat_id :: binary()}).
+-record(c2s_chat_delete, {chat_id :: binary()}).
+-record(c2s_chat_invite_user, {chat_id :: binary(), user_msisdn :: binary() }).
 -record(c2s_chat_mute, {chat_id :: integer()}).
 -record(c2s_chat_unmute, {chat_id :: integer()}).
 -record(c2s_chat_typing, {chat_id :: integer()}).
@@ -60,10 +60,10 @@
 
 %% Server-to-Client
 -record(s2c_chat_list, {chat_id = [] :: [integer()]}).
--record(s2c_chat_info, {chat_id, name, user_msisdn = [], is_muted, is_writable, chat_owner}).
+-record(s2c_chat_info, {chat_id, name, users = [], is_muted, chat_owner, access_group}).
 -record(s2c_chat_create_result, {chat_id}).
 -record(s2c_chat_leave_result, {chat_id}).
--record(s2c_chat_delete_result, {chat_id}).
+-record(s2c_chat_delete_result, {chat_id, result_code}).
 -record(s2c_chat_invite_user_result, {result_code, chat_id, user_msisdn}).
 -record(s2c_chat_mute_result, {result_code, chat_id}).
 -record(s2c_chat_unmute_result, {result_code, chat_id}).

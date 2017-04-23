@@ -17,7 +17,7 @@
         ,allowed_groups/0
         ,access_level/0]).
 
--record(user_state, {chats, rooms, token}).
+-record(user_state, {chats, rooms, token, muted_chats, msisdn}).
 
 -define(R2M(Record, RecName),
         maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))). %TODO: это костыль
@@ -139,25 +139,37 @@ wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
 do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
     Resp = #s2c_chat_list{chat_id = Chats},
     {Resp, State};
-do_action(#c2s_chat_get_info{chat_id = ChatId}, _State) ->
-    Resp = #s2c_chat_info{},
-    {Resp, _State};
-do_action(#c2s_chat_create{name = ChatName, user_msisdn = Users}, #user_state{msisdn = MSISDN, token = T} = State) ->
+do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, muted_chats = MC} = State) ->
+    ChatInfo = chat_info:get(ChatId),
+    Resp = #s2c_chat_info{chat_id = ChatId
+                         ,name = chat_info:extract(ChatInfo, name)
+                         ,users = chat_info:extract(ChatInfo, users)
+                         ,is_muted = lists:member(ChatId, MC)
+                         ,chat_owner = chat_info:extract(ChatInfo, chat_owner)
+                         ,access_group = proplists:get_value(ChatId, MyChats)},
+    {Resp, State};
+do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
+    chat_info:new(ChatId, ChatName, MSISDN),
     lists:foreach(fun(U)->
                           chats:invite_to_chat(ChatId, U, 'users')
                   end, Users),
-    chats:invite_to_chat(ChatId, MSISDN, 'administrators'),
-    chats:accept_invatation(ChatId, MSISDN),
-    chat_info:new(ChatId, ChatName, [MSISDN | Users]),
+    users:invite_to_chat(ChatId, MSISDN, 'administrators'),
+    users:accept_invatation(ChatId, MSISDN),
     Resp = #s2c_chat_create_result{chat_id = ChatId},
-    {Resp, _State};
-do_action(_Msg = #c2s_chat_leave{}, _State) ->
-    Resp = #s2c_chat_leave_result{},
-    {Resp, _State};
-do_action(_Msg = #c2s_chat_delete{}, _State) ->
-    Resp = #s2c_chat_delete_result{},
-    {Resp, _State};
+    {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
+do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
+    users:leave_chat(ChatId, MSISDN),
+    chat_info:remove_user(ChatId, MSISDN),
+    Resp = #s2c_chat_leave_result{chat_id = ChatId},
+    {Resp, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
+do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{chats = OldChats, msisdn = MSISDN} = State) ->
+    {ResultCode, NewState} = case chats:delete(ChatId, MSISDN) of
+                                 ok -> {200, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
+                                 _ -> {403, State}
+                             end,
+    Resp = #s2c_chat_delete_result{chat_id = ChatId, result_code = ResultCode},
+    {Resp, NewState};
 do_action(_Msg = #c2s_chat_invite_user{}, _State) ->
     Resp = #s2c_chat_invite_user_result{},
     {Resp, _State};
@@ -170,9 +182,9 @@ do_action(_Msg = #c2s_chat_unmute{}, _State) ->
 do_action(_Msg = #c2s_chat_typing{}, _State) ->
     Resp = #s2c_chat_typing{},
     {Resp, _State};
-do_action(_Msg =  #c2s_message_send{}, _State) ->
-    Resp = #s2c_message{},
-    {Resp, _State};
+do_action(_Msg =  #c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN} = State) ->
+    chats:send_message(ChatId, MsgBody, MSISDN),
+    {<<>>, State};
 do_action(_Msg =  #c2s_message_get_list{}, _State) ->
     Resp = #s2c_user_info{},
     {Resp, _State};

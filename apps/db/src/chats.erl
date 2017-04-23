@@ -10,7 +10,7 @@
 -include("db.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 -export([new/0
-        ,send_message/2
+        ,send_message/3
         ,update_message/3
         ,update_message_status/2
         ,get_messages_from/2, get_messages_from/3
@@ -19,7 +19,8 @@
         ,invite_to_chat/3
         ,accept_invatation/2
         ,reject_invatatoin/2
-        ,delete/1
+        ,leave_chat/2
+        ,delete/2
         ]).
 
 
@@ -32,7 +33,7 @@ new() ->
     mnesia:create_table(Name, Opts),
     Id.
 
-send_message(TableId, MsgBody) ->
+send_message(TableId, MsgBody, From) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     TimeStamp = common:timestamp(),
     Id = mnesia:dirty_update_counter('index', TableName, 1),
@@ -40,7 +41,8 @@ send_message(TableId, MsgBody) ->
                                                mnesia:write(TableName, #message{msg_id = Id
                                                                                ,msg_body = MsgBody
                                                                                ,timestamp = TimeStamp
-                                                                               ,status = 'pending'}, 'write')
+                                                                               ,status = 'pending'
+                                                                               ,from = From}, 'write')
                                        end),
     Res.
 
@@ -92,6 +94,7 @@ unsubscribe(TableId)->
 
 invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
     users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
+    chats:send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
     case sessions:get_by_owner_id(UserMSISDN) of
         #session{ws_pid = WsPid} when is_pid(WsPid)->
             WsPid ! {chat_invatation, ChatId};
@@ -99,25 +102,37 @@ invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
             'ok'
     end.
 
-accept_invatation(ChatId, UserMSISDN) ->
-    users:accept_invatation(ChatId, UserMSISDN),
-    case sessions:get_by_owner_id(UserMSISDN) of
-        #session{ws_pid = WsPid} when is_pid(WsPid)->
-            WsPid ! {accept_invatation, ChatId};
-        _ ->
-            'ok'
+accept_invatation(ChatId, MSISDN) ->
+    users:accept_invatation(ChatId, MSISDN),
+    chat_info:add_user(ChatId, MSISDN),
+    chats:send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+    ok.
+
+reject_invatatoin(ChatId, MSISDN) ->
+    users:reject_invatatoin(ChatId, MSISDN),
+    chats:send_message(ChatId, <<"@system:reject_invatation">>, MSISDN),
+    ok.
+
+delete(ChatId, MSISDN) ->
+    TableInfo = table_info:get(ChatId),
+    case table_info:extract(ChatId, owner_id) of
+        MSISDN ->
+            notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
+            chats:send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
+            Users = table_info:extract(TableInfo, users),
+            lists:map(fun(U)->
+                              users:leave_chat(ChatId, U)
+                      end, Users),
+            mnesia:delete_table(ChatId),
+            table_info:delete(ChatId),
+            ok;
+        _ -> 'forbidden'
     end.
 
-reject_invatatoin(ChatId, UserMSISDN) ->
-    users:reject_invatatoin(ChatId, UserMSISDN),
-    case sessions:get_by_owner_id(UserMSISDN) of
-        #session{ws_pid = WsPid} when is_pid(WsPid)->
-            WsPid ! {reject_invatation, ChatId};
-        _ ->
-            'ok'
-    end.
-
-delete(_ChatId) ->                               %TODO: delete table, table_info, user#chats
+leave_chat(ChatId, MSISDN) ->
+    chats:send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
+    users:leave_chat(ChatId, MSISDN),
+    chat_info:remove_user(ChatId, MSISDN),
     ok.
 
 %%%===================================================================
@@ -130,3 +145,27 @@ get_unique_chat_id()->
         'true' -> get_unique_chat_id();
         'false'-> RndId
     end.
+
+notify_all_online_chat_users(ChatId, Msg)->
+    ChatInfo = chat_info:get(ChatId),
+    Users = chat_info:extract(ChatInfo, users),
+    lists:map(fun(U)->
+                      case sessions:get_by_owner_id(U) of
+                          #session{ws_pid = WsPid} when is_pid(WsPid)->
+                              WsPid ! Msg;
+                          _ ->
+                              'ok'
+                      end
+              end, Users),
+    ok.
+
+%% notify_chat_online_owner(ChatId, Msg)->
+%%     ChatInfo = chat_info:get(ChatId),
+%%     OwnerId = chat_info:extract(ChatInfo, chat_owner),
+%%     case sessions:get_by_owner_id(OwnerId) of
+%%         #session{ws_pid = WsPid} when is_pid(WsPid)->
+%%             WsPid ! Msg;
+%%         _ ->
+%%             'ok'
+%%     end,
+%%     ok.

@@ -32,14 +32,15 @@
                  ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).
 
--record(message, {msg_id :: non_neg_integer()
+-record(message, {msg_id :: binary()
                  ,msg_body :: binary()
                  ,timestamp :: non_neg_integer()
-                 ,status :: 'pending' | 'delivered' | 'readed'}).
+                 ,status :: 'pending' | 'delivered' | 'readed'
+                 ,from :: binary()}).
 
 -record(chat_info, {chat_id :: binary()
                    ,name :: binary()
-                   ,users :: [non_neg_integer()]
+                   ,users :: [binary()]
                    ,chat_owner :: non_neg_integer()}).
 
 -record(index, {name :: binary()

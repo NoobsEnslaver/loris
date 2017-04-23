@@ -17,6 +17,7 @@
         ,invite_to_chat/3
         ,accept_invatation/2
         ,reject_invatatoin/2
+        ,leave_chat/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -149,6 +150,18 @@ reject_invatatoin(ChatId, MSISDN) ->
         {atomic, Res} -> Res;
         _Error -> _Error
     end.
+
+leave_chat(ChatId, MSISDN)->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  Chats = User#user.chats,
+                  mnesia:write(User#user{chats = proplists:delete(ChatId, Chats)})
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> _Error
+    end.
+
 
 %%%-------------------------------------------------------------------
 %%% Data extractors
