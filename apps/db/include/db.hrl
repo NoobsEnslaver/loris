@@ -12,6 +12,8 @@
                         ,?GET_FIELDS(session, [{index, [#session.owner_id]}, {ram_copies,[node() | nodes()]}])
                         ,?GET_FIELDS(user, [{disc_copies,[node() | nodes()]}])
                         ,?GET_FIELDS(index, [{disc_copies,[node() | nodes()]}])
+                        ,?GET_FIELDS(message, [{disc_copies,[node() | nodes()]}])
+                        ,?GET_FIELDS(chat_info, [{disc_copies,[node() | nodes()]}])
                         ]).
 
 -endif.

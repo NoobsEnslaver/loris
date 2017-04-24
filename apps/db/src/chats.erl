@@ -18,7 +18,7 @@
         ,unsubscribe/1
         ,invite_to_chat/3
         ,accept_invatation/2
-        ,reject_invatatoin/2
+        ,reject_invatation/2
         ,leave_chat/2
         ,delete/2
         ]).
@@ -94,7 +94,7 @@ unsubscribe(TableId)->
 
 invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
     users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
-    chats:send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
+    send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
     case sessions:get_by_owner_id(UserMSISDN) of
         #session{ws_pid = WsPid} when is_pid(WsPid)->
             WsPid ! {chat_invatation, ChatId};
@@ -105,12 +105,12 @@ invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
 accept_invatation(ChatId, MSISDN) ->
     users:accept_invatation(ChatId, MSISDN),
     chat_info:add_user(ChatId, MSISDN),
-    chats:send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+    send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
     ok.
 
-reject_invatatoin(ChatId, MSISDN) ->
+reject_invatation(ChatId, MSISDN) ->
     users:reject_invatatoin(ChatId, MSISDN),
-    chats:send_message(ChatId, <<"@system:reject_invatation">>, MSISDN),
+    send_message(ChatId, <<"@system:reject_invatation">>, MSISDN),
     ok.
 
 delete(ChatId, MSISDN) ->
@@ -118,7 +118,7 @@ delete(ChatId, MSISDN) ->
     case table_info:extract(ChatId, owner_id) of
         MSISDN ->
             notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
-            chats:send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
+            send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
             Users = table_info:extract(TableInfo, users),
             lists:map(fun(U)->
                               users:leave_chat(ChatId, U)
@@ -130,7 +130,7 @@ delete(ChatId, MSISDN) ->
     end.
 
 leave_chat(ChatId, MSISDN) ->
-    chats:send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
+    send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
     users:leave_chat(ChatId, MSISDN),
     chat_info:remove_user(ChatId, MSISDN),
     ok.

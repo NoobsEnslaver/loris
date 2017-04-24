@@ -20,7 +20,8 @@
 -record(state, {transport = <<>>
                ,async_works = #{}
                ,user_state
-               ,protocol :: module()}).
+               ,protocol :: module()
+               ,token}).
 
 -type call_result(State) :: {'ok', State}
                           | {'ok', State, 'hibernate'}
@@ -58,18 +59,16 @@ init(Req, _Opts) ->
                         'true' ->
                             case Module:access_level() of
                                 'infinity' ->
-                                    US = Module:default_user_state(Session),                                                            %инициализируем начальный стейт протокола
                                     Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),                %отвечаем, что готовы использовать один из транспортов
-                                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
+                                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
                                 _ModuleAL when Session == 'false' ->
                                     Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
                                     {'ok', Resp, #state{}};                               %close connection, forbidden
                                 ModuleAL ->
                                     AL = sessions:extract(Session, 'access_level'),
                                     if  ModuleAL >= AL ->
-                                            US = Module:default_user_state(Session),
                                             Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
-                                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, user_state = US}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
+                                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
                                         'true'         ->
                                             Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
                                             {'ok', Resp, #state{}}                               %close connection, forbidden
@@ -86,7 +85,7 @@ init(Req, _Opts) ->
             {'ok', Resp, #state{}}                                %close connection, not implemented
     end.
 
-terminate(_Reason, _Req, _State)->
+terminate(_Reason, _Req, _State)->              %TODO: close ws when session expired
     'ok'.
 
 
@@ -94,9 +93,11 @@ terminate(_Reason, _Req, _State)->
 %%% Websocket handlers
 %%%===================================================================
 -spec websocket_init(#state{}) -> call_result(#state{}).
-websocket_init(_State) ->                       %TODO: можно перенести инициализацию стрейта модуля сюда?
+websocket_init(#state{token = Token, protocol = Module} = State) ->
     lager:md([{'appname', ?APP_NAME}]),
-    {'ok', _State, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
+    US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
+    sessions:bind_pid_to_session(Token, self()),
+    {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
 websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state = US, async_works = AW, protocol = Protocol} = State) ->

@@ -8,10 +8,12 @@
 -record(c2s_chat_leave, {chat_id :: binary()}).
 -record(c2s_chat_delete, {chat_id :: binary()}).
 -record(c2s_chat_invite_user, {chat_id :: binary(), user_msisdn :: binary() }).
--record(c2s_chat_mute, {chat_id :: integer()}).
--record(c2s_chat_unmute, {chat_id :: integer()}).
--record(c2s_chat_typing, {chat_id :: integer()}).
--record(c2s_message_send, {chat_id :: integer(), msg_body :: binary()}).
+-record(c2s_chat_accept_invatation, {chat_id :: binary()}).
+-record(c2s_chat_reject_invatation, {chat_id :: binary()}).
+-record(c2s_chat_mute, {chat_id :: binary()}).
+-record(c2s_chat_unmute, {chat_id :: binary()}).
+-record(c2s_chat_typing, {chat_id :: binary()}).
+-record(c2s_message_send, {chat_id :: binary(), msg_body :: binary()}).
 -record(c2s_message_get_list, {}).              %TODO
 -record(c2s_message_update, {msg_id :: integer(), msg_body :: binary()}).
 -record(c2s_message_update_status, {msg_id :: integer()}).
@@ -64,6 +66,7 @@
 -record(s2c_chat_create_result, {chat_id}).
 -record(s2c_chat_leave_result, {chat_id}).
 -record(s2c_chat_delete_result, {chat_id, result_code}).
+-record(s2c_chat_invatation, {chat_id}).
 -record(s2c_chat_invite_user_result, {result_code, chat_id, user_msisdn}).
 -record(s2c_chat_mute_result, {result_code, chat_id}).
 -record(s2c_chat_unmute_result, {result_code, chat_id}).

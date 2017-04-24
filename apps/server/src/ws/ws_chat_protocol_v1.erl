@@ -22,9 +22,13 @@
 -define(R2M(Record, RecName),
         maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))). %TODO: это костыль
 
-default_user_state(Session)->
+default_user_state(Token)->
+    Session = sessions:get(Token),
     UserMSISDN = sessions:extract(Session, owner_id),
     User = users:get(UserMSISDN),
+    lists:map(fun({C, _AccessGroup})->
+                      chats:subscribe(C)
+              end, users:extract(User, chats)),
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
                ,rooms = users:extract(User, rooms)
@@ -34,16 +38,26 @@ default_user_state(Session)->
 %%% Parse users message
 %%%===================================================================
 -spec unwrap_msg(map()) -> msg_type().
-unwrap_msg(_Msg = #{<<"msg_type">> := 1})  -> #c2s_chat_get_list{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 2})  -> #c2s_chat_get_info{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 3})  -> #c2s_chat_create{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 4})  -> #c2s_chat_leave{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 5})  -> #c2s_chat_delete{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 6})  -> #c2s_chat_invite_user{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 7})  -> #c2s_chat_mute{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 8})  -> #c2s_chat_unmute{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 9})  -> #c2s_chat_typing{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 10})  -> #c2s_message_send{};
+unwrap_msg(#{<<"msg_type">> := 1}) ->
+    #c2s_chat_get_list{};
+unwrap_msg(#{<<"msg_type">> := 2, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_get_info{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 3, <<"name">> := Name, <<"users">> := Users}) ->
+    #c2s_chat_create{name = Name, users = Users};
+unwrap_msg(#{<<"msg_type">> := 4, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_leave{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 5, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_delete{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 6, <<"chat_id">> := ChatId, <<"user_msisdn">> := MSISDN}) ->
+    #c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := 7, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_mute{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 8, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_unmute{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 9, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_typing{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := 10, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
+    #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(_Msg = #{<<"msg_type">> := 11})  -> #c2s_message_get_list{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 12})  -> #c2s_message_update{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 13})  -> #c2s_message_update_status{};
@@ -62,7 +76,8 @@ unwrap_msg(_Msg = #{<<"msg_type">> := 25})  -> #c2s_room_create{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 26})  -> #c2s_room_delete{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 27})  -> #c2s_room_enter_to_chat{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 28})  -> #c2s_room_send_message{};
-
+unwrap_msg(_Msg = #{<<"msg_type">> := 29, <<"chat_id">> := ChatId})  -> #c2s_chat_accept_invatation{chat_id = ChatId};
+unwrap_msg(_Msg = #{<<"msg_type">> := 30, <<"chat_id">> := ChatId})  -> #c2s_chat_reject_invatation{chat_id = ChatId};
 unwrap_msg(_) -> 'undefined'.
 
 
@@ -70,6 +85,7 @@ unwrap_msg(_) -> 'undefined'.
 %%% Prepare server response
 %%%===================================================================
 -spec wrap_msg(msg_type(), binary()) -> binary().
+wrap_msg(ok, _Transport) -> <<>>;
 wrap_msg(#async_start{work_id = WorkId}, Transport) ->
     Data = #{<<"msg_type">> => 100
             ,<<"req_id">> => WorkId},
@@ -129,15 +145,16 @@ wrap_msg(_Msg = #s2c_room_del_user_result{}, Transport) ->
 wrap_msg(_Msg = #s2c_room_add_subroom_result{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 123, ?R2M(_Msg, s2c_room_add_subroom_result)), Transport);
 wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 124, ?R2M(_Msg, s2c_room_create_result)), Transport).
-
+    transport_lib:encode(maps:put(<<"msg_type">>, 124, ?R2M(_Msg, s2c_room_create_result)), Transport);
+wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
+    transport_lib:encode(maps:put(<<"msg_type">>, 125, ?R2M(_Msg, s2c_chat_invatation)), Transport).
 
 %%%===================================================================
 %%% Handle users request
 %%%===================================================================
 -spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {'async', pid(), reference(), #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
 do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
-    Resp = #s2c_chat_list{chat_id = Chats},
+    Resp = #s2c_chat_list{chat_id = [C || {C, _} <- Chats]},
     {Resp, State};
 do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, muted_chats = MC} = State) ->
     ChatInfo = chat_info:get(ChatId),
@@ -170,6 +187,12 @@ do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{chats = OldChats, msis
                              end,
     Resp = #s2c_chat_delete_result{chat_id = ChatId, result_code = ResultCode},
     {Resp, NewState};
+do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
+    chats:accept_invatation(ChatId, MSISDN),
+    {ok, State#user_state{chats = [{ChatId, 'users'} | OldChats]}};
+do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
+    chats:reject_invatation(ChatId, MSISDN),
+    {ok, State#user_state{chats = lists:delete(ChatId, OldChats)}};
 do_action(_Msg = #c2s_chat_invite_user{}, _State) ->
     Resp = #s2c_chat_invite_user_result{},
     {Resp, _State};
@@ -184,7 +207,7 @@ do_action(_Msg = #c2s_chat_typing{}, _State) ->
     {Resp, _State};
 do_action(_Msg =  #c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN} = State) ->
     chats:send_message(ChatId, MsgBody, MSISDN),
-    {<<>>, State};
+    {ok, State};
 do_action(_Msg =  #c2s_message_get_list{}, _State) ->
     Resp = #s2c_user_info{},
     {Resp, _State};
@@ -217,7 +240,7 @@ do_action(_Msg = #c2s_room_rename{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_add_user{}, _State) ->
     Resp = #s2c_room_create_result{},
-{Resp, _State};
+    {Resp, _State};
 do_action(_Msg = #c2s_room_del_user{}, _State) ->
     {Pid, Ref} = ws_utils:do_async_work(fun () ->
                                                 timer:sleep(?ASYNC_WORK_TIMEOUT + 2000),
@@ -254,6 +277,10 @@ do_action(_Msg = #c2s_room_send_message{}, _State) ->
                                                 #s2c_user_info{}
                                         end),
     {'async', Pid, Ref, _State};
+do_action({chat_invatation, ChatId}, #user_state{msisdn = MSISDN} = _State) ->
+    lager:info("User ~p receive chat invatation to: ~p", [MSISDN, ChatId]),
+    Resp = #s2c_chat_invatation{chat_id = ChatId},
+    {Resp, _State};
 do_action(_Msg, _State) ->
     lager:info("unknown message type: ~p", [_Msg]),
     {{error, <<"unknown message">>}, _State}.
@@ -266,3 +293,7 @@ allowed_groups() ->
 
 access_level() ->
     10.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================

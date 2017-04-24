@@ -20,7 +20,7 @@
 new(ChatId, Name, OwnerId)->
     Fun = fun() -> mnesia:write(#chat_info{chat_id = ChatId
                                           ,name = Name
-                                          ,users = OwnerId
+                                          ,users = [OwnerId]
                                           ,chat_owner = OwnerId})
           end,
     case mnesia:transaction(Fun) of
@@ -29,7 +29,7 @@ new(ChatId, Name, OwnerId)->
     end.
 
 get(ChatId) ->
-    Fun = fun()-> mnesia:read(ChatId) end,
+    Fun = fun()-> mnesia:read('chat_info', ChatId) end,
     case mnesia:transaction(Fun) of
         {atomic, [ChatInfo]} -> ChatInfo;
         _Error -> 'false'
