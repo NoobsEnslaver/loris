@@ -68,6 +68,43 @@ handle(<<"POST">>, Req, #q_state{tmp_state = #{'session' := Session}} = State, _
                        State#q_state{code = 400} % bad request
                end,
     {Req, NewState, []};
+handle(<<"POST">>, Req, State, _Args) ->        %if no session and it's allowed - register anything
+    lager:md([{'appname', <<"server->register">>}]),
+    {IP, _Port} = cowboy_req:peer(Req),
+    NewState = case common:get_body_data(Req) of
+                   #{<<"msisdn">> := BMSISDN
+                    ,<<"pwd_hash">> := Pwd
+                    ,<<"group">> := BGroup
+                    ,<<"fname">> := FName
+                    ,<<"lname">> := LName
+                    ,<<"age">> := BAge
+                    ,<<"is_male">> := BIsMale
+                    ,<<"access_level">> := AL1} when BGroup =:= <<"users">> orelse BGroup =:= <<"guests">> orelse BGroup =:= <<"administrators">> ->
+                       Group = binary_to_existing_atom(BGroup, 'utf8'),
+                       IsMale = case BIsMale of
+                                    B when is_boolean(BIsMale) -> B;
+                                    <<"true">> -> true;
+                                    <<"false">> -> false;
+                                    <<"male">> -> true;
+                                    <<"female">> -> false
+                                end,
+                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
+                                    true -> BMSISDN
+                                end,
+                       Age = if  is_binary(BAge) -> binary_to_integer(BAge);
+                                 true -> BAge
+                             end,
+                       AL = case AL1 of
+                                <<"infinity">> -> 'infinity';
+                                BinNum when is_binary(BinNum) -> binary_to_integer(BinNum);
+                                Num when is_integer(Num) -> Num
+                            end,
+                       lager:info("unauthorized creating user ~p with access level ~p on group ~p from IP: ~p", [MSISDN, AL, Group, IP]),
+                       new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AL, State);
+                   _ ->
+                       State#q_state{code = 400} % bad request
+                   end,
+    {Req, NewState, []};
 handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body} = State, _Other) ->
     {'ok', BData} = file:read_file(code:priv_dir(binary_to_atom(?APP_NAME, 'utf8')) ++ "/register.html"),
     NewHeaders = Hdrs#{<<"content-type">> => <<"text/html">>},
@@ -79,7 +116,7 @@ access_level(_Method) ->
     'infinity'.
 
 allowed_groups(_Method) ->
-    ['administrators'].
+    ['administrators', 'users', 'guests'].
 
 %%====================================================================
 %% Internal functions
