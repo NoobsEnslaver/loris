@@ -3,23 +3,32 @@
 -include_lib("common/include/transport_lib.hrl").
 
 -define(SERVER_ADDRESS, "127.0.0.1").
--define(SERVER_PORT, proplists:get_value(port, element(2, application:get_env(server, tcp_params)))).
+-define(SERVER_PORT, 8080).
+
+%% -define(DBG, true).
+-undef(DBG).
+
+-ifdef(DBG).
+-define(CONN_OPTS, #{trace => true}).
+-else.
+-define(CONN_OPTS, #{trace => false}).
+-endif.
 %%====================================================================
 %% API functions
 %%====================================================================
 -export([connect_to_ws/2
         ,send_packet/3
-        ,receive_packet/1
+        ,receive_packet/2
         ,disconnect/1
         ,authorize/2]).
 
--spec authorize(binary(), binary()) -> {ok, pid()}.
-authorize(Login, Pwd) ->
-    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT),
+-spec authorize(binary(), binary()) -> binary().
+authorize(MSISDN, Pwd) ->
+    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
             PwdHash = common:bin2hex(crypto:hash('md5', Pwd)),
-            Body = transport_lib:encode(#{<<"user">> => Login, <<"password">> => PwdHash}, ?JSON),
+            Body = transport_lib:encode(#{<<"msisdn">> => MSISDN, <<"password">> => PwdHash}, ?JSON),
             StreamRef = gun:post(ConnPid, "/v1/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
             Result = gun:await_body(ConnPid, StreamRef),
             gun:close(ConnPid),
@@ -31,7 +40,7 @@ authorize(Login, Pwd) ->
 
 -spec connect_to_ws(string(), string()) -> {ok, pid()}.
 connect_to_ws(Address, Transport) ->            %Address = Tail of the address, "/ws/v1/chat"
-    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT),
+    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
             gun:ws_upgrade(ConnPid, Address, [{<<"sec-websocket-protocol">>, Transport}]),
@@ -65,10 +74,10 @@ send_packet(ConnPid, Data, Transport) when is_map(Data) ->
 send_packet(ConnPid, BData, _Transport) when is_binary(BData) ->
     gun:ws_send(ConnPid, {binary, BData}).
 
-receive_packet(Transport)->
+receive_packet(_ConnPid, Transport)->
     receive
-        {gun_ws, ConnPid, {close, _, _}} -> {close, ConnPid};
-        {gun_ws, ConnPid, {binary, Frame}} -> {ConnPid, transport_lib:decode(Frame, Transport)}
+        {gun_ws, _ConnPid, {close, _, _}} -> {close, _ConnPid};
+        {gun_ws, _ConnPid, {binary, Frame}} -> transport_lib:decode(Frame, Transport)
     after 500 -> {error, timeout}
     end.
 %%====================================================================

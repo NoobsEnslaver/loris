@@ -15,6 +15,7 @@
         ,rename/2
         ,add_user/2
         ,remove_user/2
+        ,extract/2
         ]).
 
 new(ChatId, Name, OwnerId)->
@@ -78,3 +79,12 @@ remove_user(ChatId, MSISDN) ->
         {atomic, Res} -> Res;
         _Error -> _Error
     end.
+
+%%%-------------------------------------------------------------------
+%%% Data extractors
+%%%-------------------------------------------------------------------
+-spec extract(#chat_info{}, chat_id|name|users|chat_owner) -> binary() | [binary()] | non_neg_integer().
+extract(#chat_info{chat_id = C}, 'chat_id')-> C;
+extract(#chat_info{name = N}, 'name')-> N;
+extract(#chat_info{users = U}, 'users')-> U;
+extract(#chat_info{chat_owner = CO}, 'chat_owner')-> CO.

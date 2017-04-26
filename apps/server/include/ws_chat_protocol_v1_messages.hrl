@@ -64,6 +64,7 @@
 -record(s2c_chat_list, {chat_id = [] :: [integer()]}).
 -record(s2c_chat_info, {chat_id, name, users = [], is_muted, chat_owner, access_group}).
 -record(s2c_chat_create_result, {chat_id}).
+-record(s2c_error, {code}).
 -record(s2c_chat_leave_result, {chat_id}).
 -record(s2c_chat_delete_result, {chat_id, result_code}).
 -record(s2c_chat_invatation, {chat_id}).

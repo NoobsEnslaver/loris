@@ -166,7 +166,7 @@ leave_chat(ChatId, MSISDN)->
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
--spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|rooms|chats|chats_invatations|is_male|access_level) -> binary() | non_neg_integer() | 'infinity' | access_group().
+-spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|rooms|chats|chats_invatations|is_male|access_level|muted_chats) -> binary() | non_neg_integer() | 'infinity' | access_group().
 extract(#user{msisdn = MSISDN}, 'msisdn')-> MSISDN;
 extract(#user{group = G}, 'group')-> G;
 extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
@@ -178,4 +178,5 @@ extract(#user{age = Age}, 'age')-> Age;
 extract(#user{fname = FName}, 'fname')-> FName;
 extract(#user{lname = LName}, 'lname')-> LName;
 extract(#user{is_male = IsMale}, 'is_male')-> IsMale;
+extract(#user{muted_chats = MC}, 'muted_chats')-> MC;
 extract(#user{access_level = AccessLevel}, 'access_level')-> AccessLevel.

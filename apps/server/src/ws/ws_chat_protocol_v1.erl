@@ -19,9 +19,6 @@
 
 -record(user_state, {chats, rooms, token, muted_chats, msisdn}).
 
--define(R2M(Record, RecName),
-        maps:from_list(lists:zip(record_info(fields, RecName), tl(tuple_to_list(Record))))). %TODO: это костыль
-
 default_user_state(Token)->
     Session = sessions:get(Token),
     UserMSISDN = sessions:extract(Session, owner_id),
@@ -32,7 +29,8 @@ default_user_state(Token)->
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
                ,rooms = users:extract(User, rooms)
-               ,token = sessions:extract(Session, token)}.
+               ,token = sessions:extract(Session, token)
+               ,muted_chats = users:extract(User, muted_chats)}.
 
 %%%===================================================================
 %%% Parse users message
@@ -76,8 +74,8 @@ unwrap_msg(_Msg = #{<<"msg_type">> := 25})  -> #c2s_room_create{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 26})  -> #c2s_room_delete{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 27})  -> #c2s_room_enter_to_chat{};
 unwrap_msg(_Msg = #{<<"msg_type">> := 28})  -> #c2s_room_send_message{};
-unwrap_msg(_Msg = #{<<"msg_type">> := 29, <<"chat_id">> := ChatId})  -> #c2s_chat_accept_invatation{chat_id = ChatId};
-unwrap_msg(_Msg = #{<<"msg_type">> := 30, <<"chat_id">> := ChatId})  -> #c2s_chat_reject_invatation{chat_id = ChatId};
+unwrap_msg(_Msg = #{<<"msg_type">> := 29, <<"chat_id">> := ChatId}) -> #c2s_chat_accept_invatation{chat_id = ChatId};
+unwrap_msg(_Msg = #{<<"msg_type">> := 30, <<"chat_id">> := ChatId}) -> #c2s_chat_reject_invatation{chat_id = ChatId};
 unwrap_msg(_) -> 'undefined'.
 
 
@@ -147,7 +145,10 @@ wrap_msg(_Msg = #s2c_room_add_subroom_result{}, Transport) ->
 wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 124, ?R2M(_Msg, s2c_room_create_result)), Transport);
 wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 125, ?R2M(_Msg, s2c_chat_invatation)), Transport).
+    transport_lib:encode(maps:put(<<"msg_type">>, 125, ?R2M(_Msg, s2c_chat_invatation)), Transport);
+wrap_msg(_Msg = #s2c_error{}, Transport) ->
+    transport_lib:encode(maps:put(<<"msg_type">>, 126, ?R2M(_Msg, s2c_error)), Transport).
+
 
 %%%===================================================================
 %%% Handle users request
@@ -157,13 +158,28 @@ do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
     Resp = #s2c_chat_list{chat_id = [C || {C, _} <- Chats]},
     {Resp, State};
 do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, muted_chats = MC} = State) ->
-    ChatInfo = chat_info:get(ChatId),
-    Resp = #s2c_chat_info{chat_id = ChatId
-                         ,name = chat_info:extract(ChatInfo, name)
-                         ,users = chat_info:extract(ChatInfo, users)
-                         ,is_muted = lists:member(ChatId, MC)
-                         ,chat_owner = chat_info:extract(ChatInfo, chat_owner)
-                         ,access_group = proplists:get_value(ChatId, MyChats)},
+    Resp = case chat_info:get(ChatId) of
+               'false' ->
+                   #s2c_error{code = 404};
+               ChatInfo ->
+                   ct:pal("~p~n", [?LINE]),
+                   Name = chat_info:extract(ChatInfo, name),
+                   ct:pal("~p~n", [?LINE]),
+                   Users = chat_info:extract(ChatInfo, users),
+                   ct:pal("~p~n", [?LINE]),
+                   IsMuted = lists:member(ChatId, MC),
+                   ct:pal("~p~n", [?LINE]),
+                   ChatOwner = chat_info:extract(ChatInfo, chat_owner),
+                   ct:pal("~p~n", [?LINE]),
+                   AccessGroup = proplists:get_value(ChatId, MyChats),
+                   #s2c_chat_info{chat_id = ChatId
+                                 ,name = Name
+                                 ,users = Users
+                                 ,is_muted = IsMuted
+                                 ,chat_owner = ChatOwner
+                                 ,access_group = AccessGroup}
+           end,
+    ct:pal("2~n"),
     {Resp, State};
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
