@@ -104,16 +104,6 @@ wrap_msg(_Msg = #s2c_chat_info{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 103, ?R2M(_Msg, s2c_chat_info)), Transport);
 wrap_msg(_Msg = #s2c_chat_create_result{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 104, ?R2M(_Msg, s2c_chat_create_result)), Transport);
-wrap_msg(_Msg = #s2c_chat_leave_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 105, ?R2M(_Msg, s2c_chat_leave_result)), Transport);
-wrap_msg(_Msg = #s2c_chat_delete_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 106, ?R2M(_Msg, s2c_chat_delete_result)), Transport);
-wrap_msg(_Msg = #s2c_chat_invite_user_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 107, ?R2M(_Msg, s2c_chat_invite_user_result)), Transport);
-wrap_msg(_Msg = #s2c_chat_mute_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 108, ?R2M(_Msg, s2c_chat_mute_result)), Transport);
-wrap_msg(_Msg = #s2c_chat_unmute_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 109, ?R2M(_Msg, s2c_chat_unmute_result)), Transport);
 wrap_msg(_Msg = #s2c_chat_typing{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 110, ?R2M(_Msg, s2c_chat_typing)), Transport);
 wrap_msg(_Msg = #s2c_message{}, Transport) ->
@@ -126,22 +116,12 @@ wrap_msg(_Msg = #s2c_user_info{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 114, ?R2M(_Msg, s2c_user_info)), Transport);
 wrap_msg(_Msg = #s2c_user_status{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 115, ?R2M(_Msg, s2c_user_status)), Transport);
-wrap_msg(_Msg = #s2c_user_set_info_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 116, ?R2M(_Msg, s2c_user_set_info_result)), Transport);
 wrap_msg(_Msg = #s2c_user_search_result{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 117, ?R2M(_Msg, s2c_user_search_result)), Transport);
 wrap_msg(_Msg = #s2c_room_list{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 118, ?R2M(_Msg, s2c_room_list)), Transport);
 wrap_msg(_Msg = #s2c_room_info{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 119, ?R2M(_Msg, s2c_room_info)), Transport);
-wrap_msg(_Msg = #s2c_room_rename_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 120, ?R2M(_Msg, s2c_room_rename_result)), Transport);
-wrap_msg(_Msg = #s2c_room_add_user_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 121, ?R2M(_Msg, s2c_room_add_user_result)), Transport);
-wrap_msg(_Msg = #s2c_room_del_user_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 122, ?R2M(_Msg, s2c_room_del_user_result)), Transport);
-wrap_msg(_Msg = #s2c_room_add_subroom_result{}, Transport) ->
-    transport_lib:encode(maps:put(<<"msg_type">>, 123, ?R2M(_Msg, s2c_room_add_subroom_result)), Transport);
 wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
     transport_lib:encode(maps:put(<<"msg_type">>, 124, ?R2M(_Msg, s2c_room_create_result)), Transport);
 wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
@@ -162,24 +142,13 @@ do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, mut
                'false' ->
                    #s2c_error{code = 404};
                ChatInfo ->
-                   ct:pal("~p~n", [?LINE]),
-                   Name = chat_info:extract(ChatInfo, name),
-                   ct:pal("~p~n", [?LINE]),
-                   Users = chat_info:extract(ChatInfo, users),
-                   ct:pal("~p~n", [?LINE]),
-                   IsMuted = lists:member(ChatId, MC),
-                   ct:pal("~p~n", [?LINE]),
-                   ChatOwner = chat_info:extract(ChatInfo, chat_owner),
-                   ct:pal("~p~n", [?LINE]),
-                   AccessGroup = proplists:get_value(ChatId, MyChats),
                    #s2c_chat_info{chat_id = ChatId
-                                 ,name = Name
-                                 ,users = Users
-                                 ,is_muted = IsMuted
-                                 ,chat_owner = ChatOwner
-                                 ,access_group = AccessGroup}
+                                 ,name = chat_info:extract(ChatInfo, name)
+                                 ,users = chat_info:extract(ChatInfo, users)
+                                 ,is_muted = lists:member(ChatId, MC)
+                                 ,chat_owner = chat_info:extract(ChatInfo, chat_owner)
+                                 ,access_group = proplists:get_value(ChatId, MyChats)}
            end,
-    ct:pal("2~n"),
     {Resp, State};
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
@@ -192,32 +161,35 @@ do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn =
     Resp = #s2c_chat_create_result{chat_id = ChatId},
     {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
 do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
-    users:leave_chat(ChatId, MSISDN),
-    chat_info:remove_user(ChatId, MSISDN),
-    Resp = #s2c_chat_leave_result{chat_id = ChatId},
-    {Resp, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
+    case proplists:get_value(ChatId, OldChats) of
+        'undefined' ->
+            {#s2c_error{code = 404}, State};
+        _ ->
+            chats:leave_chat(ChatId, MSISDN),
+            {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}}
+    end;
 do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{chats = OldChats, msisdn = MSISDN} = State) ->
-    {ResultCode, NewState} = case chats:delete(ChatId, MSISDN) of
-                                 ok -> {200, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
-                                 _ -> {403, State}
-                             end,
-    Resp = #s2c_chat_delete_result{chat_id = ChatId, result_code = ResultCode},
-    {Resp, NewState};
+    chats:delete(ChatId, MSISDN),
+    {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     chats:accept_invatation(ChatId, MSISDN),
     {ok, State#user_state{chats = [{ChatId, 'users'} | OldChats]}};
 do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     chats:reject_invatation(ChatId, MSISDN),
     {ok, State#user_state{chats = lists:delete(ChatId, OldChats)}};
-do_action(_Msg = #c2s_chat_invite_user{}, _State) ->
-    Resp = #s2c_chat_invite_user_result{},
-    {Resp, _State};
+do_action(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN}, #user_state{chats = Chats} = State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               'administrators' ->
+                   chats:invite_to_chat(ChatId, MSISDN, 'users'),
+                   ok;
+               'undefined' -> #s2c_error{code = 404};
+               _ -> #s2c_error{code = 403}
+           end,
+    {Resp, State};
 do_action(_Msg = #c2s_chat_mute{}, _State) ->
-    Resp = #s2c_chat_mute_result{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_chat_unmute{}, _State) ->
-    Resp = #s2c_chat_unmute_result{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_chat_typing{}, _State) ->
     Resp = #s2c_chat_typing{},
     {Resp, _State};
@@ -231,8 +203,7 @@ do_action(_Msg =  #c2s_message_update{}, _State) ->
     Resp = #s2c_user_status{},
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
-    Resp = #s2c_user_set_info_result{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_user_get_info{}, _State) ->
     Resp = #s2c_user_search_result{},
     {Resp, _State};
@@ -240,61 +211,34 @@ do_action(_Msg = #c2s_user_get_status{}, _State) ->
     Resp = #s2c_room_list{},
     {Resp, _State};
 do_action(_Msg = #c2s_user_set_info{}, _State) ->
-    Resp = #s2c_room_info{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_user_search{}, _State) ->
-    Resp = #s2c_room_rename_result{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_room_get_tree{}, _State) ->
-    Resp = #s2c_room_add_user_result{},
+    Resp = #s2c_room_tree{},
     {Resp, _State};
 do_action(_Msg = #c2s_room_get_info{}, _State) ->
-    Resp = #s2c_room_del_user_result{},
+    Resp = #s2c_room_info{},
     {Resp, _State};
 do_action(_Msg = #c2s_room_rename{}, _State) ->
-    Resp = #s2c_room_add_subroom_result{},
-    {Resp, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_room_add_user{}, _State) ->
+    {ok, _State};
+do_action(_Msg = #c2s_room_del_user{}, _State) ->
+    {ok, _State};
+do_action(_Msg = #c2s_room_add_subroom{}, _State) ->
+    {ok, _State};
+do_action(_Msg = #c2s_room_create{}, _State) ->
     Resp = #s2c_room_create_result{},
     {Resp, _State};
-do_action(_Msg = #c2s_room_del_user{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(?ASYNC_WORK_TIMEOUT + 2000),
-                                                #s2c_room_add_subroom_result{}
-                                        end),
-    {'async', Pid, Ref, _State};
-do_action(_Msg = #c2s_room_add_subroom{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(1000),
-                                                #s2c_room_del_user_result{}
-                                        end),
-    {'async', Pid, Ref, _State};
-do_action(_Msg = #c2s_room_create{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(2000),
-                                                #s2c_room_add_user_result{}
-                                        end),
-    {'async', Pid, Ref, _State};
 do_action(_Msg = #c2s_room_delete{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(2000),
-                                                #s2c_room_rename_result{}
-                                        end),
-    {'async', Pid, Ref, _State};
+    {ok, _State};
 do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(2000),
-                                                #s2c_room_list{}
-                                        end),
-    {'async', Pid, Ref, _State};
+    Resp = #s2c_chat_info{},
+    {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
-    {Pid, Ref} = ws_utils:do_async_work(fun () ->
-                                                timer:sleep(2000),
-                                                #s2c_user_info{}
-                                        end),
-    {'async', Pid, Ref, _State};
-do_action({chat_invatation, ChatId}, #user_state{msisdn = MSISDN} = _State) ->
-    lager:info("User ~p receive chat invatation to: ~p", [MSISDN, ChatId]),
+    {ok, _State};
+do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};
 do_action(_Msg, _State) ->

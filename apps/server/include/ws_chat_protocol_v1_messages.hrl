@@ -61,54 +61,38 @@
                            | #c2s_room_send_message{}.
 
 %% Server-to-Client
--record(s2c_chat_list, {chat_id = [] :: [integer()]}).
--record(s2c_chat_info, {chat_id, name, users = [], is_muted, chat_owner, access_group}).
--record(s2c_chat_create_result, {chat_id}).
--record(s2c_error, {code}).
--record(s2c_chat_leave_result, {chat_id}).
--record(s2c_chat_delete_result, {chat_id, result_code}).
--record(s2c_chat_invatation, {chat_id}).
--record(s2c_chat_invite_user_result, {result_code, chat_id, user_msisdn}).
--record(s2c_chat_mute_result, {result_code, chat_id}).
--record(s2c_chat_unmute_result, {result_code, chat_id}).
--record(s2c_chat_typing, {chat_id, user_msisdn}).
--record(s2c_message, {chat_id, msg_body, timestamp, status, msg_id}).
--record(s2c_message_update, {chat_id, msg_id, msg_body}).
--record(s2c_message_update_status, {chat_id, msg_id}).
--record(s2c_user_info, {user_msisdn, fname, lname, age, is_male}).
+-record(s2c_chat_list, {chat_id::[binary()]}).
+-record(s2c_chat_info, {chat_id::binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), access_group :: atom()}).
+-record(s2c_chat_create_result, {chat_id :: binary()}).
+-record(s2c_error, {code :: non_neg_integer()}).
+-record(s2c_chat_invatation, {chat_id :: binary()}).
+-record(s2c_chat_typing, {chat_id :: binary(), user_msisdn :: non_neg_integer()}).
+-record(s2c_message, {chat_id :: binary(), msg_body :: binary(), timestamp :: non_neg_integer(), status, msg_id :: non_neg_integer()}).
+-record(s2c_message_update, {chat_id :: binary(), msg_id :: non_neg_integer(), msg_body :: binary()}).
+-record(s2c_message_update_status, {chat_id :: binary(), msg_id}).
+-record(s2c_user_info, {user_msisdn, fname :: binary(), lname :: binary(), age, is_male}).
 -record(s2c_user_status, {user_msisdn, is_online = 'false', last_visit_timestamp}).
--record(s2c_user_set_info_result, {result_code, fname, lname, age, is_male}).
 -record(s2c_user_search_result, {user_msisdn = []}).
--record(s2c_room_list, {room_id = []}).
--record(s2c_room_info, {room_id, subroom_id = [], user_msisdn = [], chat_id = []}).
--record(s2c_room_rename_result, {result_code, room_id, name}).
--record(s2c_room_add_user_result, {result_code, room_id, user_msisdn, access_level, is_public = 'false'}).
--record(s2c_room_del_user_result, {result_code, room_id, user_msisdn}).
--record(s2c_room_add_subroom_result, {result_code, room_id, subroom_id}).
--record(s2c_room_create_result, {result_code, room_id, name}).
+-record(s2c_room_list, {room_id :: binary()}).
+-record(s2c_room_tree, {room_id :: binary()}).
+-record(s2c_room_info, {room_id :: binary(), subroom_id :: [binary()], user_msisdn :: [binary()], chat_id :: [binary()]}).
+-record(s2c_room_create_result, {room_id :: binary()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
                            | #s2c_chat_create_result{}
-                           | #s2c_chat_leave_result{}
-                           | #s2c_chat_delete_result{}
-                           | #s2c_chat_invite_user_result{}
-                           | #s2c_chat_mute_result{}
-                           | #s2c_chat_unmute_result{}
+                           | #s2c_error{}
+                           | #s2c_chat_invatation{}
                            | #s2c_chat_typing{}
                            | #s2c_message{}
                            | #s2c_message_update{}
                            | #s2c_message_update_status{}
                            | #s2c_user_info{}
                            | #s2c_user_status{}
-                           | #s2c_user_set_info_result{}
                            | #s2c_user_search_result{}
                            | #s2c_room_list{}
+                           | #s2c_room_tree{}
                            | #s2c_room_info{}
-                           | #s2c_room_rename_result{}
-                           | #s2c_room_add_user_result{}
-                           | #s2c_room_del_user_result{}
-                           | #s2c_room_add_subroom_result{}
                            | #s2c_room_create_result{}.
 
 -type msg_type() :: server_msg_type()
