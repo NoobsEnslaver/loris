@@ -44,14 +44,17 @@ handle(<<"POST">>, _Req, #q_state{body = B} = State, [T | _Args]) ->
     {IP, _Port} = cowboy_req:peer(_Req),
     IsSupportedTransport = lists:member(T, ?SUPPORTED_TRANSPORT),
     NewState = case common:get_body_data(_Req) of
-                   #{<<"user">> := Login
+                   #{<<"msisdn">> := BMSISDN
                     ,<<"password">> := PwdHash}  when IsSupportedTransport == 'true' ->
-                       case users:authorize(Login, PwdHash) of
+                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
+                                    true -> BMSISDN
+                                end,
+                       case users:authorize(MSISDN, PwdHash) of
                            'false' ->
-                               lager:info("unauthorized with pair ~p:~p from IP: ~p", [Login, PwdHash, IP]),
+                               lager:info("unauthorized with pair ~p:~p from IP: ~p", [MSISDN, PwdHash, IP]),
                                State#q_state{code = 401}; %unauthorized
                            User ->
-                               lager:info("user ~p authorized with pair ~p:~p from IP: ~p", [User, Login, PwdHash, IP]),
+                               lager:info("user ~p authorized with pair ~p:~p from IP: ~p", [User, MSISDN, PwdHash, IP]),
                                Token = sessions:new(User, 'undefined', SessionLiveTime),
                                State#q_state{body = transport_lib:encode(#{<<"token">> => <<B/binary, Token/binary>>}, T), code = 200}
                        end;

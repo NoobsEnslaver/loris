@@ -67,7 +67,7 @@ new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
         _ ->
             User = #user{msisdn = MSISDN
                         ,group = Group
-                        ,pwd_hash = PwdHash
+                        ,pwd_hash = list_to_binary(string:to_upper(binary_to_list(PwdHash)))
                         ,fname = FName
                         ,lname = LName
                         ,age = Age
