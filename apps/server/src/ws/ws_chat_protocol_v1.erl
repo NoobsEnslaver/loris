@@ -9,6 +9,7 @@
 -module(ws_chat_protocol_v1).
 -include("ws_chat_protocol_v1_messages.hrl").
 -include("server.hrl").
+-include_lib("common/include/tables.hrl").
 -behaviour(ws_protocol_behaviour).
 -export([unwrap_msg/1
         ,do_action/2
@@ -153,11 +154,12 @@ do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, mut
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
     chat_info:new(ChatId, ChatName, MSISDN),
+    users:invite_to_chat(ChatId, MSISDN, 'administrators'),
+    users:accept_invatation(ChatId, MSISDN),
+    chats:subscribe(ChatId),
     lists:foreach(fun(U)->
                           chats:invite_to_chat(ChatId, U, 'users')
                   end, Users),
-    users:invite_to_chat(ChatId, MSISDN, 'administrators'),
-    users:accept_invatation(ChatId, MSISDN),
     Resp = #s2c_chat_create_result{chat_id = ChatId},
     {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
 do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
@@ -165,6 +167,7 @@ do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats 
         'undefined' ->
             {#s2c_error{code = 404}, State};
         _ ->
+            chats:unsubscribe(ChatId),
             chats:leave_chat(ChatId, MSISDN),
             {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}}
     end;
@@ -172,6 +175,7 @@ do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{chats = OldChats, msis
     chats:delete(ChatId, MSISDN),
     {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
+    chats:subscribe(ChatId),
     chats:accept_invatation(ChatId, MSISDN),
     {ok, State#user_state{chats = [{ChatId, 'users'} | OldChats]}};
 do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
@@ -238,10 +242,20 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
     {ok, _State};
+do_action({chat_delete, ChatId}, #user_state{chats = Chats} = State) ->
+    chats:unsubscribe(ChatId),
+    {ok, State#user_state{chats = proplists:delete(ChatId, Chats)}};
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From} = _NewMsg, _OldRecords, _ActivityId} = Event}, _State) ->
+    ct:pal("Mnesia event: ~p~n", [Event]),
+    ct:pal("Message: ~p~nFrom: ~p~n", [_NewMsg, Table]),
+    <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
+    Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, msg_id = MsgId, from = From},
+    {Resp, _State};
 do_action(_Msg, _State) ->
+    ct:pal("unknown message type: ~p", [_Msg]),
     lager:info("unknown message type: ~p", [_Msg]),
     {{error, <<"unknown message">>}, _State}.
 
