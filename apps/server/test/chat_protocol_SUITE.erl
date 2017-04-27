@@ -111,7 +111,7 @@ groups() ->
                  ,chat_create_and_get_info_test
                  ,chat_invite_user_test
                  ,chat_invite_user_on_chat_creation_test
-                 %% ,chat_leave_test
+                 ,chat_leave_test
                  %% ,chat_delete_test
 
                  %% ,chat_accept_invatation_test
@@ -259,6 +259,8 @@ chat_invite_user_test(Config) ->
     %% Send invataton
     send_packet(ConPid1, maps:put(<<"msg_type">>, 6, ?R2M(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN2}, c2s_chat_invite_user)), Transport1),
     timer:sleep(50),
+    #{<<"msg_type">> := 111, <<"from">> => MSISDN1, <<"msg_body">> => <<"@system:invite_to_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := 102, <<"chat_id">> := []} = receive_packet(ConPid2, Transport2),
     {error, timeout} = receive_packet(ConPid1, Transport1),
     %% Receive invatation
     #{<<"msg_type">> := 125, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
@@ -366,6 +368,8 @@ chat_invite_user_on_chat_creation_test(Config) ->
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
 
+chat_leave_test(_Config) ->
+    ok.
 
 %%%===================================================================
 %%% Internal functions

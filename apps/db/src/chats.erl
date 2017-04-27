@@ -86,11 +86,11 @@ get_messages_from(TableId, TimeStampFrom, TimeStampTo) ->       %TODO: optimize 
 
 subscribe(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    mnesia:subscribe({table, TableName, simple}).
+    mnesia:subscribe({table, TableName, detailed}).
 
 unsubscribe(TableId)->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    mnesia:unsubscribe({table, TableName, simple}).
+    mnesia:unsubscribe({table, TableName, detailed}).
 
 invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
     users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
@@ -105,6 +105,7 @@ invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
 accept_invatation(ChatId, MSISDN) ->
     users:accept_invatation(ChatId, MSISDN),
     chat_info:add_user(ChatId, MSISDN),
+    subscribe(ChatId),
     send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
     ok.
 
@@ -115,15 +116,17 @@ reject_invatation(ChatId, MSISDN) ->
 
 delete(ChatId, MSISDN) ->
     TableInfo = table_info:get(ChatId),
+    TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
     case table_info:extract(ChatId, owner_id) of
         MSISDN ->
             notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
             send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
+            timer:sleep(50),
             Users = table_info:extract(TableInfo, users),
             lists:map(fun(U)->
                               users:leave_chat(ChatId, U)
                       end, Users),
-            mnesia:delete_table(ChatId),
+            mnesia:delete_table(TableName),
             table_info:delete(ChatId),
             ok;
         _ -> 'forbidden'
@@ -131,6 +134,7 @@ delete(ChatId, MSISDN) ->
 
 leave_chat(ChatId, MSISDN) ->
     send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
+    unsubscribe(ChatId),
     users:leave_chat(ChatId, MSISDN),
     chat_info:remove_user(ChatId, MSISDN),
     ok.
