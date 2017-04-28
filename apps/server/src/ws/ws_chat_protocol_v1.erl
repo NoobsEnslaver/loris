@@ -167,7 +167,6 @@ do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats 
         'undefined' ->
             {#s2c_error{code = 404}, State};
         _ ->
-            chats:unsubscribe(ChatId),
             chats:leave_chat(ChatId, MSISDN),
             {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}}
     end;
