@@ -115,22 +115,18 @@ reject_invatation(ChatId, MSISDN) ->
     ok.
 
 delete(ChatId, MSISDN) ->
-    TableInfo = table_info:get(ChatId),
+    TableInfo = chat_info:get(ChatId),
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    case table_info:extract(ChatId, owner_id) of
-        MSISDN ->
-            notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
-            send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
-            timer:sleep(50),
-            Users = table_info:extract(TableInfo, users),
-            lists:map(fun(U)->
-                              users:leave_chat(ChatId, U)
-                      end, Users),
-            mnesia:delete_table(TableName),
-            table_info:delete(ChatId),
-            ok;
-        _ -> 'forbidden'
-    end.
+    send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
+    notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
+    timer:sleep(50),
+    Users = chat_info:extract(TableInfo, users),
+    lists:map(fun(U)->
+                      users:leave_chat(ChatId, U)
+              end, Users),
+    mnesia:delete_table(TableName),
+    chat_info:delete(ChatId),
+    ok.
 
 leave_chat(ChatId, MSISDN) ->
     send_message(ChatId, <<"@system:leave_chat">>, MSISDN),

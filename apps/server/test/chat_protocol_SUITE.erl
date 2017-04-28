@@ -109,13 +109,11 @@ groups() ->
                  ,chat_get_info_unexists_chat_test
                  ,chat_create_test
                  ,chat_create_and_get_info_test
-                 ,chat_invite_user_test
-                 ,chat_invite_user_on_chat_creation_test
+                 ,chat_invite_accept_test
+                 ,chat_invite_accept_on_chat_creation_test
+                 ,chat_invite_reject_on_chat_creation_test
                  ,chat_leave_test
-                 %% ,chat_delete_test
-
-                 %% ,chat_accept_invatation_test
-                 %% ,chat_reject_invatation_test
+                 ,chat_delete_test
                  %% ,chat_mute_test
                  %% ,chat_unmute_test
                  %% ,chat_typing_test
@@ -221,7 +219,7 @@ chat_create_and_get_info_test(Config) ->
                       {error, timeout} = receive_packet(ConPid, Transport)
               end, Env).
 
-chat_invite_user_test(Config) ->
+chat_invite_accept_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
@@ -289,7 +287,7 @@ chat_invite_user_test(Config) ->
     ok.
 
 
-chat_invite_user_on_chat_creation_test(Config) ->
+chat_invite_accept_on_chat_creation_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
@@ -351,6 +349,47 @@ chat_invite_user_on_chat_creation_test(Config) ->
     {error, timeout} = receive_packet(ConPid1, Transport1),
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
+
+
+chat_invite_reject_on_chat_creation_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ChatName = <<"test_chat">>,
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% Crete chat, receive chat_id
+    send_packet(ConPid1, maps:put(<<"msg_type">>, 3, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create)), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := 104, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% User1 receive message about invatation in chat
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% User2 receive invatation
+    #{<<"msg_type">> := 125, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    %% Get my chats list
+    [ChatId] = get_chats_list(ConPid1, Transport1),
+    [] = get_chats_list(ConPid2, Transport2),
+    %% Reject invatation
+    send_packet(ConPid2, maps:put(<<"msg_type">>, 30, ?R2M(#c2s_chat_reject_invatation{chat_id = ChatId}, c2s_chat_reject_invatation)), Transport2),
+    timer:sleep(50),
+    %% Both users receive message in chat about accepting invatation
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:reject_invatation">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% Get chat info as admin and user after accept invatation
+    #{<<"msg_type">> := 103
+     ,<<"chat_id">> := ChatId
+     ,<<"name">> := ChatName
+     ,<<"users">> := [MSISDN1]
+     ,<<"is_muted">> := 'false'
+     ,<<"chat_owner">> := MSISDN1
+     ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+    %% Get my chats list
+    [ChatId] = get_chats_list(ConPid1, Transport1),
+    [] = get_chats_list(ConPid2, Transport2),
+    timer:sleep(50),
+    %% Try accept rejectet invatation
+    %% send_packet(ConPid2, maps:put(<<"msg_type">>, 29, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation)), Transport2),
+    %% #{<<"msg_type">> := 126, <<"code">> := 404} = receive_packet(ConPid2, Transport2),
+    ok.
+
 
 chat_leave_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
@@ -417,6 +456,65 @@ chat_leave_test(Config) ->
      ,<<"is_muted">> := 'false'
      ,<<"chat_owner">> := MSISDN1
      ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+    ok.
+
+chat_delete_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ChatName = <<"test_chat">>,
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% Crete chat, receive chat_id
+    send_packet(ConPid1, maps:put(<<"msg_type">>, 3, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create)), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := 104, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% User1 receive message about invatation in chat
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% User2 receive invatation
+    #{<<"msg_type">> := 125, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    %% Accept invatation
+    send_packet(ConPid2, maps:put(<<"msg_type">>, 29, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info)), Transport2),
+    timer:sleep(50),
+    %% Both users receive message in chat about accepting invatation
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:accept_invatation">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:accept_invatation">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    %% Get my chats list
+    [ChatId] = get_chats_list(ConPid1, Transport1),
+    [ChatId] = get_chats_list(ConPid2, Transport2),
+    timer:sleep(50),
+    %% Get chat info as admin and user after accept invatation
+    #{<<"msg_type">> := 103
+     ,<<"chat_id">> := ChatId
+     ,<<"name">> := ChatName
+     ,<<"users">> := BothUsers
+     ,<<"is_muted">> := 'false'
+     ,<<"chat_owner">> := MSISDN1
+     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+    #{<<"msg_type">> := 103
+     ,<<"chat_id">> := ChatId
+     ,<<"name">> := ChatName
+     ,<<"users">> := BothUsers
+     ,<<"is_muted">> := 'false'
+     ,<<"chat_owner">> := MSISDN1
+     ,<<"access_group">> := <<"users">>} = get_chat_info(ConPid2, Transport2, ChatId),
+    'true' = lists:member(MSISDN1, BothUsers),
+    'true' = lists:member(MSISDN2, BothUsers),
+    %% User2 try to delete chat
+    send_packet(ConPid2, maps:put(<<"msg_type">>, 5, ?R2M(#c2s_chat_delete{chat_id = ChatId}, c2s_chat_delete)), Transport2),
+    timer:sleep(50),
+    #{<<"msg_type">> := 126, <<"code">> := 403} = receive_packet(ConPid2, Transport2), %Error: forbidden
+    %% User1 delete chat
+    send_packet(ConPid1, maps:put(<<"msg_type">>, 5, ?R2M(#c2s_chat_delete{chat_id = ChatId}, c2s_chat_delete)), Transport1),
+    timer:sleep(50),
+    %% Both users receive message in chat about deletion
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN1, <<"msg_body">> := <<"@system:delete_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := 111, <<"from">> := MSISDN1, <<"msg_body">> := <<"@system:delete_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    %% Get my chats list
+    [] = get_chats_list(ConPid1, Transport1),
+    [] = get_chats_list(ConPid2, Transport2),
+    %% Get chat info as admin and user after accept invatation
+    #{<<"msg_type">> := 126, <<"code">> := 404}  = get_chat_info(ConPid1, Transport1, ChatId),
+    #{<<"msg_type">> := 126, <<"code">> := 404}  = get_chat_info(ConPid2, Transport2, ChatId),
     ok.
 
 %%%===================================================================

@@ -170,9 +170,16 @@ do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats 
             chats:leave_chat(ChatId, MSISDN),
             {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}}
     end;
-do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{chats = OldChats, msisdn = MSISDN} = State) ->
-    chats:delete(ChatId, MSISDN),
-    {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}};
+do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               'administrators' ->
+                   chats:delete(ChatId, MSISDN);
+               'undefined' ->
+                   #s2c_error{code = 404};
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, State};
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     chats:subscribe(ChatId),
     chats:accept_invatation(ChatId, MSISDN),
@@ -247,14 +254,11 @@ do_action({chat_delete, ChatId}, #user_state{chats = Chats} = State) ->
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From} = _NewMsg, _OldRecords, _ActivityId} = Event}, _State) ->
-    ct:pal("Mnesia event: ~p~n", [Event]),
-    ct:pal("Message: ~p~nFrom: ~p~n", [_NewMsg, Table]),
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From} = _NewMsg, _OldRecords, _ActivityId}}, _State) ->
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, msg_id = MsgId, from = From},
     {Resp, _State};
 do_action(_Msg, _State) ->
-    ct:pal("unknown message type: ~p", [_Msg]),
     lager:info("unknown message type: ~p", [_Msg]),
     {{error, <<"unknown message">>}, _State}.
 
