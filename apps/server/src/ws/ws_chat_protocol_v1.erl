@@ -154,12 +154,12 @@ do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, mut
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
     chat_info:new(ChatId, ChatName, MSISDN),
-    lists:foreach(fun(U)->
-                          chats:invite_to_chat(ChatId, U, 'users')
-                  end, Users),
     users:invite_to_chat(ChatId, MSISDN, 'administrators'),
     users:accept_invatation(ChatId, MSISDN),
     chats:subscribe(ChatId),
+    lists:foreach(fun(U)->
+                          chats:invite_to_chat(ChatId, U, 'users')
+                  end, Users),
     Resp = #s2c_chat_create_result{chat_id = ChatId},
     {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
 do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
