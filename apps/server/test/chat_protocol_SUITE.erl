@@ -385,9 +385,11 @@ chat_invite_reject_on_chat_creation_test(Config) ->
     [ChatId] = get_chats_list(ConPid1, Transport1),
     [] = get_chats_list(ConPid2, Transport2),
     timer:sleep(50),
-    %% Try accept rejectet invatation
-    %% send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport2),
-    %% #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"code">> := 404} = receive_packet(ConPid2, Transport2),
+    %% Try accept rejected invatation
+    send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid2, Transport2),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
 
 

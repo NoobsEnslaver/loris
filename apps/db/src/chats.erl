@@ -103,16 +103,20 @@ invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
     end.
 
 accept_invatation(ChatId, MSISDN) ->
-    users:accept_invatation(ChatId, MSISDN),
-    chat_info:add_user(ChatId, MSISDN),
-    subscribe(ChatId),
-    send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
-    ok.
+    case users:accept_invatation(ChatId, MSISDN) of
+        'not_exists' -> 'not_exists';
+        AccessGroup ->
+            chat_info:add_user(ChatId, MSISDN),
+            subscribe(ChatId),
+            send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+            AccessGroup
+    end.
 
 reject_invatation(ChatId, MSISDN) ->
-    users:reject_invatatoin(ChatId, MSISDN),
-    send_message(ChatId, <<"@system:reject_invatation">>, MSISDN),
-    ok.
+    case users:reject_invatatoin(ChatId, MSISDN) of
+        'not_exists' -> 'not_exists';
+        _Ok -> send_message(ChatId, <<"@system:reject_invatation">>, MSISDN)
+    end.
 
 delete(ChatId, MSISDN) ->
     TableInfo = chat_info:get(ChatId),

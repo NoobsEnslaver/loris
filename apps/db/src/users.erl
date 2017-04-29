@@ -127,7 +127,8 @@ accept_invatation(ChatId, MSISDN) ->
                           'not_exists';
                       AccessGroup ->
                           mnesia:write(User#user{chats_invatations = proplists:delete(ChatId, CI)
-                                                ,chats = [{ChatId, AccessGroup} | Chats]})
+                                                ,chats = [{ChatId, AccessGroup} | Chats]}),
+                          AccessGroup
                   end
           end,
     case mnesia:transaction(Fun) of

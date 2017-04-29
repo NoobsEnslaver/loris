@@ -185,12 +185,16 @@ do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats
            end,
     {Resp, State};
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
-    chats:subscribe(ChatId),
-    chats:accept_invatation(ChatId, MSISDN),
-    {ok, State#user_state{chats = [{ChatId, 'users'} | OldChats]}};
-do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
-    chats:reject_invatation(ChatId, MSISDN),
-    {ok, State#user_state{chats = lists:delete(ChatId, OldChats)}};
+    case chats:accept_invatation(ChatId, MSISDN) of
+        'not_exists' -> {#s2c_error{code = 404}, State};
+        AccessGroup -> {ok, State#user_state{chats = [{ChatId, AccessGroup} | OldChats]}}
+    end;
+do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN} = State) ->
+    Resp = case chats:reject_invatation(ChatId, MSISDN) of
+               'not_exists' -> #s2c_error{code = 404};
+               _Ok -> ok
+           end,
+    {Resp, State};
 do_action(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN}, #user_state{chats = Chats} = State) ->
     Resp = case proplists:get_value(ChatId, Chats) of
                'administrators' ->
