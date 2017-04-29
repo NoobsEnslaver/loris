@@ -57,7 +57,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId}) 
     #c2s_chat_typing{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE})-> #c2s_message_get_list{};
+unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId})->
+    #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE}) -> #c2s_message_update{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE}) -> #c2s_message_update_status{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
@@ -130,9 +131,15 @@ wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_chat_invatation), Transport);
 wrap_msg(_Msg = #s2c_error{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_error), Transport);
+wrap_msg(Msg = #s2c_message_list{messages = Messages}, Transport) ->
+    MapMessages = [?R2M(M, message) || M <- Messages],
+    transport_lib:encode(?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list), Transport);
 wrap_msg({error, Msg}, Transport) ->
     lager:error("Can't wrap message: unknown type. Msg: ~p", [Msg]),
+    transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport);
+wrap_msg(_, Transport) ->
     transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport).
+
 
 
 %%%===================================================================
@@ -214,8 +221,14 @@ do_action(_Msg = #c2s_chat_typing{}, _State) ->
 do_action(_Msg =  #c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN} = State) ->
     chats:send_message(ChatId, MsgBody, MSISDN),
     {ok, State};
-do_action(_Msg =  #c2s_message_get_list{}, _State) ->
-    Resp = #s2c_user_info{},
+do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{chats = Chats} = _State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               'undefined' ->
+                   #s2c_error{code = 403};
+               _AccessGroup ->
+                   Messages = chats:get_messages_by_id(ChatId, MsgId),
+                   #s2c_message_list{messages = Messages}
+           end,
     {Resp, _State};
 do_action(_Msg =  #c2s_message_update{}, _State) ->
     Resp = #s2c_user_status{},

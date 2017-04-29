@@ -53,6 +53,7 @@
 -define(S2C_ROOM_TREE_TYPE, 114).
 -define(S2C_ROOM_INFO_TYPE, 115).
 -define(S2C_ROOM_CREATE_RESULT_TYPE, 116).
+-define(S2C_MESSAGE_LIST_TYPE, 117).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -67,7 +68,7 @@
 -record(c2s_chat_unmute, {msg_type = ?C2S_CHAT_UNMUTE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_typing, {msg_type = ?C2S_CHAT_TYPING_TYPE, chat_id :: binary()}).
 -record(c2s_message_send, {msg_type = ?C2S_MESSAGE_SEND_TYPE, chat_id :: binary(), msg_body :: binary()}).
--record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE}).              %TODO
+-record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE, chat_id :: binary(), msg_id :: non_neg_integer()}).
 -record(c2s_message_update, {msg_type = ?C2S_MESSAGE_UPDATE_TYPE, msg_id :: integer(), msg_body :: binary()}).
 -record(c2s_message_update_status, {msg_type = ?C2S_MESSAGE_UPDATE_STATUS_TYPE, msg_id :: non_neg_integer()}).
 -record(c2s_system_logout, {msg_type = ?C2S_SYSTEM_LOGOUT_TYPE}).
@@ -75,7 +76,7 @@
 -record(c2s_user_get_status, {msg_type = ?C2S_USER_GET_STATUS_TYPE, user_msisdn :: non_neg_integer()}).
 -record(c2s_user_set_info, {msg_type = ?C2S_USER_SET_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE}).                   %TODO
--record(c2s_room_get_tree, {msg_type = ?C2S_ROOM_GET_TREE_TYPE}).
+-record(c2s_room_get_tree, {msg_type = ?C2S_ROOM_GET_TREE_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_get_info, {msg_type = ?C2S_ROOM_GET_INFO_TYPE, room_id :: non_neg_integer(), subroom_id :: [non_neg_integer()], user_msisdn :: non_neg_integer(), chat_id :: binary(), room_name :: binary()}).
 -record(c2s_room_rename, {msg_type = ?C2S_ROOM_RENAME_TYPE, room_id :: non_neg_integer(), room_name :: binary()}).
 -record(c2s_room_add_user, {msg_type = ?C2S_ROOM_ADD_USER_TYPE, room_id :: non_neg_integer(), user_msisdn :: non_neg_integer()}).
@@ -128,6 +129,7 @@
 -record(s2c_message, {msg_type = ?S2C_MESSAGE_TYPE, chat_id :: binary(), msg_body :: binary(), timestamp :: non_neg_integer(), status :: 'pending' | 'delivered' | 'readed', msg_id :: non_neg_integer(), from :: non_neg_integer()}).
 -record(s2c_message_update, {msg_type = ?S2C_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), msg_body :: binary()}).
 -record(s2c_message_update_status, {msg_type = ?S2C_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id}).
+-record(s2c_message_list, {msg_type = ?S2C_MESSAGE_LIST_TYPE, messages :: [#s2c_message{}]}).
 -record(s2c_user_info, {msg_type = ?S2C_USER_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
 -record(s2c_user_status, {msg_type = ?S2C_USER_STATUS_TYPE, user_msisdn :: non_neg_integer(), is_online = 'false', last_visit_timestamp :: non_neg_integer()}).
 -record(s2c_user_search_result, {msg_type = ?S2C_USER_SEARCH_RESULT_TYPE, user_msisdn :: [non_neg_integer()]}).

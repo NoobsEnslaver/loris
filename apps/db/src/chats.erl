@@ -14,6 +14,7 @@
         ,update_message/3
         ,update_message_status/2
         ,get_messages_from/2, get_messages_from/3
+        ,get_messages_by_id/2
         ,subscribe/1
         ,unsubscribe/1
         ,invite_to_chat/3
@@ -29,7 +30,8 @@ new() ->
     Name = erlang:binary_to_atom(<<"chat_", Id/binary>>, 'utf8'),
     Opts = [{attributes, record_info(fields, 'message')}
            ,{record_name, 'message'}
-           ,{disc_copies,[node() | nodes()]}],
+           ,{disc_copies,[node() | nodes()]}
+           ,{type, ordered_set}],               %For fastest message grabbing by period
     mnesia:create_table(Name, Opts),
     Id.
 
@@ -81,6 +83,12 @@ get_messages_from(TableId, TimeStampFrom, TimeStampTo) ->       %TODO: optimize 
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     Q = qlc:q([M || M <- mnesia:table(TableName), M#message.timestamp >  TimeStampFrom
                                                  ,M#message.timestamp =< TimeStampTo]),
+    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
+    Res.
+
+get_messages_by_id(ChatId, MsgId) ->
+    TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
+    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]),
     {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
     Res.
 

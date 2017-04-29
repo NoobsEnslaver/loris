@@ -20,7 +20,8 @@
         ,send_packet/3
         ,receive_packet/2
         ,disconnect/1
-        ,authorize/2]).
+        ,authorize/2
+        ,flush_messages/0]).
 
 -spec authorize(binary(), binary()) -> binary().
 authorize(MSISDN, Pwd) ->
@@ -79,6 +80,12 @@ receive_packet(_ConnPid, Transport)->
         {gun_ws, _ConnPid, {close, _, _}} -> {close, _ConnPid};
         {gun_ws, _ConnPid, {binary, Frame}} -> transport_lib:decode(Frame, Transport)
     after 500 -> {error, timeout}
+    end.
+
+flush_messages() ->
+    receive
+        _ -> flush_messages()
+    after 50 -> ok
     end.
 %%====================================================================
 %% Internal functions
