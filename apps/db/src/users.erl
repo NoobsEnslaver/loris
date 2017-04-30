@@ -8,6 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(users).
 -include_lib("common/include/tables.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([authorize/2
         ,new/8, new/9
@@ -18,6 +19,7 @@
         ,accept_invatation/2
         ,reject_invatatoin/2
         ,leave_chat/2
+        ,search/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -163,6 +165,20 @@ leave_chat(ChatId, MSISDN)->
         _Error -> _Error
     end.
 
+search(<<>>, <<>>) -> [];
+search(<<>>, LName) ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch']),
+    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
+    Res;
+search(FName, <<>>) ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch']),
+    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
+    Res;
+search(FName, LName) ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , binary:match(U#user.lname, LName) /= 'nomatch']),
+    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
+    Res.
 
 %%%-------------------------------------------------------------------
 %%% Data extractors

@@ -177,8 +177,8 @@
 | c2s_user_get_info             | 15            | user_msisdn                           | s2c_user_info, s2c_error      | Получить информацию о пользователе            |
 | c2s_user_get_status           | 16            | user_msisdn                           | s2c_user_status, s2c_error    | Онлайн ли пользователь?                       |
 | c2s_user_set_info             | 17            | user_msisdn,fname,lname,age,is_male   | нет или s2c_error             | Указать информацию о себе                     |
-| c2s_user_search               | 18            | %TODO                                 | s2c_user_search_result        | Поиск пользователя по критериям               |
-| c2s_room_rename               | 19            |                                       | %TODO                         | %TODO                                         |
+| c2s_user_search               | 18            | fname, lname                          | s2c_user_search_result        | Поиск пользователя по имени и фамилии         |
+| c2s_room_rename               | 19            | %TODO                                 | %TODO                         | %TODO                                         |
 | c2s_room_add_user             | 20            |                                       |                               |                                               |
 | c2s_room_del_user             | 21            |                                       |                               |                                               |
 | c2s_room_add_subroom          | 22            |                                       |                               |                                               |

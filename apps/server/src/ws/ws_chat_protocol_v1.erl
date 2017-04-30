@@ -249,8 +249,10 @@ do_action(_Msg = #c2s_user_get_status{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_user_set_info{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_user_search{}, _State) ->
-    {ok, _State};
+do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
+    Users = users:search(FName, LName),
+    Resp = #s2c_user_search_result{users = Users},
+    {Resp, _State};
 do_action(_Msg = #c2s_room_get_tree{}, _State) ->
     Resp = #s2c_room_tree{},
     {Resp, _State};
