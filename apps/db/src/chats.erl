@@ -129,13 +129,11 @@ reject_invatation(ChatId, MSISDN) ->
 delete(ChatId, MSISDN) ->
     TableInfo = chat_info:get(ChatId),
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    send_message(ChatId, <<"@system:delete_chat">>, MSISDN),
-    notify_all_online_chat_users(ChatId, {chat_delete, ChatId}),
-    timer:sleep(50),
+    notify_all_online_chat_users(ChatId, {chat_delete, ChatId, MSISDN}),
     Users = chat_info:extract(TableInfo, users),
-    lists:map(fun(U)->
-                      users:leave_chat(ChatId, U)
-              end, Users),
+    lists:foreach(fun(U)->
+                          users:leave_chat(ChatId, U)
+                  end, Users),
     mnesia:delete_table(TableName),
     chat_info:delete(ChatId),
     ok.
@@ -161,14 +159,14 @@ get_unique_chat_id()->
 notify_all_online_chat_users(ChatId, Msg)->
     ChatInfo = chat_info:get(ChatId),
     Users = chat_info:extract(ChatInfo, users),
-    lists:map(fun(U)->
-                      case sessions:get_by_owner_id(U) of
-                          #session{ws_pid = WsPid} when is_pid(WsPid)->
-                              WsPid ! Msg;
-                          _ ->
-                              'ok'
-                      end
-              end, Users),
+    lists:foreach(fun(U)->
+                          case sessions:get_by_owner_id(U) of
+                              #session{ws_pid = WsPid} when is_pid(WsPid)->
+                                  WsPid ! Msg;
+                              _ ->
+                                  'ok'
+                          end
+                  end, Users),
     ok.
 
 %% notify_chat_online_owner(ChatId, Msg)->

@@ -24,9 +24,9 @@ default_user_state(Token)->
     Session = sessions:get(Token),
     UserMSISDN = sessions:extract(Session, owner_id),
     User = users:get(UserMSISDN),
-    lists:map(fun({C, _AccessGroup})->
-                      chats:subscribe(C)
-              end, users:extract(User, chats)),
+    lists:foreach(fun({C, _AccessGroup})->
+                          chats:subscribe(C)
+                  end, users:extract(User, chats)),
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
                ,rooms = users:extract(User, rooms)
@@ -218,9 +218,15 @@ do_action(_Msg = #c2s_chat_unmute{}, _State) ->
 do_action(_Msg = #c2s_chat_typing{}, _State) ->
     Resp = #s2c_chat_typing{},
     {Resp, _State};
-do_action(_Msg =  #c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN} = State) ->
-    chats:send_message(ChatId, MsgBody, MSISDN),
-    {ok, State};
+do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               'undefined' ->
+                   #s2c_error{code = 404};
+               _ ->
+                   chats:send_message(ChatId, MsgBody, MSISDN),
+                   ok
+           end,
+    {Resp, State};
 do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{chats = Chats} = _State) ->
     Resp = case proplists:get_value(ChatId, Chats) of
                'undefined' ->
@@ -269,9 +275,10 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
     {ok, _State};
-do_action({chat_delete, ChatId}, #user_state{chats = Chats} = State) ->
+do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats} = State) ->
     chats:unsubscribe(ChatId),
-    {ok, State#user_state{chats = proplists:delete(ChatId, Chats)}};
+    Resp = #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN},
+    {Resp, State#user_state{chats = proplists:delete(ChatId, Chats)}};
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};

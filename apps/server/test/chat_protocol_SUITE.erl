@@ -528,7 +528,41 @@ chat_delete_test(Config) ->
 %%--------------------------------------------------------------------
 %%      MESSAGE
 %%--------------------------------------------------------------------
-message_send_test(_Config) ->
+message_send_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ChatName = <<"test_chat">>,
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% Crete chat, receive chat_id, invite User2
+    send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% Accept invatation
+    send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info), Transport2),
+    timer:sleep(50),
+    tester:flush_messages(),
+    %% Start chating
+    send_message(ConPid1, Transport1, ChatId, <<"Hello Joe?">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"Hello Joe?">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"Hello Joe?">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    send_message(ConPid2, Transport2, ChatId, <<"Hello Mike!">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"Hello Mike!">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"Hello Mike!">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    %% Try to send to unexisting chat, get error
+    send_message(ConPid1, Transport1, <<"SOME_UNEXISTING_CHAT_ID">>, <<"Hello world?">>),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404}  = receive_packet(ConPid1, Transport1),
+    %% Delete chat and try to send to deleted chat
+    send_packet(ConPid1, ?R2M(#c2s_chat_delete{chat_id = ChatId}, c2s_chat_delete), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"@system:delete_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"@system:delete_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    [] = get_chats_list(ConPid1, Transport1),
+    [] = get_chats_list(ConPid2, Transport2),
+    send_message(ConPid1, Transport1, ChatId, <<"Hello Joe?">>),
+    send_message(ConPid2, Transport2, ChatId, <<"Hello Mike!">>),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404}  = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404}  = receive_packet(ConPid2, Transport2),
     ok.
 
 message_get_list_test(Config) ->
