@@ -62,7 +62,7 @@ unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> 
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE}) -> #c2s_message_update{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE}) -> #c2s_message_update_status{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE}) -> #c2s_user_get_info{};
+unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) -> #c2s_user_get_info{user_msisdn = MSISDN};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE}) -> #c2s_user_get_status{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) -> #c2s_user_set_info{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE}) -> #c2s_user_search{};
@@ -241,8 +241,13 @@ do_action(_Msg =  #c2s_message_update{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_user_get_info{}, _State) ->
-    Resp = #s2c_user_search_result{},
+do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
+    Resp = case users:get(MSISDN) of
+               #user{fname = FName, lname = LName, age = Age, is_male = IsMale} ->
+                   #s2c_user_info{user_msisdn = MSISDN, fname = FName, lname = LName, age = Age, is_male = IsMale};
+               'false' ->
+                   #s2c_error{code = 404}
+           end,
     {Resp, _State};
 do_action(_Msg = #c2s_user_get_status{}, _State) ->
     Resp = #s2c_room_list{},
