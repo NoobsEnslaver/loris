@@ -6,6 +6,8 @@
   {applications,
    [kernel,
     stdlib,
+    inets,
+    ssl,
     cowboy,
     msgpack,
     common,
@@ -18,6 +20,9 @@
         ,{'static_dir', "/srv"}
         ,{'max_file_size', 16777216}
         ,{'sessions_live_time', 2592000}             %30 days
+        ,{'sms_live_time', 3600}                     %1 hour
+        ,{'sms_resend_interval', 60}                 %1 min
+        ,{'sms_api_id', "25B1DB2A-4F68-27D4-3FD6-4DC122309D6B"}
         ]},
   {modules, []},
 
