@@ -38,12 +38,8 @@ handle(<<"POST">>, Req, #q_state{tmp_state = #{'session' := Session}} = State, _
                                     <<"male">> -> true;
                                     <<"female">> -> false
                                 end,
-                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
-                                    true -> BMSISDN
-                                end,
-                       Age = if  is_binary(BAge) -> binary_to_integer(BAge);
-                                 true -> BAge
-                             end,
+                       MSISDN = common:to_integer(BMSISDN),
+                       Age = common:to_integer(BAge),
                        case AL1 of
                            AL when is_number(AL) andalso AL > CurrentAccessLevel ->
                                lager:info("user id=~p creating user ~p with access level ~p on group ~p from IP: ~p", [sessions:extract(Session, 'owner_id'), MSISDN, AL, Group, IP]),

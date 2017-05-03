@@ -22,9 +22,7 @@ handle(<<"POST">>, _Req, #q_state{body = B} = State, []) ->
     NewState = case common:get_body_data(_Req) of
                    #{<<"msisdn">> := BMSISDN
                     ,<<"password">> := PwdHash} ->
-                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
-                                    true -> BMSISDN
-                                end,
+                       MSISDN = common:to_integer(BMSISDN),
                        case users:authorize(MSISDN, PwdHash) of
                            'false' ->
                                lager:info("unauthorized with pair ~p:~p from IP: ~p", [MSISDN, PwdHash, IP]),
@@ -46,9 +44,7 @@ handle(<<"POST">>, _Req, #q_state{body = B} = State, [T | _Args]) ->
     NewState = case common:get_body_data(_Req) of
                    #{<<"msisdn">> := BMSISDN
                     ,<<"password">> := PwdHash}  when IsSupportedTransport == 'true' ->
-                       MSISDN = if  is_binary(BMSISDN) -> binary_to_integer(BMSISDN);
-                                    true -> BMSISDN
-                                end,
+                       MSISDN = common:to_integer(BMSISDN),
                        case users:authorize(MSISDN, PwdHash) of
                            'false' ->
                                lager:info("unauthorized with pair ~p:~p from IP: ~p", [MSISDN, PwdHash, IP]),

@@ -42,13 +42,13 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_GET_LIST_TYPE}) ->
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_GET_INFO_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_get_info{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_CREATE_TYPE, <<"name">> := Name, <<"users">> := Users}) ->
-    #c2s_chat_create{name = Name, users = Users};
+    #c2s_chat_create{name = Name, users = [round(U) || U <- Users]};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_LEAVE_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_leave{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_DELETE_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_delete{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_INVITE_USER_TYPE, <<"chat_id">> := ChatId, <<"user_msisdn">> := MSISDN}) ->
-    #c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN};
+    #c2s_chat_invite_user{chat_id = ChatId, user_msisdn = round(MSISDN)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_MUTE_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_mute{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_UNMUTE_TYPE, <<"chat_id">> := ChatId}) ->
@@ -58,11 +58,12 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId}) 
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId})->
-    #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId};
+    #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE}) -> #c2s_message_update{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE}) -> #c2s_message_update_status{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) -> #c2s_user_get_info{user_msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
+    #c2s_user_get_info{user_msisdn = round(MSISDN)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE}) -> #c2s_user_get_status{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) -> #c2s_user_set_info{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE}) -> #c2s_user_search{};

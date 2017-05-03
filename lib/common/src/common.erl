@@ -12,7 +12,8 @@
 -export([bin2hex/1
         ,get_body_data/1
         ,timestamp/0
-        ,trace_it/1]).
+        ,trace_it/1
+        ,to_integer/1]).
 
 %%====================================================================
 %% API functions
@@ -44,6 +45,12 @@ trace_it(Module)->
     dbg:tracer(),
     dbg:p(all, c),
     dbg:tpl(Module, '_', '_', []).
+
+to_integer(X) when is_integer(X) -> X;
+to_integer(X) when is_binary(X) -> binary_to_integer(X);
+to_integer(X) when is_float(X) -> round(X);
+to_integer(X) when is_list(X) -> list_to_integer(X).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
