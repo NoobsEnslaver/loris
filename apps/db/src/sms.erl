@@ -43,7 +43,7 @@ new(MSISDN) ->
 
 delete(MSISDN) ->
     Fun = fun()->
-                  mnesia:delete(sms, MSISDN)
+                  mnesia:delete({'sms', MSISDN})
           end,
     mnesia:transaction(Fun).
 

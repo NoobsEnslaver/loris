@@ -53,10 +53,9 @@ handle(<<"POST">>, Req, State, _Args) ->
                                case sms:extract(SmsRecord, code) of
                                    SmsCode ->
                                        lager:info("Creating user ~p with access level ~p on group ~p from IP: ~p", [MSISDN, AL, Group, IP]),
-                                       sms:delete(MSISDN),
+                                       %% sms:delete(MSISDN),   %% no delete - use this sms for first auth
                                        new_user(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AL, State);
                                    _Else ->
-                                       io:format("_Else: ~p~n", [_Else]),
                                        lager:info("Error on creating user ~p from IP: ~p - incorrect sms code", [MSISDN, IP]),
                                        State#q_state{code = 403} %bad sms code
                                end
