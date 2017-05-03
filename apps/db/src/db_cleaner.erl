@@ -6,14 +6,16 @@
 %%% @end
 %%% Created : 24 Dec 2016
 %%%-------------------------------------------------------------------
--module(sessions_supervisor).
+-module(db_cleaner).
 
 -behaviour(gen_server).
 -include("db.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
 %% API
 -export([start_link/0
-        ,cleaning/0]).
+        ,sms_cleaning/0
+        ,sessions_cleaning/0]).
 
 %% gen_server callbacks
 -export([init/1
@@ -56,15 +58,12 @@ start_link() ->
 %%--------------------------------------------------------------------
 init([]) ->
     lager:md([{'appname', list_to_binary(?MODULE_STRING)}]),
-    CleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 300) * 1000, %5 min
-    erlang:send_after(CleaningInterval, self(), 'let_clean'),
-    lager:info("sessions cleaner started"),
-    case mnesia:transaction(fun()-> mnesia:table_info('users', 'size') end) of
-        {'atomic', 0} ->
-            erlang:send_after(1000, self(), 'need_administrator');
-        _ -> 'ok'
-    end,
-    {'ok', CleaningInterval}.
+    SessionsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
+    SmsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
+    erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
+    erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
+    lager:info("db cleaner started"),
+    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -108,16 +107,14 @@ handle_cast(_Msg, _State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info('let_clean', CleaningInterval) ->
-    erlang:send_after(CleaningInterval, self(), 'let_clean'),
-    cleaning(),
-    {'noreply', CleaningInterval};
-handle_info('need_administrator', _CleaningInterval) ->
-    %% MSISDN = list_to_binary(io:get_line("Administrator MSISDN: ") -- "\n"),
-    %% Pwd = list_to_binary(io:get_line("Administrator password: ") -- "\n"),
-    %% Name = list_to_binary(io:get_line("Administrator name: ") -- "\n"),
-    %% users:new(MSISDN, Pwd, Name, 'administrators', 0),
-    {'noreply', _CleaningInterval};
+handle_info('clean_sessions', #{session := CleaningInterval} = Map) ->
+    erlang:send_after(CleaningInterval, self(), 'clean_sessions'),
+    sessions_cleaning(),
+    {'noreply', Map};
+handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
+    erlang:send_after(CleaningInterval, self(), 'clean_sms'),
+    sms_cleaning(),
+    {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
     {'noreply', _State}.
@@ -151,7 +148,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-cleaning() ->
+sessions_cleaning() ->
     lager:info("start sessions cleaning"),
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
@@ -165,3 +162,16 @@ cleaning() ->
                                 end, List)
           end,
     mnesia:transaction(Fun).
+
+sms_cleaning() ->
+    lager:info("start sms cleaning"),
+    {MSec, Sec, _} = erlang:timestamp(),
+    Now = MSec * 1000000 + Sec,
+    SmsLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_live_time', 3600), %1 hour
+    Q = qlc:q([M#sms.msisdn || M <- mnesia:table(sms), Now - M#sms.timestamp  > SmsLiveTime]),
+    mnesia:transaction(fun()->
+                               ExpiredSms = qlc:e(Q),
+                               lists:foreach(fun(S)->
+                                                     mnesia:delete({sms, S})
+                                             end, ExpiredSms)
+                       end).
