@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -compile({no_auto_import,[get/1]}).
 
--define(TEST, true).                            %For no sms
+%% -define(TEST, true).                            %For no sms
 -ifdef(TEST).
 -define(CODE, 6666).
 -else.

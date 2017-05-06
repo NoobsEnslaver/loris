@@ -10,7 +10,7 @@
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 
--define(TEST, true).
+%% -define(TEST, true).
 -define(SMS_SERVER_URL, "https://sms.ru/sms/send").
 -ifdef(TEST).
 -define(BODY(AppId, MSISDN, Code), "api_id=" ++ AppId ++ "&to=+" ++ erlang:integer_to_list(MSISDN) ++ "&text=" ++ erlang:integer_to_list(Code) ++ "&test=1").
@@ -29,35 +29,32 @@
 %% Required fields:
 %% msisdn
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-handle(<<"POST">>, Req, State, _Args) ->
+handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN}} = State, _Args) ->
     lager:md([{'appname', <<"server->sms">>}]),
     {IP, _Port} = cowboy_req:peer(Req),
     {ok, ResendInterval} = ?SMS_RESEND_INTERVAL,
     {ok, AppId} = ?GET_APP_ID,
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
-    NewState = case common:get_body_data(Req) of
-                   #{<<"msisdn">> := BMSISDN} ->
-                       MSISDN = common:to_integer(BMSISDN),
-                       lager:debug("IP: ~p require to send sms to MSISDN: ~p~n", [IP, MSISDN]),
-                       case sms:new(MSISDN) of
-                           {exists, TimeStamp, _Code} when Now - TimeStamp < ResendInterval ->  %too fast
-                               State#q_state{code = 429};
-                           {exists, _TimeStamp, Code} ->                                        %resend
-                               sms:update_timestamp(MSISDN),
-                               Resp = send_sms(AppId, MSISDN, Code),
-                               State#q_state{code = Resp};
-                           'false' ->
-                               lager:error("Error on sms:new()", []),
-                               State#q_state{code = 500};
-                           Code ->
-                               Resp = send_sms(AppId, MSISDN, Code),
-                               State#q_state{code = Resp}
-                           end;
-                   _ ->
-                       State#q_state{code = 400} % bad request
+    MSISDN = common:to_integer(BMSISDN),
+    lager:debug("IP: ~p require to send sms to MSISDN: ~p~n", [IP, MSISDN]),
+    NewState = case sms:new(MSISDN) of
+                   {exists, TimeStamp, _Code} when Now - TimeStamp < ResendInterval ->  %too fast
+                       State#q_state{code = 429};
+                   {exists, _TimeStamp, Code} ->                                        %resend
+                       sms:update_timestamp(MSISDN),
+                       Resp = send_sms(AppId, MSISDN, Code),
+                       State#q_state{code = Resp};
+                   'false' ->
+                       lager:error("Error on sms:new()", []),
+                       State#q_state{code = 500};
+                   Code ->
+                       Resp = send_sms(AppId, MSISDN, Code),
+                       State#q_state{code = Resp}
                end,
     {Req, NewState, _Args};
+handle(<<"POST">>, _Req, State, _Args) ->
+    {_Req, State#q_state{code = 400}, []};
 handle(_Method, Req, State, _Other)->
     {Req, State#q_state{code = 405}, []}.
 
