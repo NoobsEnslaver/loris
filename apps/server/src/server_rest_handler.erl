@@ -23,7 +23,8 @@ init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
     Query = cowboy_req:path_info(Req),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
-    {Req1, State} = fold(Req, Ver, #q_state{}, Query),
+    InitState = #q_state{req_body = common:get_body_data(Req)},
+    {Req1, State} = fold(Req, Ver, InitState, Query),
     Resp = cowboy_req:reply(State#q_state.code, State#q_state.headers, State#q_state.body, Req1),
     {'ok', Resp, []}.
 

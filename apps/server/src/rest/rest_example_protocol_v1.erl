@@ -25,14 +25,15 @@ handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body, tmp_state = #{sessi
     BData = list_to_binary(Data),
     NewHeaders = Hdrs#{<<"content-type">> => <<"text/html">>},
     {Req, State#q_state{code = 200, body = <<Body/binary, BData/binary>>, headers = NewHeaders}, _Other};
-handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body} = State, [Arg1 | [Arg2 | _Other]]) ->
+handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body, req_body = RB} = State, [Arg1 | [Arg2 | _Other]]) ->
     QS = cowboy_req:parse_qs(Req),
     Data1 = ["<p>" ++ binary_to_list(Key) ++ " = "++ binary_to_list(Val) ++ "</p>" || {Key, Val} <- QS],
     Data2 = Data1 ++ ["<h1>Arg1 = " ++ binary_to_list(Arg1) ++ "</h1><br>"],
     Data = Data2 ++ ["<h1>Arg2 = " ++ binary_to_list(Arg2) ++ "</h1><br>"],
+    ReqBody = transport_lib:encode(RB, ?JSON),
     BData = list_to_binary(Data),
     NewHeaders = Hdrs#{<<"content-type">> => <<"text/html">>},
-    {Req, State#q_state{code = 200, body = <<Body/binary, BData/binary>>, headers = NewHeaders}, _Other};
+    {Req, State#q_state{code = 200, body = <<Body/binary, BData/binary, ReqBody/binary>>, headers = NewHeaders}, _Other};
 handle(<<"GET">>, Req, State, [Arg1]) ->
     handle(<<"GET">>, Req, State, [Arg1, <<"none">>]);
 handle(<<"GET">>, Req, State, []) ->
