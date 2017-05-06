@@ -9,7 +9,8 @@
 -record(q_state, {code = 200 :: non_neg_integer()
                  ,headers = #{} :: map()
                  ,body = <<>> :: binary()
-                 ,tmp_state = #{} :: map()}).
+                 ,tmp_state = #{} :: map()
+                 ,req_body = #{}}).
 -record(async_start, {work_id :: binary()}).
 -record(async_done, {work_id :: binary()
                     ,result :: tuple()}).
