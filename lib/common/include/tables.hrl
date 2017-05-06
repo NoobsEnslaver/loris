@@ -1,8 +1,6 @@
 -ifndef(TABLES_HRL).
 -define(TABLES_HRL, 'true').
 
--define(TEST, true).                            %For register_v2 no sms
-
 -type access_group() :: 'guests'|'users'|'administrators'.
 
 -record(file, {hash :: binary()

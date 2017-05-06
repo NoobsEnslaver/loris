@@ -10,6 +10,7 @@
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 
+-define(TEST, true).
 -define(SMS_SERVER_URL, "https://sms.ru/sms/send").
 -ifdef(TEST).
 -define(BODY(AppId, MSISDN, Code), "api_id=" ++ AppId ++ "&to=+" ++ erlang:integer_to_list(MSISDN) ++ "&text=" ++ erlang:integer_to_list(Code) ++ "&test=1").
