@@ -74,6 +74,9 @@ send_sms(AppId, MSISDN, Code) ->
                 100 ->
                     lager:debug("sms sended successfuly to MSISDN: ~p~n", [MSISDN]),
                     200;
+                232 ->
+                    lager:debug("sms not sended to MSISDN: ~p: day limit~n", [MSISDN]),
+                    429;
                 _Other ->
                     lager:error("Error on send sms to MSISDN ~p, error: ~p~n", [MSISDN, _Other]),
                     500
