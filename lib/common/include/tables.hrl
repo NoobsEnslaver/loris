@@ -3,7 +3,8 @@
 
 -type access_group() :: 'guests'|'users'|'administrators'.
 
--record(file, {hash :: binary()
+-record(file, {id :: non_neg_integer()
+              ,hash :: binary()
               ,content_type :: binary()
               ,name :: binary()
               ,data :: binary()

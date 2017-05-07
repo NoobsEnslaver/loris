@@ -35,6 +35,8 @@ get_body_data(Req)->
                 <<"application/x-msgpack", _/binary>> ->
                     {'ok', Bin, _Req2} = cowboy_req:read_body(Req),
                     transport_lib:decode(Bin, ?MSGPACK);
+                <<"multipart/form-data", _/binary>> -> %no reading - it's file
+                    #{};
                 _ ->
                     {'ok', List, _Req2} = cowboy_req:read_urlencoded_body(Req),
                     maps:from_list(List)

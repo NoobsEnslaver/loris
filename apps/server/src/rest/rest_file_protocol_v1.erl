@@ -14,7 +14,7 @@
         ,allowed_groups/1]).
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-handle(<<"POST">>, Req, #q_state{headers = H, body = B, tmp_state = #{'session' := Session}} = State, _Args) ->
+handle(<<"POST">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session}} = State, _Args) ->
     UserId = sessions:extract(Session, 'owner_id'),
     MaxFileSize = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'max_file_size', 16777216),
     case cowboy_req:body_length(Req) of
@@ -24,28 +24,35 @@ handle(<<"POST">>, Req, #q_state{headers = H, body = B, tmp_state = #{'session' 
             {Req, State#q_state{code = 413}, _Args};                   %Request Entity Too Large error
         _NormalSize ->
             {Name, ContentType, Data, Req1} = receive_file(Req, MaxFileSize),
-            io:format("Name: ~p~nContentType: ~p~nDataLength: ~p~n", [Name, ContentType, byte_size(Data)]),
-            InDBId = files:save(Name, ContentType, Data, UserId),
-            io:format("~nFile ~s saved with Id: ~p~n", [Name, InDBId]),
-            NewState = State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = <<B/binary, InDBId/binary>>},
+            NewState = case files:save(Name, ContentType, Data, UserId) of
+                           'false'->
+                               State#q_state{code = 500};
+                           InDBId ->
+                               lager:info("File ~s saved with Id: ~p~n", [Name, InDBId]),
+                               State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = erlang:integer_to_binary(InDBId)}
+                       end,
             {Req1, NewState, _Args}
     end;
-handle(<<"GET">>, Req, #q_state{body = B, headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
+handle(<<"GET">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
     UserId = sessions:extract(Session, 'owner_id'),
     User = users:get(UserId),
     UserAccessLevel = users:extract(User, 'access_level'),
-    File = files:get(FileId),
-    FileOwnerId = files:extract(File, 'owner_id'),
-    FileAccessLevel = files:extract(File, 'access_level'),
-    case FileAccessLevel =< UserAccessLevel orelse FileOwnerId == UserId of
-        'true' ->
-            Data = files:extract(File, 'data'),
-            NewHeaders = H#{<<"Content-Type">> => files:extract(File, 'content_type')
-                           ,<<"Content-Length">> => integer_to_binary(files:extract(File, 'size'))},
-            {Req, State#q_state{code = 200, body = <<B/binary,Data/binary>>, headers = NewHeaders}, _Args};
-        _ ->
-                {Req, State#q_state{code = 403}, _Args}
-    end;
+    NewState = case files:get(common:to_integer(FileId)) of
+                   'false' ->
+                       State#q_state{code = 404};
+                   File ->
+                       FileOwnerId = files:extract(File, 'owner_id'),
+                       FileAccessLevel = files:extract(File, 'access_level'),
+                       case FileAccessLevel =< UserAccessLevel orelse FileOwnerId == UserId of
+                           'true' ->
+                               NewHeaders = H#{<<"Content-Type">> => files:extract(File, 'content_type')
+                                              ,<<"Content-Length">> => integer_to_binary(files:extract(File, 'size'))},
+                               State#q_state{code = 200, body = files:extract(File, 'data'), headers = NewHeaders};
+                           'false'->
+                               State#q_state{code = 403}
+                       end
+               end,
+    {Req, NewState, _Args};
 handle(_Method, Req, State, _Other)->
     {Req, State#q_state{code = 405}, []}.
 
