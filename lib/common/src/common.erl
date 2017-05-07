@@ -11,7 +11,10 @@
 %% API exports
 -export([bin2hex/1
         ,get_body_data/1
-        ,trace_it/1]).
+        ,timestamp/0
+        ,trace_it/1
+        ,to_integer/1
+        ,take_first/1, take_first/2]).
 
 %%====================================================================
 %% API functions
@@ -42,10 +45,24 @@ get_body_data(Req)->
             #{}
     end.
 
+timestamp()->
+    {MegaSecs,Secs,_} = erlang:timestamp(),
+    MegaSecs*1000000 + Secs.
+
 trace_it(Module)->
     dbg:tracer(),
     dbg:p(all, c),
     dbg:tpl(Module, '_', '_', []).
+
+to_integer(X) when is_integer(X) -> X;
+to_integer(X) when is_binary(X) -> binary_to_integer(X);
+to_integer(X) when is_float(X) -> round(X);
+to_integer(X) when is_list(X) -> list_to_integer(X).
+
+take_first([])-> 'undefined';
+take_first([Head | _Tail])-> Head.
+take_first([], Def)-> Def;
+take_first([Head | _Tail], _Def) -> Head.
 
 %%====================================================================
 %% Internal functions
