@@ -11,6 +11,8 @@
   {env,[
         {'nodes', []}
        ,{'sessions_cleaning_interval', 3600}      %1 hour
+       ,{'keep_files_in_db', 'false'}
+       ,{'files_dir', "/srv/files"}
        ]},
   {modules, []},
 
