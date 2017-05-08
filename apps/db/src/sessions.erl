@@ -65,8 +65,7 @@ new(Id, WSPid, LiveTime) ->                   %LiveTime in sec
         _ ->
             RandBytes = crypto:strong_rand_bytes(16),
             Token = common:bin2hex(RandBytes),
-            {MSec, Sec, _} = erlang:timestamp(),
-            ExpirationTime = MSec * 1000000 + Sec + LiveTime,
+            ExpirationTime = common:timestamp() + LiveTime,
             User = users:get_by_id(Id),
             AccessLevel = users:extract(User, 'access_level'),
             Group = users:extract(User, 'group'),

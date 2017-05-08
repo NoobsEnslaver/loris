@@ -30,8 +30,7 @@ authorize(Login, Password)->
 
 -spec new(binary(), binary(), binary(), atom(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
 new(Login, Pwd, Name, Group, AccessLevel) ->
-    {MSec, Sec, _} = erlang:timestamp(),
-    Created = MSec * 1000000 + Sec,
+    Created = common:timestamp(),
     case get(Login) of
         #user{} ->
             'exists';
@@ -55,8 +54,7 @@ new(Login, Pwd, Name, Group, AccessLevel) ->
 
 -spec new(binary(), binary(), binary(), atom(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
 new(Login, Pwd, Name, Group, AccessLevel, 'nohash') ->
-    {MSec, Sec, _} = erlang:timestamp(),
-    Created = MSec * 1000000 + Sec,
+    Created = common:timestamp(),
     case get(Login) of
         #user{} ->
             'exists';

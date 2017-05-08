@@ -153,8 +153,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 cleaning() ->
     lager:info("start sessions cleaning"),
-    {MSec, Sec, _} = erlang:timestamp(),
-    Now = MSec * 1000000 + Sec,
+    Now = common:timestamp(),
     MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'},
     Guard = {'>', Now, '$2'},
     Result = ['$1', '$2', '$3', '$4'],
