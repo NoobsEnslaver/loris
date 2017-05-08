@@ -212,13 +212,30 @@ do_action(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN}, #user_s
                _ -> #s2c_error{code = 403}
            end,
     {Resp, State};
-do_action(_Msg = #c2s_chat_mute{}, _State) ->
-    {ok, _State};
-do_action(_Msg = #c2s_chat_unmute{}, _State) ->
-    {ok, _State};
-do_action(_Msg = #c2s_chat_typing{}, _State) ->
-    Resp = #s2c_chat_typing{},
-    {Resp, _State};
+do_action(#c2s_chat_mute{chat_id = ChatId}, #user_state{msisdn = MSISDN, muted_chats = MC} = State) ->
+    NewState = case lists:member(ChatId, MC) of
+                   'true' ->
+                       State;
+                   'false'->
+                       users:mute_chat(MSISDN, ChatId),
+                       State#user_state{muted_chats = [ChatId | MC]}
+               end,
+    {ok, NewState};
+do_action(#c2s_chat_unmute{chat_id = ChatId}, #user_state{msisdn = MSISDN, muted_chats = MC} = State) ->
+    NewState = case lists:member(ChatId, MC) of
+                   'true' ->
+                       users:unmute_chat(MSISDN, ChatId),
+                       State#user_state{muted_chats = MC -- [ChatId]};
+                   'false'->
+                       State
+               end,
+    {ok, NewState};
+do_action(#c2s_chat_typing{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
+    case proplists:get_value(ChatId, Chats) of
+        'undefined' -> ok;
+        _ -> chats:typing(ChatId, MSISDN)
+    end,
+    {ok, State};
 do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
     Resp = case proplists:get_value(ChatId, Chats) of
                'undefined' ->
@@ -283,6 +300,14 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
     {ok, _State};
+do_action({chat_typing, _ChatId, MSISDN}, #user_state{msisdn = MSISDN} = State) -> %you self typing, ignore
+    {ok, State};
+do_action({chat_typing, ChatId, MSISDN}, #user_state{muted_chats = MC} = State) ->
+    Resp = case lists:member(ChatId, MC) of
+               'true' -> ok;
+               'false'-> #s2c_chat_typing{chat_id = ChatId, user_msisdn = MSISDN}
+           end,
+    {Resp, State};
 do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats} = State) ->
     chats:unsubscribe(ChatId),
     Resp = #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN},

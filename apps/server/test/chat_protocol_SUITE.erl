@@ -114,7 +114,7 @@ groups() ->
                  ,chat_invite_reject_on_chat_creation_test
                  ,chat_leave_test
                  ,chat_delete_test
-                 %% ,chat_mute_test
+                 ,chat_mute_test
                  %% ,chat_unmute_test
                  %% ,chat_typing_test
                  ]}
@@ -604,6 +604,46 @@ message_get_list_test(Config) ->
                         ,#{<<"from">> := MSISDN2, <<"msg_body">> := <<"Bye">>}]} = receive_packet(ConPid1, Transport1),
     ok.
 
+chat_mute_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ChatName = <<"test_chat">>,
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% Crete chat, receive chat_id, invite User2
+    send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% Accept invatation
+    send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info), Transport2),
+    timer:sleep(50),
+    tester:flush_messages(),
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'false'} = get_chat_info(ConPid1, Transport1, ChatId),
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'false'} = get_chat_info(ConPid2, Transport2, ChatId),
+    send_packet(ConPid1, ?R2M(#c2s_chat_typing{chat_id = ChatId}, c2s_chat_typing), Transport1),        %user1 typing
+    #{<<"msg_type">> := ?S2C_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId, <<"user_msisdn">> := MSISDN1} = receive_packet(ConPid2, Transport2), %user2 receive typing msg
+    send_packet(ConPid2, ?R2M(#c2s_chat_mute{chat_id = ChatId}, c2s_chat_mute), Transport2),            %user2 mute chat
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'false'} = get_chat_info(ConPid1, Transport1, ChatId),
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'true'} = get_chat_info(ConPid2, Transport2, ChatId),
+    send_packet(ConPid1, ?R2M(#c2s_chat_typing{chat_id = ChatId}, c2s_chat_typing), Transport1),        %user1 typing
+    {error, timeout} = receive_packet(ConPid2, Transport2),                                             %user2 not receive typing msg
+    send_packet(ConPid2, ?R2M(#c2s_chat_typing{chat_id = ChatId}, c2s_chat_typing), Transport2),        %user2 typing
+    #{<<"msg_type">> := ?S2C_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId, <<"user_msisdn">> := MSISDN2} = receive_packet(ConPid1, Transport1), %user1 still receive typing msg
+    send_packet(ConPid2, ?R2M(#c2s_chat_unmute{chat_id = ChatId}, c2s_chat_unmute), Transport2),        %user2 unmute chat
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'false'} = get_chat_info(ConPid1, Transport1, ChatId),
+    #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
+     ,<<"is_muted">> := 'false'} = get_chat_info(ConPid2, Transport2, ChatId),
+    send_packet(ConPid1, ?R2M(#c2s_chat_typing{chat_id = ChatId}, c2s_chat_typing), Transport1),        %user1 typing
+    #{<<"msg_type">> := ?S2C_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId, <<"user_msisdn">> := MSISDN1} = receive_packet(ConPid2, Transport2), %user2 receive typing msg
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
+    ok.
 
 %%%===================================================================
 %%% Internal functions

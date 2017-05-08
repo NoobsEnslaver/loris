@@ -22,6 +22,7 @@
         ,reject_invatation/2
         ,leave_chat/2
         ,delete/2
+        ,typing/2
         ]).
 
 
@@ -144,6 +145,9 @@ leave_chat(ChatId, MSISDN) ->
     users:leave_chat(ChatId, MSISDN),
     chat_info:remove_user(ChatId, MSISDN),
     ok.
+
+typing(ChatId, MSISDN) ->
+    notify_all_online_chat_users(ChatId, {chat_typing, ChatId, MSISDN}).
 
 %%%===================================================================
 %%% internal functions

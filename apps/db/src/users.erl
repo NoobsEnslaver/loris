@@ -20,6 +20,8 @@
         ,reject_invatatoin/2
         ,leave_chat/2
         ,search/2
+        ,mute_chat/2
+        ,unmute_chat/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -179,6 +181,44 @@ search(FName, LName) ->
                                                          , binary:match(U#user.lname, LName) /= 'nomatch']),
     {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
     Res.
+
+mute_chat(MSISDN, ChatId) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  MC = User#user.muted_chats,
+                  Chats = User#user.chats,
+                  case proplists:get_value(ChatId, Chats) of
+                      'undefined' ->
+                          'not_exists';
+                      _AccessGroup ->
+                          case lists:member(ChatId, MC) of
+                              'true' ->
+                                  'ok';
+                              'false'->
+                                  mnesia:write(User#user{muted_chats = [ChatId | MC]})
+                          end
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> 'false'
+    end.
+
+unmute_chat(MSISDN, ChatId) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  MC = User#user.muted_chats,
+                  case lists:member(ChatId, MC) of
+                      'true' ->
+                          mnesia:write(User#user{muted_chats = proplists:delete(ChatId, MC)});
+                      'false'->
+                          'ok'
+                  end
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> 'false'
+    end.
 
 %%%-------------------------------------------------------------------
 %%% Data extractors
