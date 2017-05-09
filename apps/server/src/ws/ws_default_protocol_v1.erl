@@ -14,7 +14,8 @@
         ,wrap_msg/2
         ,default_user_state/1
         ,allowed_groups/0
-        ,access_level/0]).
+        ,access_level/0
+        ,terminate/1]).
 
 -record(user_state, {authorized = 'false'}).
 
@@ -113,3 +114,6 @@ allowed_groups() ->
 
 access_level() ->
     10.
+
+terminate(_State) ->
+    ok.

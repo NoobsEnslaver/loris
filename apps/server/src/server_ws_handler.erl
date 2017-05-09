@@ -85,7 +85,8 @@ init(Req, _Opts) ->
             {'ok', Resp, #state{}}                                %close connection, not implemented
     end.
 
-terminate(_Reason, _Req, _State)->              %TODO: close ws when session expired
+terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _State)->
+    Module:terminate(UserState),
     'ok'.
 
 
