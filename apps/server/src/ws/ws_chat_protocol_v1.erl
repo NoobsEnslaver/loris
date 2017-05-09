@@ -16,7 +16,8 @@
         ,wrap_msg/2
         ,default_user_state/1
         ,allowed_groups/0
-        ,access_level/0]).
+        ,access_level/0
+        ,terminate/1]).
 
 -record(user_state, {chats, rooms, token, muted_chats, msisdn}).
 
@@ -64,7 +65,8 @@ unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE}) -> #c2s_
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE}) -> #c2s_user_get_status{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := MSISDN}) ->
+    #c2s_user_get_status{user_msisdn = round(MSISDN)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) -> #c2s_user_set_info{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE}) -> #c2s_user_search{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_TREE_TYPE}) -> #c2s_room_get_tree{};
@@ -267,8 +269,28 @@ do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
                    #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(_Msg = #c2s_user_get_status{}, _State) ->
-    Resp = #s2c_room_list{},
+do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
+    Resp = case sessions:get_by_owner_id(MSISDN) of
+               'false' ->
+                   case users:get(MSISDN) of
+                       'false' ->
+                           #s2c_error{code = 404};
+                       User ->
+                           #s2c_user_status{user_msisdn = MSISDN, is_online = 'false', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
+                   end;
+               Session ->
+                   case sessions:extract(Session, ws_pid) of
+                       'undefined' ->
+                           case users:get(MSISDN) of
+                               'false' ->
+                                   #s2c_error{code = 404};
+                               User ->
+                                   #s2c_user_status{user_msisdn = MSISDN, is_online = 'false', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
+                           end;
+                       _Pid ->
+                           #s2c_user_status{user_msisdn = MSISDN, is_online = 'true', last_visit_timestamp = common:timestamp()}
+                   end
+           end,
     {Resp, _State};
 do_action(_Msg = #c2s_user_set_info{}, _State) ->
     {ok, _State};
@@ -322,6 +344,11 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body 
 do_action(_Msg, _State) ->
     lager:info("unknown message type: ~p", [_Msg]),
     {{error, <<"unknown message">>}, _State}.
+
+terminate(#user_state{msisdn = MSISDN, token = Token} = _State) ->
+    sessions:bind_pid_to_session(Token, 'undefined'),
+    users:update_last_visit_timestamp(MSISDN),
+    ok.
 
 %%%===================================================================
 %%% Module access params

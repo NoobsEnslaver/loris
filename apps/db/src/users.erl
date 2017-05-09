@@ -22,6 +22,7 @@
         ,search/2
         ,mute_chat/2
         ,unmute_chat/2
+        ,update_last_visit_timestamp/1
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -220,6 +221,16 @@ unmute_chat(MSISDN, ChatId) ->
         _Error -> 'false'
     end.
 
+update_last_visit_timestamp(MSISDN) ->
+    Fun = fun()->
+                  [User] = mnesia:read('user', MSISDN),
+                  mnesia:write(User#user{last_visit_timestamp = common:timestamp()})
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> 'false'
+    end.
+
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
@@ -236,4 +247,5 @@ extract(#user{fname = FName}, 'fname')-> FName;
 extract(#user{lname = LName}, 'lname')-> LName;
 extract(#user{is_male = IsMale}, 'is_male')-> IsMale;
 extract(#user{muted_chats = MC}, 'muted_chats')-> MC;
+extract(#user{last_visit_timestamp = LVTS}, 'last_visit_timestamp')-> LVTS;
 extract(#user{access_level = AccessLevel}, 'access_level')-> AccessLevel.

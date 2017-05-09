@@ -6,7 +6,6 @@
 -define(SERVER_PORT, 8080).
 
 %% -define(DBG, true).
--undef(DBG).
 
 -ifdef(DBG).
 -define(CONN_OPTS, #{trace => true}).

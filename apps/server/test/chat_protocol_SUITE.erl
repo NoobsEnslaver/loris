@@ -114,19 +114,18 @@ groups() ->
                  ,chat_invite_reject_on_chat_creation_test
                  ,chat_leave_test
                  ,chat_delete_test
-                 ,chat_mute_test
-                 %% ,chat_unmute_test
-                 %% ,chat_typing_test
+                 ,chat_typing_mute_unmute_test
                  ]}
     ,{messages, [], [message_send_test
                     ,message_get_list_test
                     %% ,message_update_test
                     %% ,message_update_status_test
                     ]}
-    ,{users, [], [user_get_info_test
-                 ,user_get_status_test
-                 ,user_set_info_test
-                 ,user_search_test]}
+    ,{users, [], [%% user_get_info_test
+                 user_get_status_test
+                 %% ,user_set_info_test
+                 %% ,user_search_test
+                 ]}
     ,{rooms, [], [room_get_tree_test
                  ,room_get_info_test
                  ,room_rename_test
@@ -150,7 +149,7 @@ groups() ->
 all() ->
     [{group, chats}
     ,{group, messages}
-    %% ,{group, users}
+    ,{group, users}
     %% ,{group, rooms}
     %% ,{group, system}
     ].
@@ -604,7 +603,7 @@ message_get_list_test(Config) ->
                         ,#{<<"from">> := MSISDN2, <<"msg_body">> := <<"Bye">>}]} = receive_packet(ConPid1, Transport1),
     ok.
 
-chat_mute_test(Config) ->
+chat_typing_mute_unmute_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
@@ -645,6 +644,31 @@ chat_mute_test(Config) ->
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
 
+user_get_status_test(Config)->
+    Env = proplists:get_value(env, Config),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid})->
+                          %% Register new user
+                          MSISDN = crypto:rand_uniform(1000000, 99999999),
+                          _User = users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          timer:sleep(50),
+                          %% Get new user status
+                          send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'false', <<"last_visit_timestamp">> := <<"undefined">>} = receive_packet(ConPid, Transport),
+                          {ok, Token} = authorize(MSISDN, <<"121">>),
+                          {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
+                          timer:sleep(50),
+                          TimeStamp1 = common:timestamp(),
+                          send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'true', <<"last_visit_timestamp">> := TimeStamp2} = receive_packet(ConPid, Transport),
+                          true = (TimeStamp2 - TimeStamp1) < 1000,
+                          gun:close(ConPid2),
+                          TimeStamp3 = common:timestamp(),
+                          timer:sleep(2000),
+                          send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'false', <<"last_visit_timestamp">> := TimeStamp4} = receive_packet(ConPid, Transport),
+                          true = (TimeStamp4 - TimeStamp3) < 1000
+                  end, Env),
+    ok.
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================

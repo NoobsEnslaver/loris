@@ -24,7 +24,8 @@
               ,chats = [] :: [{binary(), access_group()}]
               ,rooms = [] :: [{binary(), access_group()}]
               ,is_male :: boolean()
-              ,muted_chats = [] :: [binary()]}).
+              ,muted_chats = [] :: [binary()]
+              ,last_visit_timestamp :: non_neg_integer()}).
 
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()

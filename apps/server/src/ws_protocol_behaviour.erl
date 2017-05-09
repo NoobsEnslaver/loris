@@ -26,3 +26,6 @@
 
 %% Конструктор начального стэйта пользователя на основании данных о сессии
 -callback default_user_state('false' | tuple()) -> tuple().
+
+%% Хэндлер закрытия сокета
+-callback terminate(UserState :: tuple()) -> ok.
