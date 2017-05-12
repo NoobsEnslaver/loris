@@ -109,7 +109,7 @@ wrap_msg(_Msg = #s2c_chat_list{}, Transport) ->
 wrap_msg(_Msg = #s2c_chat_info{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_chat_info), Transport);
 wrap_msg(_Msg = #s2c_chat_create_result{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_list), Transport);
+    transport_lib:encode(?R2M(_Msg, s2c_chat_create_result), Transport);
 wrap_msg(_Msg = #s2c_chat_typing{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_chat_typing), Transport);
 wrap_msg(_Msg = #s2c_message{}, Transport) ->
@@ -154,7 +154,8 @@ wrap_msg(_, Transport) ->
 %%%===================================================================
 -spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {'async', pid(), reference(), #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
 do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
-    Resp = #s2c_chat_list{chat_id = [C || {C, _} <- Chats]},
+    ChatsList = [{ChatId, chat_info:extract(chat_info:get(ChatId), name)} || {ChatId, _} <- Chats],
+    Resp = #s2c_chat_list{chats = maps:from_list(ChatsList)},
     {Resp, State};
 do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, muted_chats = MC} = State) ->
     Resp = case chat_info:get(ChatId) of

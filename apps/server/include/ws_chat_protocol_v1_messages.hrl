@@ -121,7 +121,7 @@
                            | #c2s_room_send_message{}.
 
 %% Server-to-Client
--record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chat_id :: [binary()]}).
+-record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
 -record(s2c_chat_info, {msg_type = ?S2C_CHAT_INFO_TYPE, chat_id :: binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), access_group :: atom()}).
 -record(s2c_chat_create_result, {msg_type = ?S2C_CHAT_CREATE_RESULT_TYPE, chat_id :: binary()}).
 -record(s2c_error, {msg_type = ?S2C_ERROR_TYPE, code :: non_neg_integer()}).
