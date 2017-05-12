@@ -40,14 +40,17 @@ send_message(TableId, MsgBody, From) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     TimeStamp = common:timestamp(),
     Id = mnesia:dirty_update_counter('index', TableName, 1),
-    {atomic, Res} = mnesia:transaction(fun()->
-                                               mnesia:write(TableName, #message{msg_id = Id
-                                                                               ,msg_body = MsgBody
-                                                                               ,timestamp = TimeStamp
-                                                                               ,status = 'pending'
-                                                                               ,from = From}, 'write')
-                                       end),
-    Res.
+    Fun = fun()->
+                  mnesia:write(TableName, #message{msg_id = Id
+                                                  ,msg_body = MsgBody
+                                                  ,timestamp = TimeStamp
+                                                  ,status = 'pending'
+                                                  ,from = From}, 'write')
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, _} -> Id;
+        _ -> false
+    end.
 
 update_message(TableId, MsgId, MsgBody) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
@@ -58,21 +61,24 @@ update_message(TableId, MsgId, MsgBody) ->
                                        end),
     Res.
 
-update_message_status(TableId, MsgId) ->
+update_message_status(TableId, MsgIdList) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    {atomic, Res} = mnesia:transaction(fun()->
-                                               [#message{status = OldStatus}] = [OldMsg] = mnesia:read(TableName, MsgId),
-                                               case OldStatus of
-                                                   'delivered' ->
-                                                       mnesia:write(TableName, OldMsg#message{status = 'readed'}, 'write'),
-                                                       'readed';
-                                                   'readed' ->
-                                                       'readed'; %no update
-                                                   _ ->
-                                                       mnesia:write(TableName, OldMsg#message{status = 'delivered'}, 'write'),
-                                                       'delivered'
-                                               end
-                                       end),
+    Fun = fun()->                               %TODO: optimize it with custom lock and dirty operations
+                  lists:foreach(fun(MsgId)->
+                                        [#message{status = OldStatus}] = [OldMsg] = mnesia:read(TableName, MsgId),
+                                        case OldStatus of
+                                            'delivered' ->
+                                                mnesia:write(TableName, OldMsg#message{status = 'read'}, 'write'),
+                                                'read';
+                                            'read' ->
+                                                'read'; %no update
+                                            _ ->
+                                                mnesia:write(TableName, OldMsg#message{status = 'delivered'}, 'write'),
+                                                'delivered'
+                                        end
+                                end, MsgIdList)
+          end,
+    {atomic, Res} = mnesia:transaction(Fun),
     Res.
 
 get_messages_from(TableId, TimeStampFrom) ->

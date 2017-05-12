@@ -61,7 +61,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, 
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId})->
     #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE}) -> #c2s_message_update{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE}) -> #c2s_message_update_status{};
+unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
+    #c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
@@ -134,6 +135,8 @@ wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_chat_invatation), Transport);
 wrap_msg(_Msg = #s2c_error{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_error), Transport);
+wrap_msg(_Msg = #s2c_message_send_result{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_message_send_result), Transport);
 wrap_msg(Msg = #s2c_message_list{messages = Messages}, Transport) ->
     MapMessages = [?R2M(M, message) || M <- Messages],
     transport_lib:encode(?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list), Transport);
@@ -243,8 +246,8 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                'undefined' ->
                    #s2c_error{code = 404};
                _ ->
-                   chats:send_message(ChatId, MsgBody, MSISDN),
-                   ok
+                   MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
+                   #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};
 do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{chats = Chats} = _State) ->
@@ -256,8 +259,17 @@ do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{c
                    #s2c_message_list{messages = Messages}
            end,
     {Resp, _State};
-do_action(_Msg =  #c2s_message_update{}, _State) ->
+do_action(_Msg =  #c2s_message_update{}, #user_state{chats = _Chats} = _State) ->
     Resp = #s2c_user_status{},
+    {Resp, _State};
+do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #user_state{chats = Chats} = _State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               'undefined' ->
+                   #s2c_error{code = 403};
+                _ ->
+                   chats:update_message_status(ChatId, MsgIdList),
+                   ok
+           end,
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
@@ -330,16 +342,41 @@ do_action({chat_typing, ChatId, MSISDN}, #user_state{muted_chats = MC} = State) 
                'false'-> #s2c_chat_typing{chat_id = ChatId, user_msisdn = MSISDN}
            end,
     {Resp, State};
-do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats} = State) ->
+do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyMSISDN} = State) ->
     chats:unsubscribe(ChatId),
-    Resp = #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN},
+    Resp = case MSISDN == MyMSISDN of
+               'true' ->
+                   ok;
+               'false'->
+                   #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN}
+           end,
     {Resp, State#user_state{chats = proplists:delete(ChatId, Chats)}};
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From} = _NewMsg, _OldRecords, _ActivityId}}, _State) ->
+
+do_action({mnesia_table_event, {write, _Table, #message{from = MSISDN}, [], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) -> %it's my own message, ignore
+    {ok, _State};
+%% do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, from = MSISDN}, [], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) -> %it's my own message, send only msg_id and chat_id
+%%     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
+%%     Resp = #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId},
+%%     {Resp, _State};
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From}, [], _ActivityId}}, _State) -> %if no old msg, that's new message
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, msg_id = MsgId, from = From},
+    {Resp, _State};
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, status = Status, msg_body = MsgBody, from = From}, [#message{msg_id = MsgId, status = Status}], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) -> %if msg statuses are equal, that's msg_body update
+    <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
+    Resp = case MSISDN == From of
+               'true' ->
+                   ok;
+               'false'->
+                   #s2c_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBody}
+           end,
+    {Resp, _State};
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#message{msg_id = MsgId}], _ActivityId}}, _State) -> %else, that's msg_status update
+    <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
+    Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
     {Resp, _State};
 do_action(_Msg, _State) ->
     lager:info("unknown message type: ~p", [_Msg]),
