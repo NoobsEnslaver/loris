@@ -60,7 +60,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, 
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId})->
     #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId)};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE}) -> #c2s_message_update{};
+unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
+    #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = MsgId};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
     #c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
@@ -259,8 +260,16 @@ do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{c
                    #s2c_message_list{messages = Messages}
            end,
     {Resp, _State};
-do_action(_Msg =  #c2s_message_update{}, #user_state{chats = _Chats} = _State) ->
-    Resp = #s2c_user_status{},
+do_action(#c2s_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBody}, #user_state{chats = Chats, msisdn = MSISDN} = _State) ->
+    Resp = case proplists:get_value(ChatId, Chats) of
+               undefined->
+                   #s2c_error{code = 404};
+               _AccessGroup ->
+                   case chats:update_message(ChatId, MsgId, MsgBody, MSISDN) of
+                       ok -> ok;
+                       _ -> #s2c_error{code = 403}
+                   end
+           end,
     {Resp, _State};
 do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #user_state{chats = Chats} = _State) ->
     Resp = case proplists:get_value(ChatId, Chats) of

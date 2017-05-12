@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -export([new/0
         ,send_message/3
-        ,update_message/3
+        ,update_message/4
         ,update_message_status/2
         ,get_messages_from/2, get_messages_from/3
         ,get_messages_by_id/2
@@ -52,14 +52,17 @@ send_message(TableId, MsgBody, From) ->
         _ -> false
     end.
 
-update_message(TableId, MsgId, MsgBody) ->
+update_message(TableId, MsgId, MsgBody, MSISDN) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    {atomic, Res} = mnesia:transaction(fun()->
-                                               [OldMsg] = mnesia:read(TableName, MsgId),
-                                               NewMsg = OldMsg#message{msg_body = MsgBody},
-                                               mnesia:write(TableName, NewMsg, 'write')
-                                       end),
-    Res.
+    Fun = fun()->
+                  [#message{from = MSISDN} = OldMsg] = mnesia:read(TableName, MsgId),
+                  NewMsg = OldMsg#message{msg_body = MsgBody},
+                  mnesia:write(TableName, NewMsg, 'write')
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, _Res} -> ok;
+        _ -> false
+    end.
 
 update_message_status(TableId, MsgIdList) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
