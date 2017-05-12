@@ -199,45 +199,45 @@
 Сообщения Клиент -> Сервер
 ----------------------
 
-| Имя сообщения                 | msg_type      | Поля                                  | Возможные ответы              | Описание                                      |
---------------------------------|---------------|---------------------------------------|-------------------------------|-----------------------------------------------|
-| c2s_chat_get_list             | 1             | --                                    | s2c_chat_list, s2c_error      | Получить список своих чатов                   |
-| c2s_chat_get_info             | 2             | chat_id                               | s2c_chat_info, s2c_error      | Получить информацию о чате                    |
-| c2s_chat_create               | 3             | name, users                           | s2c_chat_create_result        | Создать чат                                   |
-| c2s_chat_leave                | 4             | chat_id                               | нет или s2c_error             | Покинуть чат                                  |
-| c2s_chat_delete               | 5             | chat_id                               | нет или s2c_error             | Удалить чат                                   |
-| c2s_chat_invite_user          | 6             | chat_id, user_msisdn                  | нет или s2c_error             | Пригласить в чат                              |
-| c2s_chat_mute                 | 7             | chat_id                               | нет или s2c_error             | Пометить чат как приглушенный                 |
-| c2s_chat_unmute               | 8             | chat_id                               | нет или s2c_error             | Убрать пометку с чата                         |
-| c2s_chat_typing               | 9             | chat_id                               | нет                           | Сигнализировать, что ты печатаешь             |
-| c2s_chat_accept_invatation    | 29            | chat_id                               | нет или s2c_error             | Принять приглашение в чат                     |
-| c2s_chat_reject_invatation    | 30            | chat_id                               | нет или s2c_error             | Отклонить приглашение в чат                   |
-| c2s_message_send              | 10            | chat_id, msg_body                     | нет или s2c_error             | Отправить сообщение                           |
-| c2s_message_get_list          | 11            | chat_id, msg_id                       | s2c_message_list, s2c_error   | Получить все сообщения с msg_id больше данного|
-| c2s_message_update            | 12            | chat_id, msg_id, msg_body             | нет или s2c_error             | Исправить сообщение                           |
-| c2s_message_update_status     | 13            | chat_id, msg_id                       | нет или s2c_error             | Обновить статус (ожидает->получено->прочитано)|
-| c2s_system_logout             | 14            | --                                    | нет                           | Удалить сессию, разорвать соединение          |
-| c2s_user_get_info             | 15            | user_msisdn                           | s2c_user_info, s2c_error      | Получить информацию о пользователе            |
-| c2s_user_get_status           | 16            | user_msisdn                           | s2c_user_status, s2c_error    | Онлайн ли пользователь?                       |
-| c2s_user_set_info             | 17            | user_msisdn,fname,lname,age,is_male   | нет или s2c_error             | Указать информацию о себе                     |
-| c2s_user_search               | 18            | fname, lname                          | s2c_user_search_result        | Поиск пользователя по имени и фамилии         |
-| c2s_room_rename               | 19            | %TODO                                 | %TODO                         | %TODO                                         |
-| c2s_room_add_user             | 20            |                                       |                               |                                               |
-| c2s_room_del_user             | 21            |                                       |                               |                                               |
-| c2s_room_add_subroom          | 22            |                                       |                               |                                               |
-| c2s_room_create               | 23            |                                       |                               |                                               |
-| c2s_room_delete               | 24            |                                       |                               |                                               |
-| c2s_room_get_tree             | 27            |                                       |                               |                                               |
-| c2s_room_get_info             | 28            |                                       |                               |                                               |
-| c2s_room_enter_to_chat        | 25            |                                       |                               |                                               |
-| c2s_room_send_message         | 26            |                                       |                               |                                               |
+| Имя сообщения                 | msg_type      | Поля                                  | Возможные ответы                   | Описание                                      |
+--------------------------------|---------------|---------------------------------------|------------------------------------|-----------------------------------------------|
+| c2s_chat_get_list             | 1             | --                                    | s2c_chat_list, s2c_error           | Получить список своих чатов                   |
+| c2s_chat_get_info             | 2             | chat_id                               | s2c_chat_info, s2c_error           | Получить информацию о чате                    |
+| c2s_chat_create               | 3             | name, users                           | s2c_chat_create_result             | Создать чат                                   |
+| c2s_chat_leave                | 4             | chat_id                               | нет или s2c_error                  | Покинуть чат                                  |
+| c2s_chat_delete               | 5             | chat_id                               | нет или s2c_error                  | Удалить чат                                   |
+| c2s_chat_invite_user          | 6             | chat_id, user_msisdn                  | нет или s2c_error                  | Пригласить в чат                              |
+| c2s_chat_mute                 | 7             | chat_id                               | нет или s2c_error                  | Пометить чат как приглушенный                 |
+| c2s_chat_unmute               | 8             | chat_id                               | нет или s2c_error                  | Убрать пометку с чата                         |
+| c2s_chat_typing               | 9             | chat_id                               | нет                                | Сигнализировать, что ты печатаешь             |
+| c2s_chat_accept_invatation    | 29            | chat_id                               | нет или s2c_error                  | Принять приглашение в чат                     |
+| c2s_chat_reject_invatation    | 30            | chat_id                               | нет или s2c_error                  | Отклонить приглашение в чат                   |
+| c2s_message_send              | 10            | chat_id, msg_body                     | s2c_message_send_result, s2c_error | Отправить сообщение                           |
+| c2s_message_get_list          | 11            | chat_id, msg_id                       | s2c_message_list, s2c_error        | Получить все сообщения с msg_id больше данного|
+| c2s_message_update            | 12            | chat_id, msg_id, msg_body             | нет или s2c_error                  | Исправить сообщение                           |
+| c2s_message_update_status     | 13            | chat_id, msg_id                       | нет или s2c_error                  | Обновить статус (ожидает->получено->прочитано)|
+| c2s_system_logout             | 14            | --                                    | нет                                | Удалить сессию, разорвать соединение          |
+| c2s_user_get_info             | 15            | user_msisdn                           | s2c_user_info, s2c_error           | Получить информацию о пользователе            |
+| c2s_user_get_status           | 16            | user_msisdn                           | s2c_user_status, s2c_error         | Онлайн ли пользователь?                       |
+| c2s_user_set_info             | 17            | user_msisdn,fname,lname,age,is_male   | нет или s2c_error                  | Указать информацию о себе                     |
+| c2s_user_search               | 18            | fname, lname                          | s2c_user_search_result             | Поиск пользователя по имени и фамилии         |
+| c2s_room_rename               | 19            | %TODO                                 | %TODO                              | %TODO                                         |
+| c2s_room_add_user             | 20            |                                       |                                    |                                               |
+| c2s_room_del_user             | 21            |                                       |                                    |                                               |
+| c2s_room_add_subroom          | 22            |                                       |                                    |                                               |
+| c2s_room_create               | 23            |                                       |                                    |                                               |
+| c2s_room_delete               | 24            |                                       |                                    |                                               |
+| c2s_room_get_tree             | 27            |                                       |                                    |                                               |
+| c2s_room_get_info             | 28            |                                       |                                    |                                               |
+| c2s_room_enter_to_chat        | 25            |                                       |                                    |                                               |
+| c2s_room_send_message         | 26            |                                       |                                    |                                               |
 
 Сообщения Сервер -> Клиент
 ----------------------
 
 | Имя сообщения                 | msg_type      | Поля                                                  | Описание                                      |
 --------------------------------|---------------|-------------------------------------------------------|-----------------------------------------------|
-| s2c_chat_list                 | 101           | chat_id                                               | Список чатов, в которых ты есть               |
+| s2c_chat_list                 | 101           | chats                                                 | Список чатов, в которых ты есть               |
 | s2c_chat_info                 | 102           | chat_id,name,users,is_muted,chat_owner,access_group   | Информация о чате                             |
 | s2c_chat_create_result        | 103           | chat_id                                               | Возвращает id созданного чата                 |
 | s2c_error                     | 104           | code                                                  | Если что-то пошло не так, коды как в HTTP     |
@@ -254,6 +254,7 @@
 | s2c_room_info                 | 115           | room_id, subrooms, users, chats                       |                                               |
 | s2c_room_create_result        | 116           | room_id                                               |                                               |
 | s2c_message_list              | 117           | chat_id, messages                                     |                                               |
+| s2c_message_send_result       | 118           | msg_id, chat_id                                       | Возвращает присвоенный сообщению id           |
 
 Наиболее актуальную информацию, а так же типы значений полей можно посмотреть в файле [объявления типов протокола](https://github.com/kimoffegg/egg/blob/egg_adaptation/apps/server/include/ws_chat_protocol_v1_messages.hrl) .
 
