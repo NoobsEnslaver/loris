@@ -69,7 +69,11 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSI
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_status{user_msisdn = round(MSISDN)};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) -> #c2s_user_set_info{};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
+    #c2s_user_set_info{fname = maps:get(<<"fname">>, Msg, 'undefined')
+                      ,lname = maps:get(<<"lname">>, Msg, 'undefined')
+                      ,age = maps:get(<<"age">>, Msg, 'undefined')
+                      ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE}) -> #c2s_user_search{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_TREE_TYPE}) -> #c2s_room_get_tree{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE}) -> #c2s_room_get_info{};
@@ -314,7 +318,11 @@ do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
                    end
            end,
     {Resp, _State};
-do_action(_Msg = #c2s_user_set_info{}, _State) ->
+do_action(#c2s_user_set_info{fname = FName, lname = LName, age = Age, is_male = IsMale}, #user_state{msisdn = MSISDN} = _State) ->
+    Info = lists:filter(fun({_,'undefined'}) -> 'false';
+                           ({_,_})-> 'true'
+                        end, [{fname, FName}, {lname, LName}, {age, Age}, {is_male, IsMale}]),
+    users:set_info(MSISDN, Info),
     {ok, _State};
 do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
     Users = users:search(FName, LName),

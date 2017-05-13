@@ -23,6 +23,7 @@
         ,mute_chat/2
         ,unmute_chat/2
         ,update_last_visit_timestamp/1
+        ,set_info/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -36,14 +37,12 @@ authorize(MSISDN, Password)->
         _ -> 'false'
     end.
 
--spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer()) -> #user{} | {'aborted', any()} | 'exists'.
+-spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer()) -> #user{} | 'false' | 'exists'.
 new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
     Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
             'exists';
-        {'aborted', Reason} ->
-            {'aborted', Reason};
         _ ->
             PwdHash = common:bin2hex(crypto:hash('md5', Pwd)),
             User = #user{msisdn = MSISDN
@@ -57,18 +56,16 @@ new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
                         ,access_level = AccessLevel},
             case mnesia:transaction(fun()-> mnesia:write(User) end) of
                 {'atomic', 'ok'} -> User;
-                Error -> Error
+                _Error -> 'false'
             end
     end.
 
--spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer(), 'nohash') -> #user{} | {'aborted', any()} | 'exists'.
+-spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer(), 'nohash') -> #user{} | 'false' | 'exists'.
 new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
     Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
             'exists';
-        {'aborted', Reason} ->
-            {'aborted', Reason};
         _ ->
             User = #user{msisdn = MSISDN
                         ,group = Group
@@ -81,10 +78,9 @@ new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
                         ,access_level = AccessLevel},
             case mnesia:transaction(fun()-> mnesia:write(User) end) of
                 {'atomic', 'ok'} -> User;
-                Error -> Error
+                _Error -> 'false'
             end
     end.
-
 
 -spec delete(#user{} | binary()) -> 'abort' | 'ok' | 'false'.
 delete(#user{msisdn = MSISDN}) ->
@@ -229,6 +225,35 @@ update_last_visit_timestamp(MSISDN) ->
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;
         _Error -> 'false'
+    end.
+
+set_info(MSISDN, Proplist) ->
+    case get(MSISDN) of
+        User0 when is_record(User0, user) ->
+            User1 = lists:foldl(fun({Key, Value}, User)->
+                                        case Key of
+                                            msisdn -> User#user{msisdn = Value};
+                                            group -> User#user{group = Value};
+                                            pwd_hash -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
+                                            created -> User#user{created = Value};
+                                            chats -> User#user{chats = Value};
+                                            rooms -> User#user{rooms = Value};
+                                            chats_invatations -> User#user{chats_invatations = Value};
+                                            age -> User#user{age = Value};
+                                            fname -> User#user{fname = Value};
+                                            lname -> User#user{lname = Value};
+                                            is_male -> User#user{is_male = Value};
+                                            muted_chats -> User#user{muted_chats = Value};
+                                            last_visit_timestamp -> User#user{last_visit_timestamp = Value};
+                                            access_level -> User#user{access_level = Value}
+                                        end
+                                end, User0, Proplist),
+            case mnesia:transaction(fun()-> mnesia:write(User1) end) of
+                {'atomic', 'ok'} -> User1;
+                _Error -> 'false'
+            end;
+        _ ->
+            'not_exists'
     end.
 
 %%%-------------------------------------------------------------------
