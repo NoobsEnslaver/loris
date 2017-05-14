@@ -9,6 +9,8 @@
 -module(server_sup).
 
 -behaviour(supervisor).
+-include("server.hrl").
+-include_lib("common/include/otp_definitions.hrl").
 
 %% API
 -export([start_link/0]).
@@ -31,7 +33,12 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, { {one_for_all, 0, 1}, []} }.
+    lager:md([{'appname', ?APP_NAME}]),
+    Procs = [],
+    SupFlags = #{'strategy' => 'one_for_one'
+                ,'intensity'=> 5
+                ,'period'   => 10},
+    {'ok', {SupFlags, Procs}}.
 
 %%====================================================================
 %% Internal functions

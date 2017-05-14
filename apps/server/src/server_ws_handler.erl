@@ -18,7 +18,6 @@
         ]).
 
 -record(state, {transport = <<>>
-               ,async_works = #{}
                ,user_state
                ,protocol :: module()
                ,token}).
@@ -101,7 +100,7 @@ websocket_init(#state{token = Token, protocol = Module} = State) ->
     {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
-websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state = US, async_works = AW, protocol = Protocol} = State) ->
+websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state = US, protocol = Protocol} = State) ->
     RawMsg = ws_utils:decode_message(BinData, T),
     Msg = Protocol:unwrap_msg(RawMsg),
     case Protocol:do_action(Msg, US) of
@@ -109,11 +108,7 @@ websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state 
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
             Resp = Protocol:wrap_msg(RawResp, T),
-            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'};
-        {'async', Pid, Ref, NewUS} ->           %старт асинхронной работы (процесс, запущенный с помощью ws_utils:do_async_work)
-            Resp = Protocol:wrap_msg(#async_start{work_id = list_to_binary(erlang:ref_to_list(Ref))}, T),
-            TimerRef = erlang:send_after(?ASYNC_WORK_TIMEOUT, self(), {'async_timeout', Pid}), %устанавилваем таймаут на выполнение работы
-            {'reply', {'binary', Resp}, State#state{async_works = AW#{Pid => {Ref, TimerRef}}, user_state = NewUS}, 'hibernate'} %запоминаем Pid и timestamp в стэйте процесса
+            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'}
     end;
 websocket_handle(Frame = {'text', _Data}, State) ->
     {'reply', Frame, State, 'hibernate'};       %TODO: может, стоит ввести общение и без транспорта?
@@ -122,39 +117,13 @@ websocket_handle(Frame = {'ping', _Data}, State) ->
 websocket_handle(_Frame, State) ->
     {'ok', State, 'hibernate'}.
 
--spec websocket_info({'async_timeout', pid()} | {'async_done', pid(), map()} | {'DOWN', reference(), atom(), pid(), any()}, #state{}) -> call_result(#state{}).
-websocket_info({'async_timeout', Pid}, State) -> %Таймаут асинхронной работы
-    exit(Pid, 'timeout'),                        %убиваем процесс, передаётся управление на обработчик падения процесса DOWN
-    {'ok', State, 'hibernate'};
-websocket_info({'async_done', Pid, RawResp}, #state{async_works = AW, transport = T, protocol = Protocol} = State) ->
-    {'ok', {Ref, TimerRef}} = maps:find(Pid, AW),
-    Resp = Protocol:wrap_msg(#async_done{work_id = list_to_binary(erlang:ref_to_list(Ref)), result = RawResp}, T),
-    erlang:cancel_timer(TimerRef),
-    NewAW = maps:remove(Pid, AW),
-    {'reply', {'binary', Resp}, State#state{async_works = NewAW}, 'hibernate'};
-websocket_info({'DOWN', _MonitorRef, _Type, _Pid, 'normal'}, State) ->
-    {'ok', State, 'hibernate'};
-websocket_info({'DOWN', MonitorRef, _Type, Pid, ErrorReason}, #state{async_works = AW, transport = T, protocol = Protocol} = State) ->
-    lager:info("async request failed with reason ~p", [ErrorReason]),
-    case maps:find(Pid, AW) of
-        {'ok', {_MonitorRef, TimerRef}} ->
-            erlang:cancel_timer(TimerRef),
-            NewAW = maps:remove(Pid, AW),
-            Resp = Protocol:wrap_msg(#async_error{work_id = list_to_binary(erlang:ref_to_list(MonitorRef))}, T), %TODO: return error code
-            {'reply', {'binary', Resp}, State#state{async_works = NewAW}, 'hibernate'};
-        _ -> {'ok', State, 'hibernate'}
-    end;
-websocket_info(Msg, #state{transport = T, user_state = US, async_works = AW, protocol = Protocol} = State) ->
+websocket_info(Msg, #state{transport = T, user_state = US, protocol = Protocol} = State) ->
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
             Resp = Protocol:wrap_msg(RawResp, T),
-            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'};
-        {'async', Pid, Ref, NewUS} ->           %старт асинхронной работы (процесс, запущенный с помощью ws_utils:do_async_work)
-            Resp = Protocol:wrap_msg(#async_start{work_id = list_to_binary(erlang:ref_to_list(Ref))}, T),
-            TimerRef = erlang:send_after(?ASYNC_WORK_TIMEOUT, self(), {'async_timeout', Pid}), %устанавилваем таймаут на выполнение работы
-            {'reply', {'binary', Resp}, State#state{async_works = AW#{Pid => {Ref, TimerRef}}, user_state = NewUS}, 'hibernate'} %запоминаем Pid и timestamp в стэйте процесса
+            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'}
     end.
 
 %%%===================================================================

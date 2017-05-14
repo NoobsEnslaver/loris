@@ -105,20 +105,6 @@ unwrap_msg(_) -> 'undefined'.
 %%% Prepare server response
 %%%===================================================================
 -spec wrap_msg(server_msg_type(), binary()) -> binary().
-wrap_msg(#async_start{work_id = WorkId}, Transport) ->
-    Data = #{<<"msg_type">> => ?C2S_ASYNC_START
-            ,<<"req_id">> => WorkId},
-    transport_lib:encode(Data, Transport);
-wrap_msg(#async_error{work_id = WorkId, error_code = EC}, Transport) ->
-    Data = #{<<"msg_type">> => ?C2S_ASYNC_ERROR
-            ,<<"req_id">> => WorkId
-            ,<<"data">> => #{<<"error_code">> => EC}},
-    transport_lib:encode(Data, Transport);
-wrap_msg(#async_done{work_id= WorkId, result = Res}, Transport) ->
-    Data = #{<<"msg_type">> => ?C2S_ASYNC_DONE
-            ,<<"req_id">> => WorkId
-            ,<<"data">> => transport_lib:decode(wrap_msg(Res, Transport), Transport)},
-    transport_lib:encode(Data, Transport);
 wrap_msg(_Msg = #s2c_chat_list{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_chat_list), Transport);
 wrap_msg(_Msg = #s2c_chat_info{}, Transport) ->
@@ -170,12 +156,10 @@ wrap_msg({error, Msg}, Transport) ->
 wrap_msg(_, Transport) ->
     transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport).
 
-
-
 %%%===================================================================
 %%% Handle users request
 %%%===================================================================
--spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {'async', pid(), reference(), #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
+-spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
 do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
     ChatsList = [{ChatId, chat_info:extract(chat_info:get(ChatId), name)} || {ChatId, _} <- Chats],
     Resp = #s2c_chat_list{chats = maps:from_list(ChatsList)},
