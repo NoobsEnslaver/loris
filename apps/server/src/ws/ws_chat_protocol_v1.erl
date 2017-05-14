@@ -85,8 +85,18 @@ unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE}) -> #c2s_room_creat
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE}) -> #c2s_room_delete{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_ENTER_TO_CHAT_TYPE}) -> #c2s_room_enter_to_chat{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_SEND_MESSAGE_TYPE}) -> #c2s_room_send_message{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) -> #c2s_chat_accept_invatation{chat_id = ChatId};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) -> #c2s_chat_reject_invatation{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_accept_invatation{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
+    #c2s_chat_reject_invatation{chat_id = ChatId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_INVITE_TYPE, <<"msisdn">> := MSISDN, <<"sdp_offer">> := Offer}) ->
+    #c2s_call_invite{msisdn = MSISDN, sdp_offer = Offer};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ACK_TYPE}) ->
+    #c2s_call_ack{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := Candidate}) ->
+    #c2s_call_ice_candidate{candidate = Candidate};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_BYE_TYPE, <<"code">> := Code}) ->
+    #c2s_call_bye{code = Code};
 unwrap_msg(_) -> 'undefined'.
 
 
@@ -145,6 +155,14 @@ wrap_msg(_Msg = #s2c_message_send_result{}, Transport) ->
 wrap_msg(Msg = #s2c_message_list{messages = Messages}, Transport) ->
     MapMessages = [?R2M(M, message) || M <- Messages],
     transport_lib:encode(?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list), Transport);
+wrap_msg(_Msg = #s2c_call_invite{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_invite), Transport);
+wrap_msg(_Msg = #s2c_call_ack{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_ack), Transport);
+wrap_msg(_Msg = #s2c_call_ice_candidate{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_ice_candidate), Transport);
+wrap_msg(_Msg = #s2c_call_bye{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_bye), Transport);
 wrap_msg({error, Msg}, Transport) ->
     lager:error("Can't wrap message: unknown type. Msg: ~p", [Msg]),
     transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport);
@@ -351,6 +369,14 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     Resp = #s2c_chat_info{},
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
+    {ok, _State};
+do_action(#c2s_call_invite{}, _State) ->
+    {ok, _State};
+do_action(#c2s_call_ack{}, _State) ->
+    {ok, _State};
+do_action(#c2s_call_ice_candidate{}, _State) ->
+    {ok, _State};
+do_action(#c2s_call_bye{}, _State) ->
     {ok, _State};
 do_action({chat_typing, _ChatId, MSISDN}, #user_state{msisdn = MSISDN} = State) -> %you self typing, ignore
     {ok, State};
