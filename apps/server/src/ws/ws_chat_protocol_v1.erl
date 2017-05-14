@@ -19,7 +19,8 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, rooms, token, muted_chats, msisdn}).
+-record(user_state, {chats, rooms, token, muted_chats, msisdn, call}).
+-record(call_info, {pid, msisdn, ref}).
 
 default_user_state(Token)->
     Session = sessions:get(Token),
@@ -370,14 +371,71 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_invite{}, _State) ->
+do_action(#c2s_call_invite{}, #user_state{call = #call_info{}} = _State) ->     % call record defined, call in progress
+    Resp = #s2c_call_bye{code = 491},                                           % Request Pending
+    {Resp, _State};
+do_action(#c2s_call_invite{msisdn = CalleeMSISDN, sdp_offer = Offer}, #user_state{msisdn = CallerMSISDN} = State) ->
+    case users:get(CalleeMSISDN) of
+        'false' ->
+            {#s2c_call_bye{code = 404}, State};   %user not found
+        _ ->
+            case sessions:get_by_owner_id(CalleeMSISDN) of
+                #session{ws_pid = CalleePid} when is_pid(CalleePid) ->
+                    Ref = monitor(process, CalleePid),
+                    CalleePid ! {call_invatation, CallerMSISDN, Offer, self()},
+                    {ok, State#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
+                _ ->
+                    {#s2c_call_bye{code = 480}, State} %user offline
+            end
+    end;
+do_action(#c2s_call_ack{}, #user_state{call = #call_info{pid = Pid}} = _State) ->
+    Pid ! call_ack,
     {ok, _State};
 do_action(#c2s_call_ack{}, _State) ->
     {ok, _State};
+do_action(#c2s_call_ice_candidate{candidate = C}, #user_state{call = #call_info{pid = Pid}} = _State) ->
+    Pid ! {call_ice_candidate, C},
+    {ok, _State};
 do_action(#c2s_call_ice_candidate{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_bye{}, _State) ->
-    {ok, _State};
+do_action(#c2s_call_bye{code = Code}, #user_state{call = #call_info{pid = Pid, ref = Ref, msisdn = _MSISDN}} = State) ->
+    demonitor(Ref),
+    Pid ! {call_bye, Code},
+    {ok, State#user_state{call = 'undefined'}};
+do_action(#c2s_call_bye{}, State) ->
+    {ok, State#user_state{call = 'undefined'}};
+do_action({call_invatation, CallerMSISDN, Offer, CallerPid}, #user_state{call = CallInfo} = State) ->
+    case CallInfo of
+        #call_info{msisdn = CallerMSISDN} ->    %it's accepting of call
+            %% TODO: call starts, create CDR
+            {#s2c_call_invite{msisdn = CallerMSISDN, sdp_offer = Offer}, State};
+        #call_info{} ->                         %third user calling you, you are busy
+            CallerPid ! {call_bye, 486},
+            {ok, State};
+        _ ->                                    %no call record - it's invatation
+            Ref = monitor(process, CallerPid),
+            NewState = State#user_state{call = #call_info{msisdn = CallerMSISDN, pid = CallerPid, ref = Ref}},
+            {#s2c_call_invite{msisdn = CallerMSISDN, sdp_offer = Offer}, NewState}
+    end;
+do_action(call_ack, _State) ->
+    Resp = #s2c_call_ack{},
+    {Resp, _State};
+do_action({call_bye, Code}, #user_state{call = CallInfo} = State) -> %user hang up
+    case CallInfo of
+        #call_info{ref = Ref} ->
+            demonitor(Ref);
+        _ -> ok
+    end,
+    Resp = #s2c_call_bye{code = Code},
+    {Resp, State#user_state{call = 'undefined'}};
+do_action({call_ice_candidate, Candidate}, _State) ->
+    Resp = #s2c_call_ice_candidate{candidate = Candidate},
+    {Resp, _State};
+do_action({'DOWN', Ref, _Type, Pid, _ErrorReason}, #user_state{call = #call_info{pid = Pid, msisdn = _CalleeMSISDN, ref = Ref}} = State) -> %monitor triggered, opponents proc dies
+    lager:debug("call interrupted, because opponent proc crashed: ~p", [_ErrorReason]),
+    %% TODO: create CDR about end of call
+    Resp = #s2c_call_bye{code = 500},
+    {Resp, State#user_state{call = 'undefined'}};
 do_action({chat_typing, _ChatId, MSISDN}, #user_state{msisdn = MSISDN} = State) -> %you self typing, ignore
     {ok, State};
 do_action({chat_typing, ChatId, MSISDN}, #user_state{muted_chats = MC} = State) ->
