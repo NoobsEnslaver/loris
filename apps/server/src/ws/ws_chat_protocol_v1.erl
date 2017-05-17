@@ -26,6 +26,10 @@ default_user_state(Token)->
     Session = sessions:get(Token),
     UserMSISDN = sessions:extract(Session, owner_id),
     User = users:get(UserMSISDN),
+    ChatInvatations = users:extract(User, chats_invatations),
+    lists:foreach(fun({ChatId, _})->
+                          self() ! {chat_invatation, ChatId}
+                  end, ChatInvatations),
     lists:foreach(fun({C, _AccessGroup})->
                           chats:subscribe(C)
                   end, users:extract(User, chats)),
