@@ -17,7 +17,7 @@
                         ,{'buffer', 32768}
                         ,{'max_connections', 65536}]}
         ,{'acceptors', 100}
-        ,{'static_dir', "/srv"}
+        ,{'static_dir', "/srv/static"}
         ,{'max_file_size', 16777216}                 %16 MB
         ,{'sessions_live_time', 2592000}             %30 days
         ,{'sms_live_time', 3600}                     %1 hour

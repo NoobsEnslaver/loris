@@ -91,13 +91,13 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> :
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_reject_invatation{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_INVITE_TYPE, <<"msisdn">> := MSISDN, <<"sdp_offer">> := Offer}) ->
-    #c2s_call_invite{msisdn = MSISDN, sdp_offer = Offer};
+    #c2s_call_invite{msisdn = round(MSISDN), sdp_offer = Offer};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ACK_TYPE}) ->
     #c2s_call_ack{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := Candidate}) ->
     #c2s_call_ice_candidate{candidate = Candidate};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_BYE_TYPE, <<"code">> := Code}) ->
-    #c2s_call_bye{code = Code};
+    #c2s_call_bye{code = round(Code)};
 unwrap_msg(_) -> 'undefined'.
 
 

@@ -95,25 +95,23 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 -spec websocket_init(#state{}) -> call_result(#state{}).
 websocket_init(#state{token = Token, protocol = Module} = State) ->
     lager:md([{'appname', ?APP_NAME}]),
-    US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
     sessions:bind_pid_to_session(Token, self()),
+    US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
     {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
-websocket_handle(_Frame = {'binary', BinData}, #state{transport = T, user_state = US, protocol = Protocol} = State) ->
-    RawMsg = ws_utils:decode_message(BinData, T),
+websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protocol = Protocol} = State) when DataType == 'binary' orelse DataType == 'text' ->
+    RawMsg = ws_utils:decode_message(Data, T),
     Msg = Protocol:unwrap_msg(RawMsg),
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
             Resp = Protocol:wrap_msg(RawResp, T),
-            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'}
+            {'reply', {DataType, Resp}, State#state{user_state = NewUS}, 'hibernate'}
     end;
-websocket_handle(Frame = {'text', _Data}, State) ->
-    {'reply', Frame, State, 'hibernate'};       %TODO: может, стоит ввести общение и без транспорта?
-websocket_handle(Frame = {'ping', _Data}, State) ->
-    {'reply', Frame, State, 'hibernate'};       %TODO: несеклюрно работать в режиме зеркала с неподдерживаемыми сообщениями
+websocket_handle({'ping', _Data}, State) ->
+    {'reply', {'pong', <<>>}, State, 'hibernate'};
 websocket_handle(_Frame, State) ->
     {'ok', State, 'hibernate'}.
 
