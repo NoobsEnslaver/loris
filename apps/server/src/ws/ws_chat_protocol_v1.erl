@@ -20,7 +20,7 @@
         ,terminate/1]).
 
 -record(user_state, {chats, rooms, token, muted_chats, msisdn, call}).
--record(call_info, {pid, msisdn, ref}).
+-record(call_info, {pid, msisdn, ref, state}).
 
 default_user_state(Token)->
     Session = sessions:get(Token),
@@ -94,8 +94,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> :
     #c2s_chat_accept_invatation{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_reject_invatation{chat_id = ChatId};
-unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_INVITE_TYPE, <<"msisdn">> := MSISDN, <<"sdp_offer">> := Offer}) ->
-    #c2s_call_invite{msisdn = round(MSISDN), sdp_offer = Offer};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN, <<"sdp">> := Offer}) ->
+    #c2s_call_offer{msisdn = round(MSISDN), sdp = Offer};
+unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ANSWER_TYPE, <<"sdp">> := Answer}) ->
+    #c2s_call_answer{sdp = Answer};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ACK_TYPE}) ->
     #c2s_call_ack{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := Candidate}) ->
@@ -146,8 +148,10 @@ wrap_msg(_Msg = #s2c_message_send_result{}, Transport) ->
 wrap_msg(Msg = #s2c_message_list{messages = Messages}, Transport) ->
     MapMessages = [?R2M(M, message) || M <- Messages],
     transport_lib:encode(?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list), Transport);
-wrap_msg(_Msg = #s2c_call_invite{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_invite), Transport);
+wrap_msg(_Msg = #s2c_call_offer{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_offer), Transport);
+wrap_msg(_Msg = #s2c_call_answer{}, Transport) ->
+    transport_lib:encode(?R2M(_Msg, s2c_call_answer), Transport);
 wrap_msg(_Msg = #s2c_call_ack{}, Transport) ->
     transport_lib:encode(?R2M(_Msg, s2c_call_ack), Transport);
 wrap_msg(_Msg = #s2c_call_ice_candidate{}, Transport) ->
@@ -359,10 +363,10 @@ do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
     {Resp, _State};
 do_action(_Msg = #c2s_room_send_message{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_invite{}, #user_state{call = #call_info{}} = _State) ->     % call record defined, call in progress
+do_action(#c2s_call_offer{}, #user_state{call = #call_info{}} = _State) ->      % call record defined, call in progress
     Resp = #s2c_call_bye{code = 491},                                           % Request Pending
     {Resp, _State};
-do_action(#c2s_call_invite{msisdn = CalleeMSISDN, sdp_offer = Offer}, #user_state{msisdn = CallerMSISDN} = State) ->
+do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisdn = CallerMSISDN} = State) ->
     case users:get(CalleeMSISDN) of
         'false' ->
             {#s2c_call_bye{code = 404}, State};   %user not found
@@ -370,12 +374,18 @@ do_action(#c2s_call_invite{msisdn = CalleeMSISDN, sdp_offer = Offer}, #user_stat
             case sessions:get_by_owner_id(CalleeMSISDN) of
                 #session{ws_pid = CalleePid} when is_pid(CalleePid) ->
                     Ref = monitor(process, CalleePid),
-                    CalleePid ! {call_invatation, CallerMSISDN, Offer, self()},
+                    CalleePid ! {call_offer, CallerMSISDN, Offer, self()},
                     {ok, State#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
                 _ ->
                     {#s2c_call_bye{code = 480}, State} %user offline
             end
     end;
+do_action(#c2s_call_answer{sdp = Answer}, #user_state{msisdn = CallerMSISDN, call = #call_info{pid = CalleePid}} = _State) ->
+    CalleePid ! {call_answer, CallerMSISDN, Answer, self()},
+    {ok, _State};
+do_action(#c2s_call_answer{}, _State) ->
+    Resp = #s2c_call_bye{code = 410},                                           % Gone: offer is not available any more
+    {Resp, _State};
 do_action(#c2s_call_ack{}, #user_state{call = #call_info{pid = Pid}} = _State) ->
     Pid ! call_ack,
     {ok, _State};
@@ -392,19 +402,19 @@ do_action(#c2s_call_bye{code = Code}, #user_state{call = #call_info{pid = Pid, r
     {ok, State#user_state{call = 'undefined'}};
 do_action(#c2s_call_bye{}, State) ->
     {ok, State#user_state{call = 'undefined'}};
-do_action({call_invatation, CallerMSISDN, Offer, CallerPid}, #user_state{call = CallInfo} = State) ->
-    case CallInfo of
-        #call_info{msisdn = CallerMSISDN} ->    %it's accepting of call
-            %% TODO: call starts, create CDR
-            {#s2c_call_invite{msisdn = CallerMSISDN, sdp_offer = Offer}, State};
-        #call_info{} ->                         %third user calling you, you are busy
-            CallerPid ! {call_bye, 486},
-            {ok, State};
-        _ ->                                    %no call record - it's invatation
-            Ref = monitor(process, CallerPid),
-            NewState = State#user_state{call = #call_info{msisdn = CallerMSISDN, pid = CallerPid, ref = Ref}},
-            {#s2c_call_invite{msisdn = CallerMSISDN, sdp_offer = Offer}, NewState}
-    end;
+do_action({call_offer, _CallerMSISDN, _Offer, CallerPid}, #user_state{call = #call_info{}} = _State) -> % you are busy
+    CallerPid ! {call_bye, 486},
+    {ok, _State};
+do_action({call_offer, CallerMSISDN, Offer, CallerPid}, State) ->
+    Ref = monitor(process, CallerPid),
+    NewState = State#user_state{call = #call_info{msisdn = CallerMSISDN, pid = CallerPid, ref = Ref}},
+    Resp = #s2c_call_offer{msisdn = CallerMSISDN, sdp = Offer},
+    {Resp, NewState};
+do_action({call_answer, CallerMSISDN, Answer, _CallerPid}, #user_state{call = #call_info{msisdn = CallerMSISDN}} = _State) ->
+    {#s2c_call_answer{sdp = Answer}, _State};
+do_action({call_answer, _CallerMSISDN, _Answer, CallerPid}, _State) ->
+    CallerPid ! {call_bye, 410},                                                % Gone: offer is not available any more
+    {ok, _State};
 do_action(call_ack, _State) ->
     Resp = #s2c_call_ack{},
     {Resp, _State};
