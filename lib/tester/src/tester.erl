@@ -19,17 +19,19 @@
         ,send_packet/3
         ,receive_packet/2
         ,disconnect/1
-        ,authorize/2
+        ,authorize/1
         ,flush_messages/0]).
 
--spec authorize(binary(), binary()) -> binary().
-authorize(MSISDN, Pwd) ->
+-spec authorize(binary()) -> binary().
+authorize(MSISDN) ->
     {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
-            PwdHash = common:bin2hex(crypto:hash('md5', Pwd)),
-            Body = transport_lib:encode(#{<<"msisdn">> => MSISDN, <<"password">> => PwdHash}, ?JSON),
-            StreamRef = gun:post(ConnPid, "/v1/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
+            Body1 = transport_lib:encode(#{<<"msisdn">> => MSISDN}, ?JSON),
+            gun:post(ConnPid, "/v1/sms", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body1),
+            timer:sleep(200),
+            Body = transport_lib:encode(#{<<"msisdn">> => MSISDN, <<"sms_code">> => 6666}, ?JSON),
+            StreamRef = gun:post(ConnPid, "/v3/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
             Result = gun:await_body(ConnPid, StreamRef),
             gun:close(ConnPid),
             Result;

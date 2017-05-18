@@ -14,7 +14,7 @@
 -include("ws_chat_protocol_v1_messages.hrl").
 -include("server.hrl").
 -import(tester,[connect_to_ws/2
-               ,authorize/2
+               ,authorize/1
                ,send_packet/3
                ,receive_packet/2]).
 
@@ -740,7 +740,7 @@ user_get_status_test(Config)->
                           %% Get new user status
                           send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
                           #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'false', <<"last_visit_timestamp">> := <<"undefined">>} = receive_packet(ConPid, Transport),
-                          {ok, Token} = authorize(MSISDN, <<"121">>),
+                          {ok, Token} = authorize(MSISDN),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
                           timer:sleep(50),
                           TimeStamp1 = common:timestamp(),
@@ -785,8 +785,8 @@ user_set_info_test(Config) ->
 init()->
     lists:map(fun(Transport)->
                       MSISDN = crypto:rand_uniform(1000000, 99999999),
-                      User = users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                      {ok, Token} = authorize(MSISDN, <<"121">>),
+                      {ok, Token} = authorize(MSISDN),
+                      User = users:set_info(MSISDN, [{group, administrators}, {age, 25}, {fname, <<"Nikita">>}, {lname, <<"Vorontsov">>}, {is_male, true}]),
                       {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
                       #{user => User, token => Token, connection => ConPid, transport => Transport}
               end, ?SUPPORTED_TRANSPORT).
