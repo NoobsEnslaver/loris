@@ -16,9 +16,9 @@
   {env, [{'tcp_params', [{'port', 8080}
                         ,{'buffer', 32768}
                         ,{'max_connections', 65536}]}
-        ,{'certfile', "/ssl/server.crt"}
-        ,{'keyfile', "/ssl/server.key"}
-        ,{'enable_tls', false}
+        ,{'certfile', "/ssl/backegg.ru/cert1.pem"}
+        ,{'keyfile', "/ssl/backegg.ru/privkey1.pem"}
+        ,{'enable_tls', true}
         ,{'acceptors', 100}
         ,{'static_dir', "/srv/static"}
         ,{'max_file_size', 16777216}                 %16 MB
