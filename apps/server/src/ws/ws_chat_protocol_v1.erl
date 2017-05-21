@@ -13,7 +13,7 @@
 -behaviour(ws_protocol_behaviour).
 -export([unwrap_msg/1
         ,do_action/2
-        ,wrap_msg/2
+        ,wrap_msg/1
         ,default_user_state/1
         ,allowed_groups/0
         ,access_level/0
@@ -110,59 +110,36 @@ unwrap_msg(_) -> 'undefined'.
 %%%===================================================================
 %%% Prepare server response
 %%%===================================================================
--spec wrap_msg(server_msg_type(), binary()) -> binary().
-wrap_msg(_Msg = #s2c_chat_list{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_list), Transport);
-wrap_msg(_Msg = #s2c_chat_info{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_info), Transport);
-wrap_msg(_Msg = #s2c_chat_create_result{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_create_result), Transport);
-wrap_msg(_Msg = #s2c_chat_typing{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_typing), Transport);
-wrap_msg(_Msg = #s2c_message{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_message), Transport);
-wrap_msg(_Msg = #s2c_message_update{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_message_update), Transport);
-wrap_msg(_Msg = #s2c_message_update_status{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_message_update_status), Transport);
-wrap_msg(_Msg = #s2c_user_info{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_user_info), Transport);
-wrap_msg(_Msg = #s2c_user_status{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_user_status), Transport);
-wrap_msg(_Msg = #s2c_user_search_result{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_user_search_result), Transport);
-wrap_msg(_Msg = #s2c_room_list{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_room_list), Transport);
-wrap_msg(_Msg = #s2c_room_info{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_room_info), Transport);
-wrap_msg(_Msg = #s2c_room_tree{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_room_tree), Transport);
-wrap_msg(_Msg = #s2c_room_create_result{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_room_create_result), Transport);
-wrap_msg(_Msg = #s2c_chat_invatation{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_chat_invatation), Transport);
-wrap_msg(_Msg = #s2c_error{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_error), Transport);
-wrap_msg(_Msg = #s2c_message_send_result{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_message_send_result), Transport);
-wrap_msg(Msg = #s2c_message_list{messages = Messages}, Transport) ->
+-spec wrap_msg(server_msg_type()) -> map().
+wrap_msg(Msg) when is_record(Msg, s2c_chat_list) -> ?R2M(Msg, s2c_chat_list);
+wrap_msg(Msg) when is_record(Msg, s2c_chat_info) -> ?R2M(Msg, s2c_chat_info);
+wrap_msg(Msg) when is_record(Msg, s2c_chat_create_result) -> ?R2M(Msg, s2c_chat_create_result);
+wrap_msg(Msg) when is_record(Msg, s2c_chat_typing) -> ?R2M(Msg, s2c_chat_typing);
+wrap_msg(Msg) when is_record(Msg, s2c_message) -> ?R2M(Msg, s2c_message);
+wrap_msg(Msg) when is_record(Msg, s2c_message_update) -> ?R2M(Msg, s2c_message_update);
+wrap_msg(Msg) when is_record(Msg, s2c_message_update_status) -> ?R2M(Msg, s2c_message_update_status);
+wrap_msg(Msg) when is_record(Msg, s2c_user_info) -> ?R2M(Msg, s2c_user_info);
+wrap_msg(Msg) when is_record(Msg, s2c_user_status) -> ?R2M(Msg, s2c_user_status);
+wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
+wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
+wrap_msg(Msg) when is_record(Msg, s2c_room_info) -> ?R2M(Msg, s2c_room_info);
+wrap_msg(Msg) when is_record(Msg, s2c_room_tree) -> ?R2M(Msg, s2c_room_tree);
+wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_create_result);
+wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
+wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
+wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
+wrap_msg(Msg = #s2c_message_list{messages = Messages}) ->
     MapMessages = [?R2M(M, message) || M <- Messages],
-    transport_lib:encode(?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list), Transport);
-wrap_msg(_Msg = #s2c_call_offer{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_offer), Transport);
-wrap_msg(_Msg = #s2c_call_answer{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_answer), Transport);
-wrap_msg(_Msg = #s2c_call_ack{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_ack), Transport);
-wrap_msg(_Msg = #s2c_call_ice_candidate{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_ice_candidate), Transport);
-wrap_msg(_Msg = #s2c_call_bye{}, Transport) ->
-    transport_lib:encode(?R2M(_Msg, s2c_call_bye), Transport);
-wrap_msg({error, Msg}, Transport) ->
+    ?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list);
+wrap_msg(Msg) when is_record(Msg, s2c_call_offer) -> ?R2M(Msg, s2c_call_offer);
+wrap_msg(Msg) when is_record(Msg, s2c_call_answer) -> ?R2M(Msg, s2c_call_answer);
+wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
+wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
+wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
+wrap_msg({error, Msg}) ->
     lager:error("Can't wrap message: unknown type. Msg: ~p", [Msg]),
-    transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport);
-wrap_msg(_, Transport) ->
-    transport_lib:encode(?R2M(#s2c_error{code = 500}, s2c_error), Transport).
+    ?R2M(#s2c_error{code = 500}, s2c_error);
+wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
 %%% Handle users request

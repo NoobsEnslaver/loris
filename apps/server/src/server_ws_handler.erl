@@ -34,7 +34,7 @@
 -spec init(cowboy_req:req(), map()) -> {'cowboy_websocket', cowboy_req:req(), #state{}, timeout()} | {'ok', cowboy_req:req(), #state{}}.
 init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
-    Protocol = cowboy_req:binding('protocol', Req, <<"default">>), %TODO: может, default не нужен?
+    Protocol = cowboy_req:binding('protocol', Req, <<"chat">>),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
     Token = cowboy_req:binding('token', Req),
     Transport = ws_utils:supported_transport(Req),
@@ -101,14 +101,19 @@ websocket_init(#state{token = Token, protocol = Module} = State) ->
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
 websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protocol = Protocol} = State) when DataType == 'binary' orelse DataType == 'text' ->
-    RawMsg = ws_utils:decode_message(Data, T),
+    RawMsg = transport_lib:decode(Data, T),
+    Ref = maps:get(<<"ref">>, RawMsg, 'undefined'),
     Msg = Protocol:unwrap_msg(RawMsg),
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
-            Resp = Protocol:wrap_msg(RawResp, T),
-            {'reply', {DataType, Resp}, State#state{user_state = NewUS}, 'hibernate'}
+            Resp = case Protocol:wrap_msg(RawResp) of
+                       R when Ref == 'undefined' -> R;
+                       R -> R#{<<"ref">> => Ref}
+                   end,
+            BResp = transport_lib:encode(Resp, T),
+            {'reply', {DataType, BResp}, State#state{user_state = NewUS}, 'hibernate'}
     end;
 websocket_handle({'ping', _Data}, State) ->
     {'reply', {'pong', <<>>}, State, 'hibernate'};
@@ -120,8 +125,9 @@ websocket_info(Msg, #state{transport = T, user_state = US, protocol = Protocol} 
         {'ok', NewUS} ->
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
-            Resp = Protocol:wrap_msg(RawResp, T),
-            {'reply', {'binary', Resp}, State#state{user_state = NewUS}, 'hibernate'}
+            Resp = Protocol:wrap_msg(RawResp),
+            BResp = transport_lib:encode(Resp, T),
+            {'reply', {'binary', BResp}, State#state{user_state = NewUS}, 'hibernate'} %FIXME: not always 'binary' type
     end.
 
 %%%===================================================================

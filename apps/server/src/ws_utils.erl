@@ -12,7 +12,6 @@
 %% API
 -export([is_going_upgrade_to/2
         ,supported_transport/1
-        ,decode_message/2
         ,do_async_work/1
         ]).
 
@@ -28,10 +27,6 @@ is_going_upgrade_to(Req, Protocol) ->
 supported_transport(Req) ->
     Protocols = cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req, []),
     [Protocol || Protocol <- Protocols, lists:member(Protocol, ?SUPPORTED_TRANSPORT)].
-
--spec decode_message(binary(), binary()) -> map().
-decode_message(BinData, Encoding) ->
-    transport_lib:decode(BinData, Encoding).
 
 -spec do_async_work(fun(() -> map())) -> {pid(), reference()}.
 do_async_work(Fun) ->
