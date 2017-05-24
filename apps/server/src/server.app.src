@@ -18,6 +18,12 @@
                         ,{'max_connections', 65536}]}
         ,{'certfile', "/ssl/backegg.ru/cert1.pem"}
         ,{'keyfile', "/ssl/backegg.ru/privkey1.pem"}
+        ,{'turn_servers', [#{adress => <<"95.172.148.130">>
+                            ,port => 3478
+                            ,username => <<"turn1">>
+                            ,realm => <<"backegg.ru">>
+                            ,credential => <<"RtJrPsuBkf489z6p">>
+                            ,credential_type => <<"password">>}]}
         ,{'enable_tls', true}
         ,{'acceptors', 100}
         ,{'static_dir', "/srv/static"}

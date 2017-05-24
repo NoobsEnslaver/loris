@@ -20,7 +20,8 @@
         ,receive_packet/2
         ,disconnect/1
         ,authorize/1
-        ,flush_messages/0]).
+        ,flush_messages/0
+        ,flush_messages_dbg/0]).
 
 -spec authorize(binary()) -> binary().
 authorize(MSISDN) ->
@@ -28,11 +29,20 @@ authorize(MSISDN) ->
     case gun:await_up(ConnPid) of
         {ok, _} ->
             Body1 = transport_lib:encode(#{<<"msisdn">> => MSISDN}, ?JSON),
-            gun:post(ConnPid, "/v1/sms", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body1),
-            timer:sleep(200),
+            StreamRef1 = gun:post(ConnPid, "/v1/sms", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body1),
+            Resp1 = gun:await(ConnPid, StreamRef1),
+            ct:pal("Sms send resp: ~p~n", [Resp1]),
             Body = transport_lib:encode(#{<<"msisdn">> => MSISDN, <<"sms_code">> => 6666}, ?JSON),
-            StreamRef = gun:post(ConnPid, "/v3/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
-            Result = gun:await_body(ConnPid, StreamRef),
+            StreamRef2 = gun:post(ConnPid, "/v3/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
+            Result = case gun:await_body(ConnPid, StreamRef2) of
+                         {error, _} = Error ->
+                             Resp2 = gun:await(ConnPid, StreamRef2),
+                             ct:pal("Auth send resp: ~p~n", [Resp2]),
+                             flush_messages_dbg(),
+                             Error;
+                         Resp ->
+                             Resp
+                     end,
             gun:close(ConnPid),
             Result;
         _Error ->
@@ -88,6 +98,15 @@ flush_messages() ->
         _ -> flush_messages()
     after 50 -> ok
     end.
+
+flush_messages_dbg() ->
+    receive
+        _Msg ->
+            ct:pal("~p~n", [_Msg]),
+            flush_messages_dbg()
+    after 500 -> ok
+    end.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================

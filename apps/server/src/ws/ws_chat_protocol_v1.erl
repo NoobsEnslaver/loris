@@ -19,7 +19,7 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, rooms, token, muted_chats, msisdn, call}).
+-record(user_state, {chats, rooms, token, muted_chats, msisdn, call, turn_server}).
 -record(call_info, {pid, msisdn, ref, state}).
 
 default_user_state(Token)->
@@ -104,6 +104,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := 
     #c2s_call_ice_candidate{candidate = Candidate};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_BYE_TYPE, <<"code">> := Code}) ->
     #c2s_call_bye{code = round(Code)};
+unwrap_msg(#{<<"msg_type">> := ?C2S_LOCK_TURN_SERVER}) ->
+    #c2s_lock_turn_server{};
 unwrap_msg(_) -> 'undefined'.
 
 
@@ -128,14 +130,18 @@ wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_
 wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
 wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
 wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
-wrap_msg(Msg = #s2c_message_list{messages = Messages}) ->
-    MapMessages = [?R2M(M, message) || M <- Messages],
+wrap_msg(Msg) when is_record(Msg, s2c_message_list) ->
+    MapMessages = [?R2M(M, message) || M <- Msg#s2c_message_list.messages],
     ?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list);
-wrap_msg(Msg) when is_record(Msg, s2c_call_offer) -> ?R2M(Msg, s2c_call_offer);
+wrap_msg(Msg) when is_record(Msg, s2c_call_offer) ->
+    TurnServerMap = ?R2M(Msg#s2c_call_offer.turn_server, s2c_turn_server),
+    Msg1 = Msg#s2c_call_offer{turn_server = maps:remove(<<"msg_type">>, TurnServerMap)},
+    ?R2M(Msg1, s2c_call_offer);
 wrap_msg(Msg) when is_record(Msg, s2c_call_answer) -> ?R2M(Msg, s2c_call_answer);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
 wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
+wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server);
 wrap_msg({error, Msg}) ->
     lager:error("Can't wrap message: unknown type. Msg: ~p", [Msg]),
     ?R2M(#s2c_error{code = 500}, s2c_error);
@@ -351,8 +357,15 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
             case sessions:get_by_owner_id(CalleeMSISDN) of
                 #session{ws_pid = CalleePid} when is_pid(CalleePid) ->
                     Ref = monitor(process, CalleePid),
-                    CalleePid ! {call_offer, CallerMSISDN, Offer, self()},
-                    {ok, State#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
+                    case State#user_state.turn_server of
+                        TurnServer when is_record(TurnServer, s2c_turn_server) ->
+                            CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
+                            {ok, State#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
+                        _ ->
+                            {TurnServer, NewState} = do_action(#c2s_lock_turn_server{}, State),
+                            CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
+                            {TurnServer, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}}
+                    end;
                 _ ->
                     {#s2c_call_bye{code = 480}, State} %user offline
             end
@@ -379,13 +392,46 @@ do_action(#c2s_call_bye{code = Code}, #user_state{call = #call_info{pid = Pid, r
     {ok, State#user_state{call = 'undefined'}};
 do_action(#c2s_call_bye{}, State) ->
     {ok, State#user_state{call = 'undefined'}};
-do_action({call_offer, _CallerMSISDN, _Offer, CallerPid}, #user_state{call = #call_info{}} = _State) -> % you are busy
+do_action(#c2s_lock_turn_server{}, State) ->
+    case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'turn_servers') of
+        {ok, TURNs} when is_list(TURNs) andalso length(TURNs) > 1 ->
+            Index = crypto:rand_uniform(1, length(TURNs)),
+            #{adress := Adress
+             ,port := Port
+             ,username := UserName
+             ,realm := Realm
+             ,credential := Credential
+             ,credential_type := CredentialType} = lists:nth(Index, TURNs),
+            ServerRec = #s2c_turn_server{adress = Adress
+                                        ,port = Port
+                                        ,username = UserName
+                                        ,realm = Realm
+                                        ,credential = Credential
+                                        ,credential_type = CredentialType},
+            {ServerRec, State#user_state{turn_server = ServerRec}};
+        {ok, [#{adress := Adress
+               ,port := Port
+               ,username := UserName
+               ,realm := Realm
+               ,credential := Credential
+               ,credential_type := CredentialType}]} ->
+            ServerRec = #s2c_turn_server{adress = Adress
+                                        ,port = Port
+                                        ,username = UserName
+                                        ,realm = Realm
+                                        ,credential = Credential
+                                        ,credential_type = CredentialType},
+            {ServerRec, State#user_state{turn_server = ServerRec}};
+        _ ->
+            {#s2c_error{code = 404}, State}
+    end;
+do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};
-do_action({call_offer, CallerMSISDN, Offer, CallerPid}, State) ->
+do_action({call_offer, CallerMSISDN, Offer, CallerPid, TurnServer}, State) ->
     Ref = monitor(process, CallerPid),
     NewState = State#user_state{call = #call_info{msisdn = CallerMSISDN, pid = CallerPid, ref = Ref}},
-    Resp = #s2c_call_offer{msisdn = CallerMSISDN, sdp = Offer},
+    Resp = #s2c_call_offer{msisdn = CallerMSISDN, sdp = Offer, turn_server = TurnServer},
     {Resp, NewState};
 do_action({call_answer, CallerMSISDN, Answer, _CallerPid}, #user_state{call = #call_info{msisdn = CallerMSISDN}} = _State) ->
     {#s2c_call_answer{sdp = Answer}, _State};

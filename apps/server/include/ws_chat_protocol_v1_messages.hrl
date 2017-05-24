@@ -33,10 +33,11 @@
 -define(C2S_CHAT_ACCEPT_INVATATION_TYPE, 29).
 -define(C2S_CHAT_REJECT_INVATATION_TYPE, 30).
 -define(C2S_CALL_OFFER_TYPE, 34).
--define(C2S_CALL_ANSWER_TYPE, 38).
 -define(C2S_CALL_ACK_TYPE, 35).
 -define(C2S_CALL_ICE_CANDIDATE_TYPE, 36).
 -define(C2S_CALL_BYE_TYPE, 37).
+-define(C2S_CALL_ANSWER_TYPE, 38).
+-define(C2S_LOCK_TURN_SERVER, 39).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -58,10 +59,11 @@
 -define(S2C_MESSAGE_LIST_TYPE, 117).
 -define(S2C_MESSAGE_SEND_RESULT_TYPE, 118).
 -define(S2C_CALL_OFFER_TYPE, 119).
--define(S2C_CALL_ANSWER_TYPE, 123).
 -define(S2C_CALL_ACK_TYPE, 120).
 -define(S2C_CALL_ICE_CANDIDATE_TYPE, 121).
 -define(S2C_CALL_BYE_TYPE, 122).
+-define(S2C_CALL_ANSWER_TYPE, 123).
+-define(S2C_TURN_SERVER, 124).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -100,6 +102,7 @@
 -record(c2s_call_ack, {msg_type = ?C2S_CALL_ACK_TYPE}).
 -record(c2s_call_ice_candidate, {msg_type = ?C2S_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(c2s_call_bye, {msg_type = ?C2S_CALL_BYE_TYPE, code :: non_neg_integer()}).
+-record(c2s_lock_turn_server, {msg_type = ?C2S_LOCK_TURN_SERVER}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -135,7 +138,8 @@
                            | #c2s_call_answer{}
                            | #c2s_call_ack{}
                            | #c2s_call_ice_candidate{}
-                           | #c2s_call_bye{}.
+                           | #c2s_call_bye{}
+                           | #c2s_lock_turn_server{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
@@ -156,11 +160,12 @@
 -record(s2c_room_info, {msg_type = ?S2C_ROOM_INFO_TYPE, room_id :: non_neg_integer(), subrooms :: [non_neg_integer()], users :: [non_neg_integer()], chats :: [binary()]}).
 -record(s2c_room_create_result, {msg_type = ?S2C_ROOM_CREATE_RESULT_TYPE, room_id :: non_neg_integer()}).
 -record(s2c_message_send_result, {msg_type = ?S2C_MESSAGE_SEND_RESULT_TYPE, msg_id :: non_neg_integer(), chat_id :: non_neg_integer()}).
--record(s2c_call_offer, {msg_type = ?S2C_CALL_OFFER_TYPE, msisdn :: non_neg_integer(), sdp :: binary()}).
+-record(s2c_call_offer, {msg_type = ?S2C_CALL_OFFER_TYPE, msisdn :: non_neg_integer(), sdp :: binary(), turn_server :: map()}).
 -record(s2c_call_answer, {msg_type = ?S2C_CALL_ANSWER_TYPE, sdp :: binary()}).
 -record(s2c_call_ack, {msg_type = ?S2C_CALL_ACK_TYPE}).
 -record(s2c_call_ice_candidate, {msg_type = ?S2C_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(s2c_call_bye, {msg_type = ?S2C_CALL_BYE_TYPE, code :: non_neg_integer()}).
+-record(s2c_turn_server, {msg_type = ?S2C_TURN_SERVER, adress :: binary(), port :: non_neg_integer(), username :: binary(),realm :: binary(), credential :: binary(), credential_type :: binary()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
@@ -183,7 +188,8 @@
                            | #s2c_call_answer{}
                            | #s2c_call_ack{}
                            | #s2c_call_ice_candidate{}
-                           | #s2c_call_bye{}.
+                           | #s2c_call_bye{}
+                           | #s2c_turn_server{}.
 
 -type msg_type() :: server_msg_type()
                   | client_msg_type().
