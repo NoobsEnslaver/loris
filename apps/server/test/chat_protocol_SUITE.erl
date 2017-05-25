@@ -136,6 +136,11 @@ groups() ->
                  ,room_delete_test
                  ,room_enter_to_chat_test
                  ,room_send_message_test]}
+    ,{calls, [], [call_normal_answer_test
+                 ,call_reject_call_test
+                 ,call_to_busy_test
+                 ,call_to_bad_msisdn_test
+                 ]}
     ,{system, [], [system_logout_test]}].
 
 %%--------------------------------------------------------------------
@@ -152,6 +157,7 @@ all() ->
     ,{group, users}
     %% ,{group, rooms}
     %% ,{group, system}
+    ,{group, calls}
     ].
 
 %%--------------------------------------------------------------------
@@ -777,6 +783,119 @@ user_set_info_test(Config) ->
                           send_packet(ConPid, ?R2M(#c2s_user_get_info{user_msisdn = MSISDN}, c2s_user_get_info), Transport),
                           #{<<"msg_type">> := ?S2C_USER_INFO_TYPE, <<"user_msisdn">> := MSISDN, <<"fname">> := <<"Joe">> , <<"lname">> := <<"Armstrong">>, <<"age">> := 70, <<"is_male">> := 'true'} = receive_packet(ConPid, Transport)
                   end, Env),
+    ok.
+
+%%--------------------------------------------------------------------
+%%      CALLS
+%%--------------------------------------------------------------------
+call_normal_answer_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% User1 and User2 locks turn servers
+    send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport2),
+    timer:sleep(100),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid2, Transport2),
+    %% User1 call to User2
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+    %% User2 send 'ack', then answer
+    send_packet(ConPid2, ?R2M(#c2s_call_ack{}, c2s_call_ack), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ACK_TYPE} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_call_answer{sdp = <<"sdp2">>}, c2s_call_answer), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ANSWER_TYPE, <<"sdp">> := <<"sdp2">>} = receive_packet(ConPid1, Transport1),
+    %% exchange of ice candidates
+    send_packet(ConPid1, ?R2M(#c2s_call_ice_candidate{candidate = <<"candidate1">>}, c2s_call_ice_candidate), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_call_ice_candidate{candidate = <<"candidate2">>}, c2s_call_ice_candidate), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := <<"candidate2">>} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := <<"candidate1">>} = receive_packet(ConPid2, Transport2),
+    %% User1 hangs up
+    send_packet(ConPid1, ?R2M(#c2s_call_bye{code = 200}, c2s_call_bye), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 200} = receive_packet(ConPid2, Transport2),
+    timer:sleep(100),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
+    ok.
+
+call_reject_call_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% User1 and User2 locks turn servers
+    send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport2),
+    timer:sleep(100),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid2, Transport2),
+    %% User1 call to User2
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+    %% User2 reject call
+    send_packet(ConPid2, ?R2M(#c2s_call_bye{code = 200}, c2s_call_bye), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 200} = receive_packet(ConPid1, Transport1),
+    timer:sleep(200),
+    %% User1 recall and it's still working
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_call_answer{sdp = <<"sdp2">>}, c2s_call_answer), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ANSWER_TYPE, <<"sdp">> := <<"sdp2">>} = receive_packet(ConPid1, Transport1),
+    timer:sleep(100),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
+    ok.
+
+call_to_busy_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    MSISDN3 = crypto:rand_uniform(1000000, 99999999),
+    Transport3 = Transport1,
+    _User = users:new(MSISDN3, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+    timer:sleep(50),
+    {ok, Token} = authorize(MSISDN3),
+    {ok, ConPid3} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport3),
+    timer:sleep(50),
+    %% User1 and User2 locks turn servers
+    send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport2),
+    send_packet(ConPid3, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport3),
+    timer:sleep(100),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid2, Transport2),
+    #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid3, Transport3),
+    %% User1 call to User2
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+    %% User2 send 'ack', then answer
+    send_packet(ConPid2, ?R2M(#c2s_call_ack{}, c2s_call_ack), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ACK_TYPE} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_call_answer{sdp = <<"sdp2">>}, c2s_call_answer), Transport2),
+    #{<<"msg_type">> := ?S2C_CALL_ANSWER_TYPE, <<"sdp">> := <<"sdp2">>} = receive_packet(ConPid1, Transport1),
+    timer:sleep(100),
+    %% User 3 try to call User1
+    send_packet(ConPid3, ?R2M(#c2s_call_offer{msisdn = MSISDN1, sdp = <<"sdp3">>}, c2s_call_offer), Transport3),
+    #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 486} = receive_packet(ConPid3, Transport3),
+    %% User 3 try to call User2
+    send_packet(ConPid3, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp3">>}, c2s_call_offer), Transport3),
+    #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 486} = receive_packet(ConPid3, Transport3),
+    timer:sleep(100),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
+    {error, timeout} = receive_packet(ConPid3, Transport3),
+    ok.
+
+call_to_bad_msisdn_test(Config) ->
+    [#{transport := Transport1, connection := ConPid1} | _] = proplists:get_value(env, Config),
+    %% User1 try to call to unexisting MSISDN
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = 123, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport1),
+    timer:sleep(100),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
     ok.
 
 %%%===================================================================

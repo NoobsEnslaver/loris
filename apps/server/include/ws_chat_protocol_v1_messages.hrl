@@ -37,7 +37,7 @@
 -define(C2S_CALL_ICE_CANDIDATE_TYPE, 36).
 -define(C2S_CALL_BYE_TYPE, 37).
 -define(C2S_CALL_ANSWER_TYPE, 38).
--define(C2S_LOCK_TURN_SERVER, 39).
+-define(C2S_LOCK_TURN_SERVER_TYPE, 39).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -63,7 +63,7 @@
 -define(S2C_CALL_ICE_CANDIDATE_TYPE, 121).
 -define(S2C_CALL_BYE_TYPE, 122).
 -define(S2C_CALL_ANSWER_TYPE, 123).
--define(S2C_TURN_SERVER, 124).
+-define(S2C_TURN_SERVER_TYPE, 124).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -102,7 +102,7 @@
 -record(c2s_call_ack, {msg_type = ?C2S_CALL_ACK_TYPE}).
 -record(c2s_call_ice_candidate, {msg_type = ?C2S_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(c2s_call_bye, {msg_type = ?C2S_CALL_BYE_TYPE, code :: non_neg_integer()}).
--record(c2s_lock_turn_server, {msg_type = ?C2S_LOCK_TURN_SERVER}).
+-record(c2s_lock_turn_server, {msg_type = ?C2S_LOCK_TURN_SERVER_TYPE}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -165,7 +165,7 @@
 -record(s2c_call_ack, {msg_type = ?S2C_CALL_ACK_TYPE}).
 -record(s2c_call_ice_candidate, {msg_type = ?S2C_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(s2c_call_bye, {msg_type = ?S2C_CALL_BYE_TYPE, code :: non_neg_integer()}).
--record(s2c_turn_server, {msg_type = ?S2C_TURN_SERVER, adress :: binary(), port :: non_neg_integer(), username :: binary(),realm :: binary(), credential :: binary(), credential_type :: binary()}).
+-record(s2c_turn_server, {msg_type = ?S2C_TURN_SERVER_TYPE, adress :: binary(), port :: non_neg_integer(), username :: binary(),realm :: binary(), credential :: binary(), credential_type :: binary()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}

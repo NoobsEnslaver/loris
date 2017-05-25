@@ -104,9 +104,11 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_ICE_CANDIDATE_TYPE, <<"candidate">> := 
     #c2s_call_ice_candidate{candidate = Candidate};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_BYE_TYPE, <<"code">> := Code}) ->
     #c2s_call_bye{code = round(Code)};
-unwrap_msg(#{<<"msg_type">> := ?C2S_LOCK_TURN_SERVER}) ->
+unwrap_msg(#{<<"msg_type">> := ?C2S_LOCK_TURN_SERVER_TYPE}) ->
     #c2s_lock_turn_server{};
-unwrap_msg(_) -> 'undefined'.
+unwrap_msg(_Msg) ->
+    lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
+    'undefined'.
 
 
 %%%===================================================================
@@ -142,9 +144,6 @@ wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
 wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
 wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server);
-wrap_msg({error, Msg}) ->
-    lager:error("Can't wrap message: unknown type. Msg: ~p", [Msg]),
-    ?R2M(#s2c_error{code = 500}, s2c_error);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -501,9 +500,12 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#messag
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
     {Resp, _State};
+do_action('undefined', _State) ->
+    {ok, _State};
 do_action(_Msg, _State) ->
-    lager:info("unknown message type: ~p", [_Msg]),
-    {{error, <<"unknown message">>}, _State}.
+    lager:debug("unknown message type: ~p", [_Msg]),
+    Resp = #s2c_error{code = 501},
+    {Resp, _State}.
 
 terminate(#user_state{msisdn = MSISDN, token = Token} = _State) ->
     sessions:bind_pid_to_session(Token, 'undefined'),
