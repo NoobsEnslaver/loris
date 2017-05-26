@@ -14,7 +14,9 @@
         ,timestamp/0
         ,trace_it/1
         ,to_integer/1
-        ,take_first/1, take_first/2]).
+        ,take_first/1, take_first/2
+        ,start_measure/1
+        ,end_measure/2]).
 
 %%====================================================================
 %% API functions
@@ -63,6 +65,26 @@ take_first([])-> 'undefined';
 take_first([Head | _Tail])-> Head.
 take_first([], Def)-> Def;
 take_first([Head | _Tail], _Def) -> Head.
+
+start_measure(Name) ->
+    CounterName = {Name, counter},
+    MeterName = {Name, meter},
+    case folsom_metrics:metric_exists(CounterName) of
+        'true' -> ok;
+        'false'-> folsom_metrics:new_counter(CounterName)
+    end,
+    case folsom_metrics:metric_exists(MeterName) of
+        'true' -> ok;
+        'false'-> folsom_metrics:new_meter(MeterName)
+    end,
+    folsom_metrics:notify(CounterName, {inc, 1}),
+    os:system_time().
+
+end_measure(Name, TC) ->
+    MeterName = {Name, meter},
+    Duration = os:system_time() - TC,
+    folsom_metrics:notify(MeterName, Duration/1000), %uSec
+    ok.
 
 %%====================================================================
 %% Internal functions

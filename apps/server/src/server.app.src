@@ -11,7 +11,8 @@
     cowboy,
     msgpack,
     common,
-    db
+    db,
+    folsom
    ]},
   {env, [{'tcp_params', [{'port', 8080}
                         ,{'buffer', 32768}

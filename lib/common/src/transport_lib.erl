@@ -20,16 +20,27 @@
 %%%===================================================================
 -spec decode(binary(), binary()) -> map().
 decode(Bin, ?MSGPACK) ->
+    TC = common:start_measure('decode_msgpack'),
     {'ok', Map} = msgpack:unpack(Bin, [{unpack_str, as_binary}]),
+    common:end_measure('decode_msgpack', TC),
     Map;
 decode(Bin, ?JSON) ->
-    jsone:decode(Bin).
+    TC = common:start_measure('decode_json'),
+    Map = jsone:decode(Bin),
+    common:end_measure('decode_json', TC),
+    Map.
 
 -spec encode(map() | list(), binary()) -> binary().
 encode(Map, ?MSGPACK) ->
-    msgpack:pack(Map, [{pack_str, from_binary}]);
+    TC = common:start_measure('encode_msgpack'),
+    Bin = msgpack:pack(Map, [{pack_str, from_binary}]),
+    common:end_measure('encode_msgpack', TC),
+    Bin;
 encode(Data, ?JSON) ->
-    jsone:encode(Data).
+    TC = common:start_measure('encode_json'),
+    Bin = jsone:encode(Data),
+    common:end_measure('encode_json', TC),
+    Bin.
 
 
 

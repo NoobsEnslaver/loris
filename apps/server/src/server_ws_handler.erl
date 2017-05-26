@@ -34,55 +34,58 @@
 -spec init(cowboy_req:req(), map()) -> {'cowboy_websocket', cowboy_req:req(), #state{}, timeout()} | {'ok', cowboy_req:req(), #state{}}.
 init(Req, _Opts) ->
     lager:md([{'appname', ?APP_NAME}]),
+    TC = common:start_measure('server_ws_handler_init'),
     Protocol = cowboy_req:binding('protocol', Req, <<"chat">>),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
     Token = cowboy_req:binding('token', Req),
     Transport = ws_utils:supported_transport(Req),
-    case Transport /= [] andalso ws_utils:is_going_upgrade_to(Req, <<"websocket">>) of  %Если это вебсокет и мы поддерживаем транспорт..
-        'true' ->                                                                       % и такой модуль есть
-            try binary_to_existing_atom(<<"ws_", Protocol/binary, "_protocol_", Ver/binary>>, 'utf8') of %try, чтобы получать код ошибки 404 вместо 500
-                Module ->
-                    AllowedGroups = Module:allowed_groups(),
-                    Session = sessions:get(Token),
-                    GroupAccessGranted = case Session of                                % начинаем проверку доступов по группе и уровню доступа
-                                             'false' ->
-                                                 lists:member('guests', AllowedGroups);
-                                             _ ->
-                                                 Group = sessions:extract(Session, 'group'),
-                                                 lists:member(Group, AllowedGroups)
-                                         end,
-                    case GroupAccessGranted of
-                        'false' ->
-                            Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
-                            {'ok', Resp, #state{}};                               %close connection, forbidden
-                        'true' ->
-                            case Module:access_level() of
-                                'infinity' ->
-                                    Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),                %отвечаем, что готовы использовать один из транспортов
-                                    {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
-                                _ModuleAL when Session == 'false' ->
-                                    Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
-                                    {'ok', Resp, #state{}};                               %close connection, forbidden
-                                ModuleAL ->
-                                    AL = sessions:extract(Session, 'access_level'),
-                                    if  ModuleAL >= AL ->
-                                            Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
-                                            {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
-                                        'true'         ->
-                                            Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
-                                            {'ok', Resp, #state{}}                               %close connection, forbidden
-                                    end
-                            end
-                    end
-            catch
-                _:_ ->
-                    Resp = cowboy_req:reply(404, #{}, <<"">>, Req),
-                    {'ok', Resp, #state{}}                                %close connection, protocol not found
-            end;
-        _False ->
-            Resp = cowboy_req:reply(501, #{}, <<"">>, Req),
-            {'ok', Resp, #state{}}                                %close connection, not implemented
-    end.
+    R = case Transport /= [] andalso ws_utils:is_going_upgrade_to(Req, <<"websocket">>) of  %Если это вебсокет и мы поддерживаем транспорт..
+            'true' ->                                                                       % и такой модуль есть
+                try binary_to_existing_atom(<<"ws_", Protocol/binary, "_protocol_", Ver/binary>>, 'utf8') of %try, чтобы получать код ошибки 404 вместо 500
+                    Module ->
+                        AllowedGroups = Module:allowed_groups(),
+                        Session = sessions:get(Token),
+                        GroupAccessGranted = case Session of                                % начинаем проверку доступов по группе и уровню доступа
+                                                 'false' ->
+                                                     lists:member('guests', AllowedGroups);
+                                                 _ ->
+                                                     Group = sessions:extract(Session, 'group'),
+                                                     lists:member(Group, AllowedGroups)
+                                             end,
+                        case GroupAccessGranted of
+                            'false' ->
+                                Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
+                                {'ok', Resp, #state{}};                               %close connection, forbidden
+                            'true' ->
+                                case Module:access_level() of
+                                    'infinity' ->
+                                        Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),                %отвечаем, что готовы использовать один из транспортов
+                                        {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
+                                    _ModuleAL when Session == 'false' ->
+                                        Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
+                                        {'ok', Resp, #state{}};                               %close connection, forbidden
+                                    ModuleAL ->
+                                        AL = sessions:extract(Session, 'access_level'),
+                                        if  ModuleAL >= AL ->
+                                                Resp = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, hd(Transport), Req),
+                                                {'cowboy_websocket', Resp, #state{transport = hd(Transport), protocol = Module, token = Token}, #{idle_timeout => ?TIMEOUT}};         %open websocket connection
+                                            'true'         ->
+                                                Resp = cowboy_req:reply(403, #{}, <<"">>, Req),
+                                                {'ok', Resp, #state{}}                               %close connection, forbidden
+                                        end
+                                end
+                        end
+                catch
+                    _:_ ->
+                        Resp = cowboy_req:reply(404, #{}, <<"">>, Req),
+                        {'ok', Resp, #state{}}                                %close connection, protocol not found
+                end;
+            _False ->
+                Resp = cowboy_req:reply(501, #{}, <<"">>, Req),
+                {'ok', Resp, #state{}}                                %close connection, not implemented
+        end,
+    common:end_measure('server_ws_handler_init', TC),
+    R.
 
 terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _State)->
     Module:terminate(UserState),
@@ -95,23 +98,36 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 -spec websocket_init(#state{}) -> call_result(#state{}).
 websocket_init(#state{token = Token, protocol = Module} = State) ->
     lager:md([{'appname', ?APP_NAME}]),
+    TC = common:start_measure('server_ws_handler_ws_init'),
     sessions:bind_pid_to_session(Token, self()),
     US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
+    common:end_measure('server_ws_handler_ws_init', TC),
     {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
 websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protocol = Protocol} = State) when DataType == 'binary' orelse DataType == 'text' ->
     RawMsg = transport_lib:decode(Data, T),
     Ref = maps:get(<<"ref">>, RawMsg, 'undefined'),
+    TC1 = common:start_measure('ws_unwrap_msg'),
     Msg = Protocol:unwrap_msg(RawMsg),
+    common:end_measure('ws_unwrap_msg', TC1),
+    {MetricName, TC2} = case Msg of
+                            _ when is_atom(Msg) -> {Msg, common:start_measure(Msg)};
+                            _ when is_tuple(Msg)-> {element(1, Msg), common:start_measure(element(1, Msg))};
+                            _ -> {'do_undefined', common:start_measure('do_undefined')}
+                        end,
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
+            common:end_measure(MetricName, TC2),
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
+            common:end_measure(MetricName, TC2),
+            TC3 = common:start_measure('ws_wrap_msg'),
             Resp = case Protocol:wrap_msg(RawResp) of
                        R when Ref == 'undefined' -> R;
                        R -> R#{<<"ref">> => Ref}
                    end,
+            common:end_measure('ws_wrap_msg', TC3),
             BResp = transport_lib:encode(Resp, T),
             {'reply', {DataType, BResp}, State#state{user_state = NewUS}, 'hibernate'}
     end;
@@ -121,11 +137,20 @@ websocket_handle(_Frame, State) ->
     {'ok', State, 'hibernate'}.
 
 websocket_info(Msg, #state{transport = T, user_state = US, protocol = Protocol} = State) ->
+    {MetricName, TC1} = case Msg of
+                            _ when is_atom(Msg) -> {Msg, common:start_measure(Msg)};
+                            _ when is_tuple(Msg)-> {element(1, Msg), common:start_measure(element(1, Msg))};
+                            _ -> {'do_undefined', common:start_measure('do_undefined')}
+                        end,
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
+            common:end_measure(MetricName, TC1),
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
+            common:end_measure(MetricName, TC1),
+            TC2 = common:start_measure('ws_wrap_msg'),
             Resp = Protocol:wrap_msg(RawResp),
+            common:end_measure('ws_wrap_msg', TC2),
             BResp = transport_lib:encode(Resp, T),
             {'reply', {'binary', BResp}, State#state{user_state = NewUS}, 'hibernate'} %FIXME: not always 'binary' type
     end.

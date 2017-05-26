@@ -56,6 +56,7 @@ fold(Req, Ver, State, [Mod | Args]) ->
                 'false' ->
                     {Req, State#q_state{code = 403}};
                 'true' ->
+                    TC = common:start_measure(Module),
                     {Req1, State1, Query1} = case Module:access_level(Method) of
                                                  'infinity' ->
                                                      Module:handle(Method, Req, State, Args);
@@ -67,6 +68,7 @@ fold(Req, Ver, State, [Mod | Args]) ->
                                                          'true'         -> {Req, State#q_state{code = 403}, []}
                                                      end
                                              end,
+                    common:end_measure(Module, TC),
                     fold(Req1, Ver, State1, Query1)
             end
     catch
