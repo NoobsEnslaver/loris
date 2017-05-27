@@ -106,6 +106,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CALL_BYE_TYPE, <<"code">> := Code}) ->
     #c2s_call_bye{code = round(Code)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_LOCK_TURN_SERVER_TYPE}) ->
     #c2s_lock_turn_server{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_BULK_TYPE, <<"msisdns">> := MSISDNS}) ->
+    #c2s_user_get_info_bulk{msisdns = [round(M) || M <- MSISDNS]};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -123,6 +125,9 @@ wrap_msg(Msg) when is_record(Msg, s2c_message) -> ?R2M(Msg, s2c_message);
 wrap_msg(Msg) when is_record(Msg, s2c_message_update) -> ?R2M(Msg, s2c_message_update);
 wrap_msg(Msg) when is_record(Msg, s2c_message_update_status) -> ?R2M(Msg, s2c_message_update_status);
 wrap_msg(Msg) when is_record(Msg, s2c_user_info) -> ?R2M(Msg, s2c_user_info);
+wrap_msg(Msg) when is_record(Msg, s2c_user_info_bulk) ->
+    UsersMap = [maps:remove(<<"msg_type">>, ?R2M(UserInfo, s2c_user_info)) || UserInfo <- Msg#s2c_user_info_bulk.users],
+    ?R2M(UsersMap, s2c_user_info_bulk);
 wrap_msg(Msg) when is_record(Msg, s2c_user_status) -> ?R2M(Msg, s2c_user_status);
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
@@ -287,6 +292,10 @@ do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
                'false' ->
                    #s2c_error{code = 404}
            end,
+    {Resp, _State};
+do_action(#c2s_user_get_info_bulk{msisdns = MSISDNS}, _State) ->
+    Resp1 = #s2c_user_info_bulk{users = [element(1, do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State)) || MSISDN <- MSISDNS]},
+    Resp = lists:filter(fun(X)-> is_record(X, s2c_user_info) end, Resp1),
     {Resp, _State};
 do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of

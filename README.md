@@ -237,6 +237,7 @@
 | c2s_call_bye                  | 37            | code                                  | нет                                | Завершить звонок                              |
 | c2s_call_answer               | 38            | sdp                                   | нет, s2c_call_bye                  | Принять звонок                                |
 | c2s_lock_turn_server          | 39            | --                                    | s2c_turn_server                    | Получить turn-сервер                          |
+| c2s_user_get_info_bulk        | 40            | msisdns                               | s2c_user_info_bulk                 | Запрос информации о группе пользователей      |
 
 Сообщения Сервер -> Клиент
 ----------------------
@@ -267,6 +268,7 @@
 | s2c_call_bye                  | 122           | code                                                  | Оппонент завершил разговор                    |
 | s2c_call_answer               | 123           | sdp                                                   | Оппонент принимает звонок                     |
 | s2c_turn_server               | 124           | adress,port,username,realm,credential,credential_type | Параметры выданного turn-сервера              |
+| s2c_user_info_bulk            | 125           | users :: [s2c_user_info]                              | Информация о группе пользователей             |
 
 Наиболее актуальную информацию, а так же типы значений полей можно посмотреть в файле [объявления типов протокола](https://github.com/kimoffegg/egg/blob/egg_adaptation/apps/server/include/ws_chat_protocol_v1_messages.hrl) .
 
