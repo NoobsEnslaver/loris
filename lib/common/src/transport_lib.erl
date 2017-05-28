@@ -38,7 +38,7 @@ encode(Map, ?MSGPACK) ->
     Bin;
 encode(Data, ?JSON) ->
     TC = common:start_measure('encode_json'),
-    Bin = jsone:encode(Data),
+    Bin = jsone:encode(Data, [{object_key_type, scalar}]),
     common:end_measure('encode_json', TC),
     Bin.
 

@@ -6,7 +6,9 @@
   {applications,
    [kernel,
     stdlib,
-    common
+    common,
+    folsom,
+    os_mon
    ]},
   {env,[
         {'nodes', []}

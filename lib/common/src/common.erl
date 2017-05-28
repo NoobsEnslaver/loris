@@ -16,7 +16,8 @@
         ,to_integer/1
         ,take_first/1, take_first/2
         ,start_measure/1
-        ,end_measure/2]).
+        ,end_measure/2
+        ,stringify/1]).
 
 %%====================================================================
 %% API functions
@@ -67,8 +68,9 @@ take_first([], Def)-> Def;
 take_first([Head | _Tail], _Def) -> Head.
 
 start_measure(Name) ->
-    CounterName = {Name, counter},
-    MeterName = {Name, meter},
+    BName = erlang:atom_to_binary(Name, 'utf8'),
+    CounterName = <<BName/binary, "_counter">>,
+    MeterName = <<BName/binary, "_meter">>,
     case folsom_metrics:metric_exists(CounterName) of
         'true' -> ok;
         'false'-> folsom_metrics:new_counter(CounterName)
@@ -81,10 +83,20 @@ start_measure(Name) ->
     os:system_time().
 
 end_measure(Name, TC) ->
-    MeterName = {Name, meter},
+    BName = erlang:atom_to_binary(Name, 'utf8'),
+    MeterName = <<BName/binary, "_meter">>,
     Duration = os:system_time() - TC,
     folsom_metrics:notify(MeterName, Duration/1000), %uSec
     ok.
+
+stringify(X) when is_atom(X) -> erlang:atom_to_binary(X, 'utf8');
+stringify(X) when is_tuple(X)->
+    TList = erlang:tuple_to_list(X),
+    BList = [stringify(A) || A <- TList],
+    erlang:iolist_to_binary(BList);
+stringify(X) when is_list(X) -> list_to_binary(X);
+stringify(X) when is_pid(X) -> stringify(erlang:pid_to_list(X));
+stringify(X) when is_number(X) orelse is_binary(X) -> X.
 
 %%====================================================================
 %% Internal functions
