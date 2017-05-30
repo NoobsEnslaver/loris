@@ -138,7 +138,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_inv
 wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
 wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
 wrap_msg(Msg) when is_record(Msg, s2c_message_list) ->
-    MapMessages = [?R2M(M, message) || M <- Msg#s2c_message_list.messages],
+    MapMessages = [maps:remove(<<"msg_type">>, ?R2M(M, message)) || M <- Msg#s2c_message_list.messages],
     ?R2M(Msg#s2c_message_list{messages = MapMessages}, s2c_message_list);
 wrap_msg(Msg) when is_record(Msg, s2c_call_offer) ->
     TurnServerMap = ?R2M(Msg#s2c_call_offer.turn_server, s2c_turn_server),
@@ -260,7 +260,7 @@ do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{c
                    #s2c_error{code = 403};
                _AccessGroup ->
                    Messages = chats:get_messages_by_id(ChatId, MsgId),
-                   #s2c_message_list{messages = Messages}
+                   #s2c_message_list{messages = Messages, chat_id = ChatId}
            end,
     {Resp, _State};
 do_action(#c2s_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBody}, #user_state{chats = Chats, msisdn = MSISDN} = _State) ->

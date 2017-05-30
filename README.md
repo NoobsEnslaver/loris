@@ -260,7 +260,7 @@
 | s2c_room_tree                 | 114           | room_id                                               |                                               |
 | s2c_room_info                 | 115           | room_id, subrooms, users, chats                       |                                               |
 | s2c_room_create_result        | 116           | room_id                                               |                                               |
-| s2c_message_list              | 117           | chat_id, messages                                     |                                               |
+| s2c_message_list              | 117           | chat_id, messages                                     | Возвращает все сообщения после msg_id         |
 | s2c_message_send_result       | 118           | msg_id, chat_id                                       | Возвращает присвоенный сообщению id           |
 | s2c_call_offer                | 119           | msisdn, sdp, turn_server                              | Вам звонят                                    |
 | s2c_call_ack                  | 120           | --                                                    | Оппонент подтвердил приглашение к разговору   |
