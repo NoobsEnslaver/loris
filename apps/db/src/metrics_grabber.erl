@@ -24,8 +24,8 @@
         ,code_change/3]).
 
 -define(SERVER, ?MODULE).
-%% -define(GET_METRICS_INTERVAL, 1800000).     %30 min
--define(GET_METRICS_INTERVAL, 1800).     %30 min
+-define(GET_METRICS_INTERVAL, 1800000).     %30 min
+%% -define(GET_METRICS_INTERVAL, 1800).     %30 min
 
 %%%===================================================================
 %%% API

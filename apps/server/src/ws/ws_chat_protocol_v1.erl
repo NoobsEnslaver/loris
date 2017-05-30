@@ -294,8 +294,9 @@ do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
            end,
     {Resp, _State};
 do_action(#c2s_user_get_info_bulk{msisdns = MSISDNS}, _State) ->
-    Resp1 = #s2c_user_info_bulk{users = [element(1, do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State)) || MSISDN <- MSISDNS]},
-    Resp = lists:filter(fun(X)-> is_record(X, s2c_user_info) end, Resp1),
+    Users = [element(1, do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State)) || MSISDN <- MSISDNS],
+    FoundedUsers = lists:filter(fun(X)-> is_record(X, s2c_user_info) end, Users),
+    Resp = #s2c_user_info_bulk{users = FoundedUsers},
     {Resp, _State};
 do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of
