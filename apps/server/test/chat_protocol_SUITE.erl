@@ -122,6 +122,7 @@ groups() ->
                     ,message_update_status_test
                     ]}
     ,{users, [], [user_get_info_test
+                 ,user_get_info_bulk_test
                  ,user_get_status_test
                  ,user_set_info_test
                  %% ,user_search_test
@@ -773,6 +774,26 @@ user_get_info_test(Config) ->
                           send_packet(ConPid, ?R2M(#c2s_user_get_info{user_msisdn = MSISDN}, c2s_user_get_info), Transport),
                           #{<<"msg_type">> := ?S2C_USER_INFO_TYPE, <<"user_msisdn">> := MSISDN, <<"fname">> := FName , <<"lname">> := LName, <<"age">> := Age, <<"is_male">> := IsMale} = receive_packet(ConPid, Transport)
                   end, Env),
+    ok.
+
+user_get_info_bulk_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    FName1 = users:extract(User1, fname),
+    FName2 = users:extract(User2, fname),
+    LName1 = users:extract(User1, lname),
+    LName2 = users:extract(User2, lname),
+    Age1 = users:extract(User1, age),
+    Age2 = users:extract(User2, age),
+    IsMale1 = users:extract(User1, is_male),
+    IsMale2 = users:extract(User2, is_male),
+    %% Get info about both users
+    send_packet(ConPid1, ?R2M(#c2s_user_get_info_bulk{msisdns = [MSISDN1, MSISDN2]}, c2s_user_get_info_bulk), Transport1),
+    #{<<"msg_type">> := ?S2C_USER_INFO_BULK_TYPE, <<"users">> := Users} = receive_packet(ConPid1, Transport1),
+    [#{<<"user_msisdn">> := MSISDN1, <<"fname">> := FName1, <<"lname">> := LName1, <<"age">> := Age1, <<"is_male">> := IsMale1}
+    ,#{<<"user_msisdn">> := MSISDN2, <<"fname">> := FName2, <<"lname">> := LName2, <<"age">> := Age2, <<"is_male">> := IsMale2}] = Users,
     ok.
 
 user_set_info_test(Config) ->

@@ -127,7 +127,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_message_update_status) -> ?R2M(Msg, s2c_me
 wrap_msg(Msg) when is_record(Msg, s2c_user_info) -> ?R2M(Msg, s2c_user_info);
 wrap_msg(Msg) when is_record(Msg, s2c_user_info_bulk) ->
     UsersMap = [maps:remove(<<"msg_type">>, ?R2M(UserInfo, s2c_user_info)) || UserInfo <- Msg#s2c_user_info_bulk.users],
-    ?R2M(UsersMap, s2c_user_info_bulk);
+    ?R2M(Msg#s2c_user_info_bulk{users = UsersMap}, s2c_user_info_bulk);
 wrap_msg(Msg) when is_record(Msg, s2c_user_status) -> ?R2M(Msg, s2c_user_status);
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
