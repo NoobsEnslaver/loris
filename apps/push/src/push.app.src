@@ -1,0 +1,17 @@
+{application, push,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, { push_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    apns
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

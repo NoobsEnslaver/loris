@@ -21,5 +21,17 @@
           ,{error_logger_hwm, 5000}
           ]
   },
-  {mnesia, [{dir, "db"}]}
+  {mnesia, [{dir, "db"}]},
+  {apns, [
+         {apple_host,       "api.development.push.apple.com"}
+        ,{apple_port,       443}
+        ,{timeout,          10000}
+        ,{apns_id,          undefined}
+        ,{apns_expiration,  0}
+        ,{apns_priority,    10}
+        ,{apns_topic,       "com.example.myapp"}
+        ,{apns_collapse_id, undefined}
+        ,{feedback_host,    "feedback.push.apple.com"}
+        ,{feedback_port,    2195}
+  ]}
 ].

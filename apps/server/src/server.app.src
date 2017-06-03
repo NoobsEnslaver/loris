@@ -12,7 +12,8 @@
     msgpack,
     common,
     db,
-    folsom
+    folsom,
+    push
    ]},
   {env, [{'tcp_params', [{'port', 8080}
                         ,{'buffer', 32768}
@@ -36,7 +37,7 @@
         ,{'allow_password_authorization', 'false'}
         ,{'allow_sms_authorization', 'true'}
         ,{'register_with_sms', 'true'}
-        ]},
+         ]},
   {modules, []},
 
   {maintainers, []},
