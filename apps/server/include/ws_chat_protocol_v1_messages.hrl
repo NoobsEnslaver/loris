@@ -39,6 +39,7 @@
 -define(C2S_CALL_ANSWER_TYPE, 38).
 -define(C2S_LOCK_TURN_SERVER_TYPE, 39).
 -define(C2S_USER_GET_INFO_BULK_TYPE, 40).
+-define(C2S_DEVICE_REGISTER, 41).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -106,6 +107,7 @@
 -record(c2s_call_ice_candidate, {msg_type = ?C2S_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(c2s_call_bye, {msg_type = ?C2S_CALL_BYE_TYPE, code :: non_neg_integer()}).
 -record(c2s_lock_turn_server, {msg_type = ?C2S_LOCK_TURN_SERVER_TYPE}).
+-record(c2s_device_register, {msg_type = ?C2S_DEVICE_REGISTER, push_token :: binary(), type :: non_neg_integer(), device_id :: binary()}). %type:: 0 - android, 1 - ios, 2 - ios_voip
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -142,7 +144,8 @@
                            | #c2s_call_ack{}
                            | #c2s_call_ice_candidate{}
                            | #c2s_call_bye{}
-                           | #c2s_lock_turn_server{}.
+                           | #c2s_lock_turn_server{}
+                           | #c2s_device_register{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).

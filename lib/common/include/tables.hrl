@@ -51,4 +51,10 @@
 -record(sms, {msisdn :: non_neg_integer()
              ,code :: non_neg_integer()
              ,timestamp :: non_neg_integer()}).
+
+-record(device, {msisdn :: non_neg_integer()
+                ,id :: binary()
+                ,type :: 'android' | 'ios' | 'ios_voip'
+                ,push_token :: binary()}).
+
 -endif.

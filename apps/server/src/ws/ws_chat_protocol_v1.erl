@@ -108,6 +108,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_LOCK_TURN_SERVER_TYPE}) ->
     #c2s_lock_turn_server{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_BULK_TYPE, <<"msisdns">> := MSISDNS}) ->
     #c2s_user_get_info_bulk{msisdns = [round(M) || M <- MSISDNS]};
+unwrap_msg(#{<<"msg_type">> := ?C2S_DEVICE_REGISTER, <<"push_token">> := PushToken,  <<"device_id">> := DeviceId, <<"type">> := Type}) ->
+    #c2s_device_register{push_token = PushToken, type = round(Type), device_id = DeviceId};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -434,6 +436,14 @@ do_action(#c2s_lock_turn_server{}, State) ->
         _ ->
             {#s2c_error{code = 404}, State}
     end;
+do_action(#c2s_device_register{push_token = PushToken, type = Type, device_id = DeviceId}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case Type of
+               0 -> device:new(MSISDN, DeviceId, 'android', PushToken), ok;
+               1 -> device:new(MSISDN, DeviceId, 'ios', PushToken), ok;
+               2 -> device:new(MSISDN, DeviceId, 'ios_voip', PushToken), ok;
+               _ -> #s2c_error{code = 400}
+           end,
+    {Resp, _State};
 do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};

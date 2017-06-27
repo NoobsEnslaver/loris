@@ -238,6 +238,7 @@
 | c2s_call_answer               | 38            | sdp                                   | нет, s2c_call_bye                  | Принять звонок                                |
 | c2s_lock_turn_server          | 39            | --                                    | s2c_turn_server                    | Получить turn-сервер                          |
 | c2s_user_get_info_bulk        | 40            | msisdns                               | s2c_user_info_bulk                 | Запрос информации о группе пользователей      |
+| c2s_device_register           | 41            | push_token, type, device_id           | нет или s2c_error                  | Зарегистрировать устройство для получения push|
 
 Сообщения Сервер -> Клиент
 ----------------------
