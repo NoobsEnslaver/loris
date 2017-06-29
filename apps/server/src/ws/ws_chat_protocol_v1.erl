@@ -365,20 +365,20 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
         'false' ->
             {#s2c_call_bye{code = 404}, State};   %user not found
         _ ->
+            {TurnServer, NewState} = case State#user_state.turn_server of
+                                         T when is_record(T, s2c_turn_server) ->
+                                             {T, State};
+                                         _ ->
+                                             do_action(#c2s_lock_turn_server{}, State)
+                                     end,
             case sessions:get_by_owner_id(CalleeMSISDN) of
-                #session{ws_pid = CalleePid} when is_pid(CalleePid) ->
+                #session{ws_pid = CalleePid} when is_pid(CalleePid) ->                  %user online
                     Ref = monitor(process, CalleePid),
-                    case State#user_state.turn_server of
-                        TurnServer when is_record(TurnServer, s2c_turn_server) ->
-                            CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
-                            {ok, State#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
-                        _ ->
-                            {TurnServer, NewState} = do_action(#c2s_lock_turn_server{}, State),
-                            CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
-                            {TurnServer, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}}
-                    end;
-                _ ->
-                    {#s2c_call_bye{code = 480}, State} %user offline
+                    CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
+                    {ok, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
+                _ ->                                                                    %user offline
+                    call_offer:new(CallerMSISDN, CalleeMSISDN, TurnServer, Offer),      %write it in db to send push and resend offer after user get online
+                    {#s2c_call_ack{}, State#user_state{call = #call_info{msisdn = CalleeMSISDN}}}
             end
     end;
 do_action(#c2s_call_answer{sdp = Answer}, #user_state{msisdn = CallerMSISDN, call = #call_info{pid = CalleePid}} = _State) ->
@@ -397,16 +397,22 @@ do_action(#c2s_call_ice_candidate{candidate = C}, #user_state{call = #call_info{
     {ok, _State};
 do_action(#c2s_call_ice_candidate{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_bye{code = Code}, #user_state{call = #call_info{pid = Pid, ref = Ref, msisdn = _MSISDN}} = State) ->
+do_action(#c2s_call_bye{}, #user_state{msisdn = MSISDN1, call = #call_info{msisdn = MSISDN2, pid = 'undefined'}} = State) ->
+    call_offer:delete(MSISDN1, MSISDN2),        %clean offers db - no offer resend after user get online
+    call_offer:delete(MSISDN2, MSISDN1),
+    {ok, State#user_state{call = 'undefined'}};
+do_action(#c2s_call_bye{code = Code}, #user_state{msisdn = MSISDN1, call = #call_info{pid = Pid, ref = Ref, msisdn = MSISDN2}} = State) ->
     demonitor(Ref),
     Pid ! {call_bye, Code},
+    call_offer:delete(MSISDN1, MSISDN2),        %for safe
+    call_offer:delete(MSISDN2, MSISDN1),
     {ok, State#user_state{call = 'undefined'}};
 do_action(#c2s_call_bye{}, State) ->
     {ok, State#user_state{call = 'undefined'}};
 do_action(#c2s_lock_turn_server{}, State) ->
     case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'turn_servers') of
         {ok, TURNs} when is_list(TURNs) andalso length(TURNs) > 1 ->
-            Index = crypto:rand_uniform(1, length(TURNs)),
+            Index = crypto:rand_uniform(length(TURNs)),
             #{adress := Adress
              ,port := Port
              ,username := UserName

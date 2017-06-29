@@ -57,4 +57,10 @@
                 ,type :: 'android' | 'ios' | 'ios_voip'
                 ,push_token :: binary()}).
 
+-record(call_offer, {msisdn_from :: non_neg_integer()
+                    ,msisdn_to :: non_neg_integer()
+                    ,turn_server :: binary()
+                    ,sdp_offer :: binary()
+                    ,timestamp :: non_neg_integer()}).
+
 -endif.
