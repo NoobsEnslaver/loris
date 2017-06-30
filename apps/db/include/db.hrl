@@ -15,7 +15,6 @@
                         ,?GET_FIELDS(chat_info, [{disc_copies,[node() | nodes()]}])
                         ,?GET_FIELDS(sms, [{ram_copies,[node() | nodes()]}])
                         ,?GET_FIELDS(device, [{disc_copies,[node() | nodes()]}, {type, bag}, {index, [#device.id]}])
-                        ,?GET_FIELDS(call_offer, [{ram_copies,[node() | nodes()]}, {index, [#call_offer.msisdn_to]}])
                         ,?GET_FIELDS(user_subscribe, [{ram_copies,[node() | nodes()]}, {type, bag}, {index, [#user_subscribe.subscriber]}])
                         ]).
 

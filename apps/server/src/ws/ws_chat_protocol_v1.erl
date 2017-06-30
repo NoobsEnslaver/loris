@@ -20,7 +20,7 @@
         ,terminate/1]).
 
 -record(user_state, {chats, rooms, token, muted_chats, msisdn, call, turn_server}).
--record(call_info, {pid, msisdn, ref, state}).
+-record(call_info, {pid, msisdn, ref, state, sdp}).
 
 default_user_state(Token)->
     Session = sessions:get(Token),
@@ -383,8 +383,8 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
                     CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
                     {ok, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
                 _ ->                                                                    %user offline
-                    call_offer:new(CallerMSISDN, CalleeMSISDN, TurnServer, Offer),      %write it in db to send push and resend offer after user get online
-                    {#s2c_call_ack{}, State#user_state{call = #call_info{msisdn = CalleeMSISDN}}}
+                    users:subscribe(CalleeMSISDN, CallerMSISDN),
+                    {#s2c_call_ack{}, NewState#user_state{call = #call_info{msisdn = CalleeMSISDN, sdp = Offer}}}
             end
     end;
 do_action(#c2s_call_answer{sdp = Answer}, #user_state{msisdn = CallerMSISDN, call = #call_info{pid = CalleePid}} = _State) ->
@@ -403,15 +403,11 @@ do_action(#c2s_call_ice_candidate{candidate = C}, #user_state{call = #call_info{
     {ok, _State};
 do_action(#c2s_call_ice_candidate{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_bye{}, #user_state{msisdn = MSISDN1, call = #call_info{msisdn = MSISDN2, pid = 'undefined'}} = State) ->
-    call_offer:delete(MSISDN1, MSISDN2),        %clean offers db - no offer resend after user get online
-    call_offer:delete(MSISDN2, MSISDN1),
-    {ok, State#user_state{call = 'undefined'}};
-do_action(#c2s_call_bye{code = Code}, #user_state{msisdn = MSISDN1, call = #call_info{pid = Pid, ref = Ref, msisdn = MSISDN2}} = State) ->
-    demonitor(Ref),
-    Pid ! {call_bye, Code},
-    call_offer:delete(MSISDN1, MSISDN2),        %for safe
-    call_offer:delete(MSISDN2, MSISDN1),
+do_action(#c2s_call_bye{code = Code}, #user_state{call = #call_info{pid = Pid, ref = Ref}} = State) ->
+    if is_pid(Pid)-> demonitor(Ref),
+                     Pid ! {call_bye, Code};
+       true -> ok
+    end,
     {ok, State#user_state{call = 'undefined'}};
 do_action(#c2s_call_bye{}, State) ->
     {ok, State#user_state{call = 'undefined'}};
@@ -538,6 +534,11 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#messag
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
     {Resp, _State};
+do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = SdpOffer, msisdn = MSISDN}, msisdn = MyMSISDN, turn_server = TurnServer} = State) ->
+    Ref = monitor(process, Pid),
+    Pid ! {call_offer, MyMSISDN, SdpOffer, self(), TurnServer},
+    Resp = #s2c_call_offer{msisdn = MyMSISDN, sdp = SdpOffer, turn_server = TurnServer},
+    {Resp, State#user_state{call = #call_info{pid = Pid, msisdn = MSISDN, ref = Ref}}};
 do_action({notify, MSISDN, Status, _Pid}, _State) ->
     Resp = #s2c_user_change_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8')},
     {Resp, _State};
