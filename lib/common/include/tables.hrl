@@ -63,4 +63,7 @@
                     ,sdp_offer :: binary()
                     ,timestamp :: non_neg_integer()}).
 
+-record(user_subscribe, {msisdn :: non_neg_integer()
+                        ,subscriber :: non_neg_integer()}).
+
 -endif.

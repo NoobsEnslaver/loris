@@ -16,6 +16,8 @@
         ,new/3
         ,extract/2
         ,bind_pid_to_session/2
+        ,get_ws_pid/1
+        ,is_online/1
         ]).
 
 -spec get_tokens() -> [binary()].
@@ -89,6 +91,18 @@ bind_pid_to_session(SessionId, Pid) ->
     mnesia:transaction(fun()->
                             mnesia:write(Session#session{ws_pid = Pid})
                        end).
+
+is_online(MSISDN) ->
+    case get_by_owner_id(MSISDN) of
+        #session{ws_pid = P} -> is_pid(P);
+        _ -> false
+    end.
+
+get_ws_pid(MSISDN) ->
+    case get_by_owner_id(MSISDN) of
+        #session{ws_pid = P} when is_pid(P) -> P;
+        _ -> false
+    end.
 
 %%%-------------------------------------------------------------------
 %%% Data extractors

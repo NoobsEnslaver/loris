@@ -33,6 +33,7 @@ default_user_state(Token)->
     lists:foreach(fun({C, _AccessGroup})->
                           chats:subscribe(C)
                   end, users:extract(User, chats)),
+    users:notify(UserMSISDN, 'online'),
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
                ,rooms = users:extract(User, rooms)
@@ -110,6 +111,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_BULK_TYPE, <<"msisdns">> := MS
     #c2s_user_get_info_bulk{msisdns = [round(M) || M <- MSISDNS]};
 unwrap_msg(#{<<"msg_type">> := ?C2S_DEVICE_REGISTER, <<"push_token">> := PushToken,  <<"device_id">> := DeviceId, <<"type">> := Type}) ->
     #c2s_device_register{push_token = PushToken, type = round(Type), device_id = DeviceId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SUBSCRIBE_TYPE, <<"msisdn">> := MSISDN}) ->
+    #c2s_user_subscribe{msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UNSUBSCRIBE_TYPE, <<"msisdn">> := MSISDN}) ->
+    #c2s_user_unsubscribe{msisdn = MSISDN};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -151,6 +156,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
 wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
 wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server);
+wrap_msg(Msg) when is_record(Msg, s2c_user_change_status) -> ?R2M(Msg, s2c_user_change_status);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -450,6 +456,12 @@ do_action(#c2s_device_register{push_token = PushToken, type = Type, device_id = 
                _ -> #s2c_error{code = 400}
            end,
     {Resp, _State};
+do_action(#c2s_user_subscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
+    [users:subscribe(U, MSISDN) || U <- Users],
+    {ok, _State};
+do_action(#c2s_user_unsubscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
+    [users:unsubscribe(U, MSISDN) || U <- Users],
+    {ok, _State};
 do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};
@@ -526,6 +538,9 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#messag
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
     {Resp, _State};
+do_action({notify, MSISDN, Status, _Pid}, _State) ->
+    Resp = #s2c_user_change_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8')},
+    {Resp, _State};
 do_action('undefined', _State) ->
     {ok, _State};
 do_action(_Msg, _State) ->
@@ -534,6 +549,8 @@ do_action(_Msg, _State) ->
     {Resp, _State}.
 
 terminate(#user_state{msisdn = MSISDN, token = Token} = _State) ->
+    users:notify(MSISDN, 'offline'),
+    users:unsubscribe(MSISDN),
     sessions:bind_pid_to_session(Token, 'undefined'),
     users:update_last_visit_timestamp(MSISDN),
     ok.

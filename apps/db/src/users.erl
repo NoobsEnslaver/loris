@@ -24,6 +24,9 @@
         ,unmute_chat/2
         ,update_last_visit_timestamp/1
         ,set_info/2
+        ,subscribe/2
+        ,unsubscribe/1, unsubscribe/2
+        ,notify/2
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -254,6 +257,47 @@ set_info(MSISDN, Proplist) ->
             end;
         _ ->
             'not_exists'
+    end.
+
+subscribe(MSISDN, SubscriberMSISDN) ->
+    Fun = fun()->
+                  mnesia:write(#user_subscribe{msisdn = MSISDN, subscriber = SubscriberMSISDN})
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
+    end.
+
+unsubscribe(MSISDN, SubscriberMSISDN) ->
+    Fun = fun()->
+                  mnesia:delete_object(#user_subscribe{msisdn = MSISDN, subscriber = SubscriberMSISDN})
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
+    end.
+
+unsubscribe(SubscriberMSISDN) ->
+    Fun = fun()->
+                  Subscribers = mnesia:match_object(#user_subscribe{msisdn = '_', subscriber = SubscriberMSISDN}),
+                  [mnesia:delete_object(S) || S <- Subscribers],
+                  ok
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
+    end.
+
+notify(MSISDN, Status) ->
+    Fun = fun()->
+                  Subscribers = mnesia:read(user_subscribe, MSISDN),
+                  Pids = [sessions:get_ws_pid(S) || #user_subscribe{subscriber = S} <- Subscribers],
+                  [P ! {notify, MSISDN, Status, self()} || P <- Pids, is_pid(P)],
+                  ok
+          end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
     end.
 
 %%%-------------------------------------------------------------------

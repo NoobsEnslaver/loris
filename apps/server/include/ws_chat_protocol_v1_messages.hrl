@@ -40,6 +40,8 @@
 -define(C2S_LOCK_TURN_SERVER_TYPE, 39).
 -define(C2S_USER_GET_INFO_BULK_TYPE, 40).
 -define(C2S_DEVICE_REGISTER, 41).
+-define(C2S_USER_SUBSCRIBE_TYPE, 42).
+-define(C2S_USER_UNSUBSCRIBE_TYPE, 43).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -67,6 +69,7 @@
 -define(S2C_CALL_ANSWER_TYPE, 123).
 -define(S2C_TURN_SERVER_TYPE, 124).
 -define(S2C_USER_INFO_BULK_TYPE, 125).
+-define(S2C_USER_CHANGE_STATUS_TYPE, 126).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -90,6 +93,8 @@
 -record(c2s_user_get_status, {msg_type = ?C2S_USER_GET_STATUS_TYPE, user_msisdn :: non_neg_integer()}).
 -record(c2s_user_set_info, {msg_type = ?C2S_USER_SET_INFO_TYPE, fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).                   %TODO
+-record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
+-record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_room_get_tree, {msg_type = ?C2S_ROOM_GET_TREE_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_get_info, {msg_type = ?C2S_ROOM_GET_INFO_TYPE, room_id :: non_neg_integer(), subroom_id :: [non_neg_integer()], user_msisdn :: non_neg_integer(), chat_id :: binary(), room_name :: binary()}).
 -record(c2s_room_rename, {msg_type = ?C2S_ROOM_RENAME_TYPE, room_id :: non_neg_integer(), room_name :: binary()}).
@@ -145,7 +150,9 @@
                            | #c2s_call_ice_candidate{}
                            | #c2s_call_bye{}
                            | #c2s_lock_turn_server{}
-                           | #c2s_device_register{}.
+                           | #c2s_device_register{}
+                           | #c2s_user_subscribe{}
+                           | #c2s_user_unsubscribe{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
@@ -173,6 +180,7 @@
 -record(s2c_call_ack, {msg_type = ?S2C_CALL_ACK_TYPE}).
 -record(s2c_call_ice_candidate, {msg_type = ?S2C_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(s2c_call_bye, {msg_type = ?S2C_CALL_BYE_TYPE, code :: non_neg_integer()}).
+-record(s2c_user_change_status, {msg_type = ?S2C_USER_CHANGE_STATUS_TYPE, msisdn :: non_neg_integer(), status :: binary()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
@@ -196,7 +204,8 @@
                            | #s2c_call_ack{}
                            | #s2c_call_ice_candidate{}
                            | #s2c_call_bye{}
-                           | #s2c_turn_server{}.
+                           | #s2c_turn_server{}
+                           | #s2c_user_change_status{}.
 
 -type msg_type() :: server_msg_type()
                   | client_msg_type().
