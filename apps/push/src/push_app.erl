@@ -8,33 +8,37 @@
 -behaviour(application).
 
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2
+        ,stop/1
+        ,notify_call/1
+        ,notify_msg/1
+        ,notify_invatation/1]).
 
 %%====================================================================
 %% API
 %%====================================================================
-
 start(_StartType, _StartArgs) ->
-    PrivDir = code:priv_dir('push'),
-    %% ApplePushConfig = #{'name' => apple_push
-    %%                    ,'apple_host' => "api.push.apple.com"
-    %%                    ,'apple_port' => 443
-    %%                    ,'type' => cert
-    %%                    ,'certfile' => PrivDir ++ "/apns-push-cert.pem"
-    %%                    ,'keyfile' => PrivDir ++ "/apns-push-key.pem"},
-    AppleVoipPushConfig = #{'name' => apple_voip_push
-                           ,'apple_host' => "api.push.apple.com"
-                           ,'apple_port' => 443
-                           ,'type' => cert
-                           ,'certfile' => PrivDir ++ "/apns-voip-push-cert.pem"
-                           ,'keyfile' => PrivDir ++ "/apns-voip-push-key.pem"},
-    %% {ok, _} = apns:connect(ApplePushConfig),
-    {ok, _} = apns:connect(AppleVoipPushConfig),
     push_sup:start_link().
 
-%%--------------------------------------------------------------------
 stop(_State) ->
-    apns:stop(),
+    ok.
+
+%%--------------------------------------------------------------------
+notify_call(MSISDN)->
+    Devices = device:get(MSISDN),
+    %% #device{{msisdn, id, type :: 'android' | 'ios' | 'ios_voip', push_token :: binary()}}
+    lists:foreach(fun(D)->
+                          case device:extract(D, 'type') of
+                              'ios_voip' -> gen_server:cast('push_apple_server', {call, D});
+                              _ -> ok
+                          end
+                  end, Devices),
+    ok.
+
+notify_msg(_MSISDN)->
+    ok.
+
+notify_invatation(_MSISDN)->
     ok.
 
 %%====================================================================
