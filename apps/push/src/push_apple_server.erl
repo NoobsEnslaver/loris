@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% gen_server callbacks
 -export([init/1
@@ -36,8 +36,8 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Opts) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], Opts).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -102,15 +102,33 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, Device}, _State) ->
+handle_cast({call, Device}, _State) ->                                  %incoming call
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{"aps" => #{"content-available" => 1},
-                "acme1" => "bar",
-                "acme2" => 42},
-    apns:push_notification(my_first_connection, PushToken, Payload),
-    {noreply, State};
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+    Payload = #{"aps" => #{"content-available" => 1}},
+    apns:push_notification(apple_voip_push, PushToken, Payload),
+    {noreply, _State};
+handle_cast({msg_silent, Device, 'undefined', 'undefined'}, _State) ->  %chat invatation
+    PushToken = device:extract(Device, 'push_token'),
+    Payload = #{"aps" => #{"content-available" => 1}},
+    apns:push_notification(apple_push, PushToken, Payload),
+    {noreply, _State};
+handle_cast({msg_silent, Device, ChatId, MsgId}, _State) ->             %new chat msg
+    PushToken = device:extract(Device, 'push_token'),
+    Payload = #{"aps" => #{"content-available" => 1}
+               ,"chat_id" => ChatId
+               ,"msg_id" => MsgId},
+    apns:push_notification(apple_push, PushToken, Payload),
+    {noreply, _State};
+handle_cast({msg, Device, User, Msg, Badge}, _State) ->                 %another new chat msg
+    PushToken = device:extract(Device, 'push_token'),
+    Payload = #{"aps" => #{"alert" => #{"title" => User,
+                                        "body" => Msg}}
+               ,"badge" => Badge},     %% number of unread
+    apns:push_notification(apple_push, PushToken, Payload),
+    {noreply, _State};
+handle_cast(_Msg, _State) ->
+    lager:info("unexpected msg on ~p:~p: ~p", [?MODULE, ?LINE, _Msg]),
+    {noreply, _State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -136,6 +154,7 @@ handle_info({reconnecting, _ServerPid}, State) ->
 handle_info({connection_up, _ServerPid}, State) ->
     {noreply, State};
 handle_info(_Info, State) ->
+    lager:info("unexpected msg on ~p:~p: ~p", [?MODULE, ?LINE, _Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

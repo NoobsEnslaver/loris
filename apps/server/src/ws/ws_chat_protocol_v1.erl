@@ -258,7 +258,9 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                'undefined' ->
                    #s2c_error{code = 404};
                _ ->
+                   ChatUsers = chat_info:extract(chat_info:get(ChatId), 'users'),
                    MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
+                   [push_app:notify_msg_silent(U, ChatId, MsgId) || U <- ChatUsers, not(sessions:is_online(U))], %send push to offline users
                    #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};
@@ -384,6 +386,7 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
                     {ok, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
                 _ ->                                                                    %user offline
                     users:subscribe(CalleeMSISDN, CallerMSISDN),
+                    push_app:notify_call(CalleeMSISDN),
                     {#s2c_call_ack{}, NewState#user_state{call = #call_info{msisdn = CalleeMSISDN, sdp = Offer}}}
             end
     end;
