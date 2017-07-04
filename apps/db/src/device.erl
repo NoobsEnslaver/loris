@@ -17,7 +17,7 @@
 
 new(MSISDN, DeviceId, Type, PushToken) ->
     Fun = fun()->
-                  case mnesia:match_object(#device{msisdn = MSISDN, id = DeviceId, type = '_', push_token = '_'}) of
+                  case mnesia:match_object(#device{msisdn = MSISDN, id = DeviceId, type = Type, push_token = '_'}) of
                       [] ->
                           mnesia:write(#device{msisdn = MSISDN, id = DeviceId, type = Type, push_token = PushToken}),
                           created;
