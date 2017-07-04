@@ -1,5 +1,5 @@
 {application, push,
- [{description, "An OTP application"},
+ [{description, "Application for push notifications"},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, { push_app, []}},
@@ -8,7 +8,7 @@
     stdlib,
     apns
    ]},
-  {env,[]},
+  {env,[{'apns_get_feedback_interval', 60}]},   %60 sec
   {modules, []},
 
   {maintainers, []},

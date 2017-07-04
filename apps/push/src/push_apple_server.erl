@@ -59,17 +59,19 @@ init([]) ->             %% TODO: increase init dropdown time
     erlang:send_after(GetFeedbackInterval, self(), {'get_feedback', GetFeedbackInterval}),
     PrivDir = code:priv_dir('push'),
     ApplePushConfig = #{'name' => apple_push
-                       ,'apple_host' => "api.push.apple.com"
+                       ,'apple_host' => "api.development.push.apple.com"
                        ,'apple_port' => 443
                        ,'type' => cert
-                       ,'certfile' => PrivDir ++ "/apns-push-cert.pem"
-                       ,'keyfile' => PrivDir ++ "/apns-push-key.pem"},
+                       ,'certfile' => PrivDir ++ "/dev/apns_push_cert.pem"
+                       ,'keyfile' => PrivDir ++ "/dev/apns_push_key.pem"
+                       ,'timeout' => 10000},
     AppleVoipPushConfig = #{'name' => apple_voip_push
-                           ,'apple_host' => "api.push.apple.com"
+                           ,'apple_host' => "api.development.push.apple.com"
                            ,'apple_port' => 443
                            ,'type' => cert
-                           ,'certfile' => PrivDir ++ "/apns-voip-push-cert.pem"
-                           ,'keyfile' => PrivDir ++ "/apns-voip-push-key.pem"},
+                           ,'certfile' => PrivDir ++ "/dev/voip_cert_dev.pem"
+                           ,'keyfile' => PrivDir ++ "/dev/voip_key_dev.pem"
+                           ,'timeout' => 10000},
     {ok, Pid1} = apns:connect(ApplePushConfig),
     {ok, Pid2} = apns:connect(AppleVoipPushConfig),
     {ok, #state{push_server_pid = Pid1, voip_server_pid = Pid2}}.
@@ -104,26 +106,29 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({call, Device}, _State) ->                                  %incoming call
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{"aps" => #{"content-available" => 1}},
-    apns:push_notification(apple_voip_push, PushToken, Payload),
+    Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
+    Headers = #{},
+    Resp = apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
+    lager:info("voip push resp: ~p", [Resp]),
     {noreply, _State};
 handle_cast({msg_silent, Device, 'undefined', 'undefined'}, _State) ->  %chat invatation
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{"aps" => #{"content-available" => 1}},
-    apns:push_notification(apple_push, PushToken, Payload),
+    Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
+    Resp = apns:push_notification(apple_push, PushToken, Payload),
+    lager:info("silent push resp: ~p", [Resp]),
     {noreply, _State};
 handle_cast({msg_silent, Device, ChatId, MsgId}, _State) ->             %new chat msg
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{"aps" => #{"content-available" => 1}
-               ,"chat_id" => ChatId
-               ,"msg_id" => MsgId},
+    Payload = #{<<"aps">> => #{<<"content-available">> => 1}
+               ,<<"chat_id">> => ChatId
+               ,<<"msg_id">> => MsgId},
     apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
 handle_cast({msg, Device, User, Msg, Badge}, _State) ->                 %another new chat msg
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{"aps" => #{"alert" => #{"title" => User,
-                                        "body" => Msg}}
-               ,"badge" => Badge},     %% number of unread
+    Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => User,
+                                                <<"body">> => Msg}}
+               ,<<"badge">> => Badge},     %% number of unread
     apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
 handle_cast(_Msg, _State) ->
