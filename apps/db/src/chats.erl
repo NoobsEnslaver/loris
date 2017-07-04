@@ -68,21 +68,26 @@ update_message_status(TableId, MsgIdList) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     Fun = fun()->                               %TODO: optimize it with custom lock and dirty operations
                   lists:foreach(fun(MsgId)->
-                                        [#message{status = OldStatus}] = [OldMsg] = mnesia:read(TableName, MsgId),
-                                        case OldStatus of
-                                            'delivered' ->
-                                                mnesia:write(TableName, OldMsg#message{status = 'read'}, 'write'),
-                                                'read';
-                                            'read' ->
-                                                'read'; %no update
-                                            _ ->
-                                                mnesia:write(TableName, OldMsg#message{status = 'delivered'}, 'write'),
-                                                'delivered'
+                                        case mnesia:read(TableName, MsgId) of
+                                            [#message{status = OldStatus}] = [OldMsg] ->
+                                                case OldStatus of
+                                                    'delivered' ->
+                                                        mnesia:write(TableName, OldMsg#message{status = 'read'}, 'write'),
+                                                        'read';
+                                                    'read' ->
+                                                        'read'; %no update
+                                                    _ ->
+                                                        mnesia:write(TableName, OldMsg#message{status = 'delivered'}, 'write'),
+                                                        'delivered'
+                                                end;
+                                            _ -> ok
                                         end
                                 end, MsgIdList)
           end,
-    {atomic, Res} = mnesia:transaction(Fun),
-    Res.
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _ -> 'false'
+    end.
 
 get_messages_from(TableId, TimeStampFrom) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
