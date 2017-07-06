@@ -21,7 +21,7 @@
           ,{error_logger_hwm, 5000}
           ]
   },
-  {mnesia, [{dir, "db"}]},
+  {mnesia, [{dir, "/home/ne/db"}]},
   {apns, [
          {apple_host,       "api.development.push.apple.com"}
         ,{apple_port,       443}

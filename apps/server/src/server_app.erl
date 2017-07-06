@@ -63,9 +63,11 @@ get_tcp_opts('true') ->
     PrivDir = code:priv_dir(server),
     {ok, CertFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'certfile'),
     {ok, KeyFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'keyfile'),
+    {ok, CacertFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'cacertfile'),
     {ok, TcpOpts1} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'tcp_params'),
-    [{certfile, PrivDir ++ CertFile}|
-     [{keyfile, PrivDir ++ KeyFile} | TcpOpts1]];
+    [{certfile, PrivDir ++ CertFile}
+    ,{cacertfile, PrivDir ++ CacertFile}
+    ,{keyfile, PrivDir ++ KeyFile}] ++ TcpOpts1;
 get_tcp_opts('false') ->
     {ok, TcpOpts} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'tcp_params'),
     TcpOpts.
