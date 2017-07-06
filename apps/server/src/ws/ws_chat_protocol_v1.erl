@@ -401,7 +401,7 @@ do_action(#c2s_call_ack{}, #user_state{call = #call_info{pid = Pid}} = _State) -
     {ok, _State};
 do_action(#c2s_call_ack{}, _State) ->
     {ok, _State};
-do_action(#c2s_call_ice_candidate{candidate = C}, #user_state{call = #call_info{pid = Pid}} = _State) ->
+do_action(#c2s_call_ice_candidate{candidate = C}, #user_state{call = #call_info{pid = Pid}} = _State) when is_pid(Pid) ->
     Pid ! {call_ice_candidate, C},
     {ok, _State};
 do_action(#c2s_call_ice_candidate{}, _State) ->
