@@ -66,18 +66,18 @@ access_level(_Method)->
 %%%===================================================================
 -spec receive_files(cowboy_req:req(), non_neg_integer()) -> {cowboy_req:req(), [{Data :: binary(), Name :: binary(), Type :: binary()}]}.
 receive_files(Req, MaxFileSize) ->
-    receive_file(Req, [], MaxFileSize).
+    receive_files(Req, [], MaxFileSize).
 receive_files(Req, Files, MaxFileSize) ->
     case cowboy_req:read_part(Req) of
         {'ok', Headers, Req1} ->
             {Req2, Result} = case cow_multipart:form_data(Headers) of
                                  {data, FieldName} ->
-                                     {ok, Body, Req3} = cowboy_req:read_part_body(Req1),
+                                     {ok, Body, Req3} = cowboy_req:read_body(Req1),
                                      {Req3, {Body, FieldName, <<>>}};
                                  {file, _FieldName, FileName1, CType} ->
                                      case stream_file(Req1, MaxFileSize) of
                                          {Req3, 'error'} -> {Req3, 'error'};
-                                         {Req3, Data} -> {Req3, Data, FileName1, CType}
+                                         {Req3, Data} -> {Req3, {Data, FileName1, CType}}
                                      end
                              end,
             receive_files(Req2, [Result | Files], MaxFileSize);
@@ -85,12 +85,13 @@ receive_files(Req, Files, MaxFileSize) ->
             {Req1, [F || F <- Files, is_tuple(F)]}
     end.
 
+
 stream_file(Req, MaxFileSize)->
     stream_file(Req, <<>>, MaxFileSize).
 stream_file(Req, Buffer, MaxFileSize) ->
-    case cowboy_req:read_part_body(Req) of
+    case cowboy_req:read_part_body(Req,  #{'length' => 64000}) of
         {'ok'  , Data, Req1} when byte_size(Buffer) =< MaxFileSize ->
-            {<<Buffer/binary, Data/binary>>, Req1};
+            {Req1, <<Buffer/binary, Data/binary>>};
         {'more', Data, Req1} when byte_size(Buffer) =< MaxFileSize ->
             NewBuf = <<Buffer/binary, Data/binary>>,
             stream_file(Req1, NewBuf, MaxFileSize);

@@ -30,7 +30,6 @@ start(_Type, _Args) ->
     lager:md([{'appname', ?APP_NAME}]),
     EnableTLS = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'enable_tls', true),
     TcpOpts = get_tcp_opts(EnableTLS and not ?IS_TEST),
-    Acceptors = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'acceptors', 100),
     StaticDir = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'static_dir', "/srv"),
     Dispatch = cowboy_router:compile(
                  [{'_',
@@ -45,9 +44,9 @@ start(_Type, _Args) ->
     ProtocolOpts = #{env => #{dispatch => Dispatch}},
     {'ok', _Pid} = case proplists:get_value(certfile, TcpOpts) of
                        'undefined' ->
-                           cowboy:start_clear(?LISTENER_NAME, Acceptors, TcpOpts, ProtocolOpts);
+                           cowboy:start_clear(?LISTENER_NAME, TcpOpts, ProtocolOpts);
                        _ ->
-                           cowboy:start_tls(?LISTENER_NAME, Acceptors, TcpOpts, ProtocolOpts)
+                           cowboy:start_tls(?LISTENER_NAME, TcpOpts, ProtocolOpts)
                    end,
     server_sup:start_link().               %dummy
 
