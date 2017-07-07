@@ -386,7 +386,7 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
                     {ok, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
                 _ ->                                                                    %user offline
                     users:subscribe(CalleeMSISDN, CallerMSISDN),
-                    push_app:notify_call(CalleeMSISDN),
+                    push_app:notify_call(CalleeMSISDN, CallerMSISDN),
                     {#s2c_call_ack{}, NewState#user_state{call = #call_info{msisdn = CalleeMSISDN, sdp = Offer}}}
             end
     end;

@@ -104,18 +104,17 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, Device}, _State) ->                                  %incoming call
+handle_cast({call, Device, CallerMSISDN}, _State) ->                                  %incoming call
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
+    Payload = #{<<"aps">> => #{<<"content-available">> => 1}
+               ,<<"msisdn">> => CallerMSISDN},
     Headers = #{},
-    Resp = apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
-    lager:info("voip push resp: ~p", [Resp]),
+    apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
     {noreply, _State};
 handle_cast({msg_silent, Device, 'undefined', 'undefined'}, _State) ->  %chat invatation
     PushToken = device:extract(Device, 'push_token'),
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
-    Resp = apns:push_notification(apple_push, PushToken, Payload),
-    lager:info("silent push resp: ~p", [Resp]),
+    apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
 handle_cast({msg_silent, Device, ChatId, MsgId}, _State) ->             %new chat msg
     PushToken = device:extract(Device, 'push_token'),

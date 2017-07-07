@@ -10,7 +10,7 @@
 %% Application callbacks
 -export([start/2
         ,stop/1
-        ,notify_call/1
+        ,notify_call/2
         ,notify_msg/4
         ,notify_msg_silent/3]).
 
@@ -24,11 +24,11 @@ stop(_State) ->
     ok.
 
 %%--------------------------------------------------------------------
-notify_call(MSISDN)->
-    Devices = device:get(MSISDN),
+notify_call(CalleeMSISDN, CallerMSISDN)->
+    Devices = device:get(CalleeMSISDN),
     lists:foreach(fun(D)->
                           case device:extract(D, 'type') of
-                              'ios_voip' -> gen_server:cast('push_apple_server', {call, D});
+                              'ios_voip' -> gen_server:cast('push_apple_server', {call, D, CallerMSISDN});
                               _ -> ok
                           end
                   end, Devices).
