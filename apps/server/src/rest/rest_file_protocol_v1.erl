@@ -23,14 +23,14 @@ handle(<<"POST">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session
         _Mastodonic when _Mastodonic > MaxFileSize ->
             {Req, State#q_state{code = 413}, _Args};                   %Request Entity Too Large error
         _NormalSize ->
-            [Req1, Files] = receive_files(Req, MaxFileSize),           %TODO: optimize to one-for-one upload\save, streaming responcing
+            {Req1, Files} = receive_files(Req, MaxFileSize),           %TODO: optimize to one-for-one upload\save, streaming responcing
             [{Data, Name, ContentType} | _Rest] = Files,
-            lager:info("Rest files: ~p", [[N || {_, N, _} <- _Rest]]),
+            lager:debug("Rest files: ~p", [[N || {_, N, _} <- _Rest]]),
             NewState = case files:save(Name, ContentType, Data, UserId) of
                            'false'->
                                State#q_state{code = 500};
                            InDBId ->
-                               lager:info("File ~s saved with Id: ~p~n", [Name, InDBId]),
+                               lager:debug("File ~s saved with Id: ~p~n", [Name, InDBId]),
                                State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = erlang:integer_to_binary(InDBId)}
                        end,
             {Req1, NewState, _Args}
