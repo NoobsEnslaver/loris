@@ -45,10 +45,11 @@ handle(<<"GET">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session}
                    File ->
                        FileOwnerId = files:extract(File, 'owner_id'),
                        FileAccessLevel = files:extract(File, 'access_level'),
+                       FileName = files:extract(File, 'name'),
                        case FileAccessLevel =< UserAccessLevel orelse FileOwnerId == UserId of
                            'true' ->
                                NewHeaders = H#{<<"Content-Type">> => files:extract(File, 'content_type')
-                                              ,<<"Content-Length">> => integer_to_binary(files:extract(File, 'size'))},
+                                              ,<<"Content-Disposition">> => <<"attachment; filename=\"", FileName/binary, "\"">>},
                                State#q_state{code = 200, body = files:extract(File, 'data'), headers = NewHeaders};
                            'false'->
                                State#q_state{code = 403}
