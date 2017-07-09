@@ -66,7 +66,7 @@ pull_outdated(ExpirationTime) ->
                             end, List)
           end,
     case mnesia:transaction(Fun) of
-        {atomic, [Res]} -> Res;
+        {atomic, Res} -> Res;
         _Error -> 'false'
     end.
 
