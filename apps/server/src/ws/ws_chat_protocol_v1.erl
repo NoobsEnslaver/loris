@@ -112,10 +112,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_BULK_TYPE, <<"msisdns">> := MS
     #c2s_user_get_info_bulk{msisdns = [round(M) || M <- MSISDNS]};
 unwrap_msg(#{<<"msg_type">> := ?C2S_DEVICE_REGISTER, <<"push_token">> := PushToken,  <<"device_id">> := DeviceId, <<"type">> := Type}) ->
     #c2s_device_register{push_token = PushToken, type = round(Type), device_id = DeviceId};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SUBSCRIBE_TYPE, <<"msisdn">> := MSISDN}) ->
-    #c2s_user_subscribe{msisdn = MSISDN};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UNSUBSCRIBE_TYPE, <<"msisdn">> := MSISDN}) ->
-    #c2s_user_unsubscribe{msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SUBSCRIBE_TYPE, <<"msisdn">> := MSISDNS}) ->
+    #c2s_user_subscribe{msisdn = [round(M) || M <- MSISDNS]};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UNSUBSCRIBE_TYPE, <<"msisdn">> := MSISDNS}) ->
+    #c2s_user_unsubscribe{msisdn = [round(M) || M <- MSISDNS]};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
