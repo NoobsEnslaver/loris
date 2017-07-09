@@ -8,7 +8,8 @@
     stdlib,
     apns
    ]},
-  {env,[{'apns_get_feedback_interval', 60}]},   %60 sec
+  {env,[{'apns_get_feedback_interval', 60}      %60 sec
+       ,{'loud_push_delay', 60}]},              %60 sec
   {modules, []},
 
   {maintainers, []},

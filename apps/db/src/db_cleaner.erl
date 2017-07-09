@@ -60,7 +60,7 @@ init([]) ->
     lager:md([{'appname', list_to_binary(?MODULE_STRING)}]),
     SessionsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
     SmsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
-    SmsCleaningInterval = application:get_env(push, 'loud_push_delay', 60) * 1000,  %default: 1 min
+    LoudPushDelay = application:get_env(push, 'loud_push_delay', 60) * 1000,  %default: 1 min
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
     erlang:send_after(LoudPushDelay, self(), 'send_clean_pushes'),
@@ -119,7 +119,8 @@ handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     {'noreply', Map};
 handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
     erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
-    send_clean_pushes(),
+    ExpirationTime = common:timestamp() - PushInterval,
+    send_clean_pushes(ExpirationTime),
     {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
@@ -182,5 +183,12 @@ sms_cleaning() ->
                                              end, ExpiredSms)
                        end).
 
-send_clean_pushes()->
-    ok.
+send_clean_pushes(ExpirationTime)->
+    Pushes = pushes:pull_outdated(ExpirationTime),
+    lists:foreach(fun(P)->
+                          MSISDN = pushes:extract(P, msisdn),
+                          ChatName = pushes:extract(P, chat_name),
+                          Msg = pushes:extract(P, last_msg),
+                          Badge = pushes:extract(P, count),
+                          push_app:notify_msg(MSISDN, ChatName, Msg, Badge)
+                  end, Pushes).

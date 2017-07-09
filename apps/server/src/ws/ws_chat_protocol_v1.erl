@@ -33,7 +33,8 @@ default_user_state(Token)->
     lists:foreach(fun({C, _AccessGroup})->
                           chats:subscribe(C)
                   end, users:extract(User, chats)),
-    users:notify(UserMSISDN, 'online'),
+    users:notify(UserMSISDN, 'online'),         %notify all subscribers
+    pushes:delete(UserMSISDN),                  %delete all not sended pushes
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
                ,rooms = users:extract(User, rooms)

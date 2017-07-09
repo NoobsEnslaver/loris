@@ -26,9 +26,9 @@ put(MSISDN, Msg, ChatName) ->
                                               ,count = 1
                                               ,timestamp = common:timestamp()});
                       [P] when is_record(P, 'pushes') ->
-                          mnesia:write(P##pushes{chat_name = ChatName
-                                                ,last_msg = Msg
-                                                ,count = P#pushes.count + 1})
+                          mnesia:write(P#pushes{chat_name = ChatName
+                                               ,last_msg = Msg
+                                               ,count = P#pushes.count + 1})
                   end
           end,
     case mnesia:transaction(Fun) of
@@ -62,7 +62,7 @@ pull_outdated(ExpirationTime) ->
                   List = mnesia:select('pushes',[{MatchHead, [Guard], [Result]}]),
                   lists:map(fun([M,ChN,LaM,Count,T]) ->
                                     mnesia:delete({pushes, M}),
-                                    #pushes{msisdn=M,chat_name=ChN,last_msg=LaM,count=LaM,timestamp=T}
+                                    #pushes{msisdn=M,chat_name=ChN,last_msg=LaM,count=Count,timestamp=T}
                             end, List)
           end,
     case mnesia:transaction(Fun) of

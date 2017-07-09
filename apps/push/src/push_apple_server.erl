@@ -123,9 +123,9 @@ handle_cast({msg_silent, Device, ChatId, MsgId}, _State) ->             %new cha
                ,<<"msg_id">> => MsgId},
     apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
-handle_cast({msg, Device, User, Msg, Badge}, _State) ->                 %another new chat msg
+handle_cast({msg, Device, ChatName, Msg, Badge}, _State) ->             %loud push msg
     PushToken = device:extract(Device, 'push_token'),
-    Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => User,
+    Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => ChatName,
                                                 <<"body">> => Msg}}
                ,<<"badge">> => Badge},     %% number of unread
     apns:push_notification(apple_push, PushToken, Payload),

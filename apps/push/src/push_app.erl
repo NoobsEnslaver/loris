@@ -42,11 +42,11 @@ notify_msg_silent(MSISDN, ChatId, MsgId)->
                           end
                   end, Devices).
 
-notify_msg(MSISDN, User, Msg, Badge)->
+notify_msg(MSISDN, ChatName, Msg, Badge)->
     Devices = device:get(MSISDN),
     lists:foreach(fun(D)->
                           case device:extract(D, 'type') of
-                              'ios' -> gen_server:cast('push_apple_server', {msg, D, User, Msg, Badge});
+                              'ios' -> gen_server:cast('push_apple_server', {msg, D, ChatName, Msg, Badge});
                               _ -> ok
                           end
                   end, Devices).
