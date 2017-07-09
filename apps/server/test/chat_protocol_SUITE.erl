@@ -108,6 +108,7 @@ groups() ->
     [{chats, [], [chat_get_list_test
                  ,chat_get_info_unexists_chat_test
                  ,chat_create_test
+                 ,chat_create_p2p_test
                  ,chat_create_and_get_info_test
                  ,chat_invite_accept_test
                  ,chat_invite_accept_on_chat_creation_test
@@ -229,6 +230,25 @@ chat_create_and_get_info_test(Config) ->
                           timer:sleep(100),
                           {error, timeout} = receive_packet(ConPid, Transport)
                   end, Env).
+
+chat_create_p2p_test(Config) ->
+    [#{transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN2 = users:extract(User2, msisdn),
+    send_packet(ConPid1, ?R2M(#c2s_chat_create{name = <<"test_chat">>, users = [MSISDN2], is_p2p = true}, c2s_chat_create), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    timer:sleep(50),
+    send_packet(ConPid1, ?R2M(#c2s_chat_get_list{}, c2s_chat_get_list), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_chat_get_list{}, c2s_chat_get_list), Transport2),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := #{ChatId := <<"test_chat">>}} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := #{ChatId := <<"test_chat">>}} = receive_packet(ConPid2, Transport2),
+    timer:sleep(100),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid2, Transport2),
+    ok.
 
 chat_invite_accept_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
@@ -741,7 +761,7 @@ user_get_status_test(Config)->
     Env = proplists:get_value(env, Config),
     lists:foreach(fun(#{transport := Transport, connection := ConPid})->
                           %% Register new user
-                          MSISDN = crypto:rand_uniform(1000000, 99999999),
+                          MSISDN = rand:uniform(89999999) + 1000000,
                           _User = users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
                           timer:sleep(50),
                           %% Get new user status
@@ -874,7 +894,7 @@ call_to_busy_test(Config) ->
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     MSISDN1 = users:extract(User1, msisdn),
     MSISDN2 = users:extract(User2, msisdn),
-    MSISDN3 = crypto:rand_uniform(1000000, 99999999),
+    MSISDN3 = rand:uniform(89999999) + 1000000,
     Transport3 = Transport1,
     _User = users:new(MSISDN3, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
     timer:sleep(50),
@@ -924,7 +944,7 @@ call_to_bad_msisdn_test(Config) ->
 %%%===================================================================
 init()->
     lists:map(fun(Transport)->
-                      MSISDN = crypto:rand_uniform(1000000, 99999999),
+                      MSISDN = rand:uniform(89999999) + 1000000,
                       {ok, Token} = authorize(MSISDN),
                       User = users:set_info(MSISDN, [{group, administrators}, {age, 25}, {fname, <<"Nikita">>}, {lname, <<"Vorontsov">>}, {is_male, true}]),
                       {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
@@ -941,7 +961,6 @@ deinit([#{user := User, token := Token, connection := ConPid} | Tail])->
 
 get_chats_list(ConnPid, Transport) ->
     send_packet(ConnPid, ?R2M(#c2s_chat_get_list{}, c2s_chat_get_list), Transport),
-    timer:sleep(50),
     #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := Chats} = receive_packet(ConnPid, Transport),
     Chats.
 

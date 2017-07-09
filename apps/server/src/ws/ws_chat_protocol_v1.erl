@@ -538,8 +538,7 @@ do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyM
 do_action({chat_p2p_invatation, ChatId}, #user_state{chats = OldChats} = State) ->
     chats:subscribe(ChatId),
     Resp = #s2c_chat_create_result{chat_id = ChatId},
-    {Resp, State#user_state{chats = [{ChatId, AccessGroup} | OldChats]}}
-    end;
+    {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};

@@ -90,7 +90,7 @@ receive_packet(_ConnPid, Transport)->
     receive
         {gun_ws, _ConnPid, {close, _, _}} -> {close, _ConnPid};
         {gun_ws, _ConnPid, {binary, Frame}} -> transport_lib:decode(Frame, Transport)
-    after 500 -> {error, timeout}
+    after 2000 -> {error, timeout}
     end.
 
 flush_messages() ->

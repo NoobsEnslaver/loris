@@ -39,14 +39,16 @@ new() ->
 
 new_p2p(MSISDN1, MSISDN2) ->
     [M1, M2] = [erlang:integer_to_binary(M) || M <- lists:sort([MSISDN1, MSISDN2])],
-    Name = erlang:binary_to_atom(<<"p2p_", M1/binary, "_", M2/binary>>, 'utf8'),
+    Id = <<M1/binary, "_", M2/binary>>,
+    Name = erlang:binary_to_atom(<<"chat_", Id/binary>>, 'utf8'),
     Opts = [{attributes, record_info(fields, 'message')}
            ,{record_name, 'message'}
            ,{disc_copies,[node() | nodes()]}
            ,{type, ordered_set}],               %For fastest message grabbing by period
     case mnesia:create_table(Name, Opts) of
-        {atomic, ok} -> {ok, Name};
-        {aborted,Reason} -> Reason              %if exists: {already_exists, Name}
+        {atomic, ok} -> {ok, Id};
+        {aborted, {already_exists, Name}} -> {already_exists, Id};
+        _ -> 'false'
     end.
 
 send_message(TableId, MsgBody, From) ->
