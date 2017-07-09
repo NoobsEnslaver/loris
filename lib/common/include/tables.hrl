@@ -60,4 +60,10 @@
 -record(user_subscribe, {msisdn :: non_neg_integer()
                         ,subscriber :: non_neg_integer()}).
 
+-record(pushes, {msisdn :: non_neg_integer()
+                ,timestamp :: non_neg_integer()
+                ,count :: non_neg_integer()
+                ,last_msg :: binary()
+                ,chat_name :: binary()}).
+
 -endif.

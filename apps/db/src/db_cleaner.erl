@@ -60,10 +60,12 @@ init([]) ->
     lager:md([{'appname', list_to_binary(?MODULE_STRING)}]),
     SessionsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
     SmsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
+    SmsCleaningInterval = application:get_env(push, 'loud_push_delay', 60) * 1000,  %default: 1 min
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
+    erlang:send_after(LoudPushDelay, self(), 'send_clean_pushes'),
     lager:info("db cleaner started"),
-    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval}}.
+    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval, push => LoudPushDelay}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -114,6 +116,10 @@ handle_info('clean_sessions', #{session := CleaningInterval} = Map) ->
 handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     erlang:send_after(CleaningInterval, self(), 'clean_sms'),
     sms_cleaning(),
+    {'noreply', Map};
+handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
+    erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
+    send_clean_pushes(),
     {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
@@ -175,3 +181,6 @@ sms_cleaning() ->
                                                      mnesia:delete({sms, S})
                                              end, ExpiredSms)
                        end).
+
+send_clean_pushes()->
+    ok.
