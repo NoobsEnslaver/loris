@@ -74,7 +74,7 @@
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
 -record(c2s_chat_get_info, {msg_type = ?C2S_CHAT_GET_INFO_TYPE, chat_id  :: binary()}).
--record(c2s_chat_create, {msg_type = ?C2S_CHAT_CREATE_TYPE, name :: binary(), users :: [non_neg_integer()]}).
+-record(c2s_chat_create, {msg_type = ?C2S_CHAT_CREATE_TYPE, name :: binary(), users :: [non_neg_integer()], is_p2p :: boolean()}).
 -record(c2s_chat_leave, {msg_type = ?C2S_CHAT_LEAVE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_delete, {msg_type = ?C2S_CHAT_DELETE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_invite_user, {msg_type = ?C2S_CHAT_INVITE_USER_TYPE, chat_id :: binary(), user_msisdn :: non_neg_integer() }).

@@ -10,6 +10,7 @@
 -include("db.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 -export([new/0
+        ,new_p2p/2
         ,send_message/3
         ,update_message/4
         ,update_message_status/2
@@ -35,6 +36,18 @@ new() ->
            ,{type, ordered_set}],               %For fastest message grabbing by period
     mnesia:create_table(Name, Opts),
     Id.
+
+new_p2p(MSISDN1, MSISDN2) ->
+    [M1, M2] = [erlang:integer_to_binary(M) || M <- lists:sort([MSISDN1, MSISDN2])],
+    Name = erlang:binary_to_atom(<<"p2p_", M1/binary, "_", M2/binary>>, 'utf8'),
+    Opts = [{attributes, record_info(fields, 'message')}
+           ,{record_name, 'message'}
+           ,{disc_copies,[node() | nodes()]}
+           ,{type, ordered_set}],               %For fastest message grabbing by period
+    case mnesia:create_table(Name, Opts) of
+        {atomic, ok} -> {ok, Name};
+        {aborted,Reason} -> Reason              %if exists: {already_exists, Name}
+    end.
 
 send_message(TableId, MsgBody, From) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),

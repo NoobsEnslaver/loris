@@ -49,8 +49,9 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_GET_LIST_TYPE}) ->
     #c2s_chat_get_list{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_GET_INFO_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_get_info{chat_id = ChatId};
-unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_CREATE_TYPE, <<"name">> := Name, <<"users">> := Users}) ->
-    #c2s_chat_create{name = Name, users = [round(U) || U <- Users]};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_CHAT_CREATE_TYPE, <<"name">> := Name, <<"users">> := Users}) ->
+    IsP2P = maps:get(<<"is_p2p">>, Msg, 'false'),
+    #c2s_chat_create{name = Name, users = [round(U) || U <- Users], is_p2p = IsP2P};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_LEAVE_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_leave{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_DELETE_TYPE, <<"chat_id">> := ChatId}) ->
@@ -181,6 +182,25 @@ do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, mut
                                  ,access_group = proplists:get_value(ChatId, MyChats)}
            end,
     {Resp, State};
+do_action(#c2s_chat_create{users = [YourMSISDN], name = ChatName, is_p2p = 'true'}, #user_state{msisdn = MyMSISDN, chats = OldChats} = State) ->
+    case chats:new_p2p(MyMSISDN, YourMSISDN) of
+        {ok, ChatId} ->
+            chat_info:new(ChatId, ChatName, MyMSISDN),
+            chat_info:add_user(ChatId, YourMSISDN),
+            users:invite_to_chat(ChatId, MyMSISDN, 'administrators'),
+            users:invite_to_chat(ChatId, YourMSISDN, 'administrators'),
+            users:accept_invatation(ChatId, MyMSISDN),
+            users:accept_invatation(ChatId, YourMSISDN),
+            chats:subscribe(ChatId),
+            case sessions:get_ws_pid(YourMSISDN) of
+                'false' -> ok;
+                 Pid -> Pid ! {chat_p2p_invatation, ChatId}
+            end,
+            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
+        {already_exists, ChatId} ->
+            {#s2c_chat_create_result{chat_id = ChatId}, State};
+        _ -> {#s2c_error{code = 500}, State}
+    end;
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     ChatId = chats:new(),
     chat_info:new(ChatId, ChatName, MSISDN),
@@ -515,6 +535,11 @@ do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyM
                    #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN}
            end,
     {Resp, State#user_state{chats = proplists:delete(ChatId, Chats)}};
+do_action({chat_p2p_invatation, ChatId}, #user_state{chats = OldChats} = State) ->
+    chats:subscribe(ChatId),
+    Resp = #s2c_chat_create_result{chat_id = ChatId},
+    {Resp, State#user_state{chats = [{ChatId, AccessGroup} | OldChats]}}
+    end;
 do_action({chat_invatation, ChatId}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId},
     {Resp, _State};
