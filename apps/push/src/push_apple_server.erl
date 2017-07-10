@@ -107,7 +107,7 @@ handle_call(_Request, _From, State) ->
 handle_cast({call, Device, CallerMSISDN}, _State) ->                                  %incoming call
     PushToken = device:extract(Device, 'push_token'),
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
-               ,<<"msisdn">> => CallerMSISDN},
+               ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
     Headers = #{},
     apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
     {noreply, _State};
