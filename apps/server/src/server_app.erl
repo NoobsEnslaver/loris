@@ -41,7 +41,8 @@ start(_Type, _Args) ->
                     ,{"/:version/[...]", server_rest_handler, []}
                     ,{'_', 'server_404_handler', []}]
                   }]),
-    ProtocolOpts = #{env => #{dispatch => Dispatch}},
+    ProtocolOpts = #{env => #{dispatch => Dispatch}
+                    ,stream_handlers => [cowboy_compress_h, cowboy_stream_h]},
     {'ok', _Pid} = case proplists:get_value(certfile, TcpOpts) of
                        'undefined' ->
                            cowboy:start_clear(?LISTENER_NAME, TcpOpts, ProtocolOpts);
