@@ -15,7 +15,7 @@
 -ifdef(TEST).
 -define(CODE, 6666).
 -else.
--define(CODE, crypto:rand_uniform(1000, 9999)).
+-define(CODE, rand:uniform(8999) + 1000).
 -endif.
 
 -export([new/1

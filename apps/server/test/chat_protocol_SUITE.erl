@@ -118,6 +118,7 @@ groups() ->
                  ,chat_typing_mute_unmute_test
                  ]}
     ,{messages, [], [message_send_test
+                    ,message_send_p2p_test
                     ,message_get_list_test
                     ,message_update_test
                     ,message_update_status_test
@@ -232,8 +233,9 @@ chat_create_and_get_info_test(Config) ->
                   end, Env).
 
 chat_create_p2p_test(Config) ->
-    [#{transport := Transport1, connection := ConPid1}
+    [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
     MSISDN2 = users:extract(User2, msisdn),
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = <<"test_chat">>, users = [MSISDN2], is_p2p = true}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -246,6 +248,11 @@ chat_create_p2p_test(Config) ->
     #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := #{ChatId := <<"test_chat">>}} = receive_packet(ConPid1, Transport1),
     #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := #{ChatId := <<"test_chat">>}} = receive_packet(ConPid2, Transport2),
     timer:sleep(100),
+    send_packet(ConPid2, ?R2M(#c2s_chat_create{name = <<"test_chat">>, users = [MSISDN1], is_p2p = true}, c2s_chat_create), Transport2),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    timer:sleep(50),
+
     {error, timeout} = receive_packet(ConPid1, Transport1),
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
@@ -562,6 +569,34 @@ message_send_test(Config) ->
     send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info), Transport2),
     timer:sleep(50),
     tester:flush_messages(),
+    %% Start chating
+    {_, ChatId} = send_message(ConPid1, Transport1, ChatId, <<"Hello Joe?">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"Hello Joe?">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    {_, ChatId} = send_message(ConPid2, Transport2, ChatId, <<"Hello Mike!">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"Hello Mike!">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    %% Try to send to unexisting chat, get error
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = send_message(ConPid1, Transport1, <<"SOME_UNEXISTING_CHAT_ID">>, <<"Hello world?">>),
+    %% Delete chat and try to send to deleted chat
+    send_packet(ConPid1, ?R2M(#c2s_chat_delete{chat_id = ChatId}, c2s_chat_delete), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"@system:delete_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    #{} = get_chats_list(ConPid1, Transport1),
+    #{} = get_chats_list(ConPid2, Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = send_message(ConPid1, Transport1, ChatId, <<"Hello Joe?">>),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = send_message(ConPid2, Transport2, ChatId, <<"Hello Mike!">>),
+    ok.
+
+message_send_p2p_test(Config) ->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ChatName = <<"test_chat">>,
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    %% Crete chat, receive chat_id, invite User2
+    send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2], is_p2p = 'true'}, c2s_chat_create), Transport1),
+    timer:sleep(50),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
     %% Start chating
     {_, ChatId} = send_message(ConPid1, Transport1, ChatId, <<"Hello Joe?">>),
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"Hello Joe?">>, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
