@@ -1,26 +1,35 @@
 [
   {lager, [
            {handlers, [
-                       {lager_console_backend, [{{console_log_level}},
-                                                {lager_default_formatter, [time, " ", color, severity, " ", {module,[module],""}, {line,[".",line," "],""}, "\e[0m", message, "\n"]}]}
-                      ,{lager_file_backend, [{file, "log/error.log"}, {level, error}, {size, 10485760}, {date, "$D0"}, {count, 5}
+                       {lager_console_backend, [{level, {{console_log_level}}}, {formatter, lager_default_formatter}
+                                               ,{formatter_config, [date, " ",time,color, " [", severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\e[0m\r\n"]}]}
+                      ,{lager_file_backend, [{file, "log/egg.log"}, {level, {{file_log_level}}}, {size, 10485760}, {date, "$D0"}, {count, 5}
                                             ,{formatter, lager_default_formatter}
-                                            ,{formatter_config, [time," [",severity,"] ", "|", module, ":", line, " (",pid, ") ", message, "\n"]}
-                                            ]}
-                      ,{lager_file_backend, [
-                                             {file, "log/console.log"}, {level, {{file_log_level}}}, {size, 10485760}, {date, "$D0"}, {count, 5}
-                                            ,{formatter, lager_default_formatter}
-                                            ,{formatter_config, [time," [",severity,"] ", "|", module, ":", line, " (",pid, ") ", message, "\n"]}
-                                            ]}
+                                            ,{formatter_config, [date, " ",time, " [",severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
                       ,{lager_syslog_backend, ["egg", local0, {{syslog_log_level}}
-                                              ,{lager_default_formatter, ["|", appname, ":", module, ":", line, " (",pid, ") ", message, "\n"]}
-                                              ]}
+                                              ,{lager_default_formatter, [date, " ",time, " [",severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
                       ]}
-          ,{extra_sinks, [{data_lager_event,[{handlers, [{lager_file_backend,[{file, "/dev/null"} ,{level, debug}]}]}]}]}
           ,{colored, true}
-          ,{error_logger_hwm, 5000}
+          ,{error_logger_hwm, 500}
+          ,{crash_log, "log/crash.log"}
+          ,{async_threshold, undefined}
+          ,{async_threshold_window, undefined}
+          ,{crash_log_msg_size, 65536}
+          ,{crash_log_size, 10485760}
+          ,{crash_log_date, "$D0"}
+          ,{crash_log_count, 5}
+          ,{error_logger_redirect, true}
+          ,{suppress_application_start_stop, true}
+          ,{suppress_supervisor_start_stop, true}
           ]
   },
+  {sasl, [
+    {sasl_error_logger, {file, "log/sasl-error.log"}}
+   ,{errlog_type, error}
+   ,{error_logger_mf_dir, "log/sasl"}
+   ,{error_logger_mf_maxbytes, 1024}
+   ,{error_logger_mf_maxfiles, 10}
+  ]},
   {mnesia, [{dir, "/home/ne/db"}]},
   {apns, [
          {apple_host,       "api.development.push.apple.com"}

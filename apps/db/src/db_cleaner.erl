@@ -184,9 +184,8 @@ sms_cleaning() ->
                        end).
 
 send_clean_pushes(ExpirationTime)->
-    lager:debug("start push sending\cleaning"),
     Pushes = pushes:pull_outdated(ExpirationTime),
-    lager:debug("~p pushes will be sended", [length(Pushes)]),
+    lager:debug("start push cleaning: ~p pushes will be sended", [length(Pushes)]),
     lists:foreach(fun(P)->
                           MSISDN = pushes:extract(P, msisdn),
                           ChatName = pushes:extract(P, chat_name),
