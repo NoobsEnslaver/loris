@@ -16,7 +16,6 @@
 
 -spec init(cowboy_req:req(), map()) -> {'ok', cowboy_req:req(), []}.
 init(Req, _Opts) ->
-    lager:md([{'appname', ?APP_NAME}]),
     Resp = cowboy_req:reply(404, #{<<"content-type">> => <<"text/html">>}, <<"">>, Req),
     {'ok', Resp, []}.
 

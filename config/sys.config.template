@@ -2,12 +2,12 @@
   {lager, [
            {handlers, [
                        {lager_console_backend, [{level, {{console_log_level}}}, {formatter, lager_default_formatter}
-                                               ,{formatter_config, [date, " ",time,color, " [", severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\e[0m\r\n"]}]}
+                                               ,{formatter_config, [date, " ",time, " [",color, severity, "\e[0m]", {msisdn, ["+", msisdn, "|"], [""]},{ip, ""}, "[",{method, "system"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
                       ,{lager_file_backend, [{file, "log/egg.log"}, {level, {{file_log_level}}}, {size, 10485760}, {date, "$D0"}, {count, 5}
                                             ,{formatter, lager_default_formatter}
-                                            ,{formatter_config, [date, " ",time, " [",severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
+                                            ,{formatter_config, [date, " ",time, " [",severity, "]", {msisdn, ["+", msisdn, "|"], [""]},{ip, ""}, "[",{method, "system"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
                       ,{lager_syslog_backend, ["egg", local0, {{syslog_log_level}}
-                                              ,{lager_default_formatter, [date, " ",time, " [",severity, "] ", {ip, "?"}, "[",{method, "?"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
+                                              ,{lager_default_formatter, [date, " ",time, " [",severity, "]", {msisdn, ["+", msisdn, "|"], [""]},{ip, ""}, "[",{method, "system"}, "]",{pid, "<?.?.?>"},"|",{appname, "?"},"|",{module, "?"},":", {line, "?"}, "| ", message, "\n"]}]}
                       ]}
           ,{colored, true}
           ,{error_logger_hwm, 500}

@@ -30,7 +30,6 @@
 %% msisdn
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN}} = State, _Args) ->
-    lager:md([{'appname', <<"server->sms">>}]),
     {IP, _Port} = cowboy_req:peer(Req),
     {ok, ResendInterval} = ?SMS_RESEND_INTERVAL,
     {ok, AppId} = ?GET_APP_ID,

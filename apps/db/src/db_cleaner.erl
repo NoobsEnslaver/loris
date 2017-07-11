@@ -57,7 +57,6 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    lager:md([{'appname', list_to_binary(?MODULE_STRING)}]),
     SessionsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
     SmsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
     LoudPushDelay = application:get_env(push, 'loud_push_delay', 60) * 1000,  %default: 1 min

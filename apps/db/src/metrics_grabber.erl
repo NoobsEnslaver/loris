@@ -57,7 +57,6 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    lager:md([{'appname', list_to_binary(?MODULE_STRING)}]),
     Metrics = [<<"cpu">>, <<"ram">>, <<"users_online">>],
     lists:foreach(fun(Metric)->
                           case folsom_metrics:metric_exists(Metric) of

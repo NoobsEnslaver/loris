@@ -16,7 +16,6 @@
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{body = B, req_body = ReqBody} = State, Args) ->
-    lager:md([{'appname', <<"server->auth3">>}]),
     SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
     AllowPwdAuthorization = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'allow_password_authorization', 'false'),
     AllowSmsAuthorization = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'allow_sms_authorization', 'true'),

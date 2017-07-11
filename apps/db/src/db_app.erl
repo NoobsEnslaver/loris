@@ -20,7 +20,6 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    lager:md([{'appname', ?APP_NAME}]),
     DbCluster = [node() | application:get_env(?APP_NAME, nodes, [])],
     IsNew = case mnesia:create_schema(DbCluster) of
                 {'error', {Node, {'already_exists', _Node}}} ->

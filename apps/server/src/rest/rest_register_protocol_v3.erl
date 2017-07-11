@@ -20,7 +20,6 @@
 %% group|pwd_hash|fname|lname|age|is_male|access_level
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_code">> := BSmsCode} = ReqBody} = State, Args) ->
-    lager:md([{'appname', <<"server->register3">>}]),
     {IP, _Port} = cowboy_req:peer(Req),
     Pwd = maps:get(<<"pwd_hash">>, ReqBody, <<>>),
     Group = case maps:get(<<"group">>, ReqBody, <<"users">>) of

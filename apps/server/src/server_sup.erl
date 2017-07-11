@@ -33,7 +33,6 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    lager:md([{'appname', ?APP_NAME}]),
     Procs = [],
     SupFlags = #{'strategy' => 'one_for_one'
                 ,'intensity'=> 5

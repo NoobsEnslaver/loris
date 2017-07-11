@@ -35,7 +35,8 @@
 init(Req, _Opts) ->
     {{P1,P2,P3,P4}, _Port} = cowboy_req:peer(Req),
     Ip = integer_to_list(P1) ++ "." ++ integer_to_list(P2) ++ "." ++ integer_to_list(P3) ++ "." ++ integer_to_list(P4),
-    lager:md([{'appname', ?APP_NAME}, {ip, Ip}]),
+    Md = proplists:delete(method, proplists:delete(ip, proplists:delete(appname, lager:md()))),
+    lager:md([{method, <<"WS">>}, {ip, Ip}, {appname, ?APP_NAME}] ++ Md),
     TC = common:start_measure('server_ws_handler_init'),
     Protocol = cowboy_req:binding('protocol', Req, <<"chat">>),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
@@ -99,7 +100,6 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 %%%===================================================================
 -spec websocket_init(#state{}) -> call_result(#state{}).
 websocket_init(#state{token = Token, protocol = Module} = State) ->
-    lager:md([{'appname', ?APP_NAME}, {method, "WS"}]),
     TC = common:start_measure('server_ws_handler_ws_init'),
     sessions:bind_pid_to_session(Token, self()),
     US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола

@@ -16,7 +16,6 @@
 
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, _Req, #q_state{body = B, req_body = #{<<"msisdn">> := BMSISDN, <<"password">> := PwdHash}} = State, Args) ->
-    lager:md([{'appname', <<"server->auth">>}]),
     SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
     {IP, _Port} = cowboy_req:peer(_Req),
     MSISDN = common:to_integer(BMSISDN),

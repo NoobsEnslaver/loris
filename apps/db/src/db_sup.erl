@@ -34,7 +34,6 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    lager:md([{'appname', ?APP_NAME}]),
     Procs = [?WORKER('db_cleaner')
             ,?WORKER('metrics_grabber')],
     SupFlags = #{'strategy' => 'one_for_one'

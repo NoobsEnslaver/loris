@@ -27,7 +27,6 @@
 
 -spec start('normal' | {'failover',atom()} | {'takeover',atom()}, any()) -> {'ok', pid()} | {'error', any()}.
 start(_Type, _Args) ->
-    lager:md([{'appname', ?APP_NAME}]),
     EnableTLS = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'enable_tls', true),
     TcpOpts = get_tcp_opts(EnableTLS and not ?IS_TEST),
     StaticDir = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'static_dir', "/srv"),

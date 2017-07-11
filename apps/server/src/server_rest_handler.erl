@@ -22,7 +22,8 @@
 init(Req, _Opts) ->
     {{P1,P2,P3,P4}, _Port} = cowboy_req:peer(Req),
     Ip = integer_to_list(P1) ++ "." ++ integer_to_list(P2) ++ "." ++ integer_to_list(P3) ++ "." ++ integer_to_list(P4),
-    lager:md([{'appname', ?APP_NAME}, {ip, Ip}]),
+    Method = cowboy_req:method(Req),
+    lager:md([{method, Method}, {ip, Ip}, {appname, ?APP_NAME}]),
     Query = cowboy_req:path_info(Req),
     Ver = cowboy_req:binding('version', Req, <<"v1">>),
     InitState = #q_state{req_body = common:get_body_data(Req)},
@@ -44,7 +45,6 @@ fold(Req, Ver, State, [Mod | Args]) ->
     try binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8') of
         Module ->
             Method = cowboy_req:method(Req),
-            lager:md([{method, Method}]),
             QState = State#q_state.tmp_state,
             Session = maps:get('session', QState, 'false'),
             AllowedGroups = Module:allowed_groups(Method),
