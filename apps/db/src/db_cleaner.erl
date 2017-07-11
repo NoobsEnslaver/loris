@@ -119,7 +119,7 @@ handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     {'noreply', Map};
 handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
     erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
-    ExpirationTime = common:timestamp() - PushInterval,
+    ExpirationTime = common:timestamp() - PushInterval * 1000, %in microsec
     send_clean_pushes(ExpirationTime),
     {'noreply', Map};
 handle_info(_Info, _State) ->
@@ -156,7 +156,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 sessions_cleaning() ->
-    lager:info("start sessions cleaning"),
+    lager:debug("start sessions cleaning"),
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
     MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'}, %TODO: will close websocket
@@ -171,7 +171,7 @@ sessions_cleaning() ->
     mnesia:transaction(Fun).
 
 sms_cleaning() ->
-    lager:info("start sms cleaning"),
+    lager:debug("start sms cleaning"),
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
     SmsLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_live_time', 3600), %1 hour
@@ -184,7 +184,9 @@ sms_cleaning() ->
                        end).
 
 send_clean_pushes(ExpirationTime)->
+    lager:debug("start push sending\cleaning"),
     Pushes = pushes:pull_outdated(ExpirationTime),
+    lager:debug("~p pushes will be sended", [length(Pushes)]),
     lists:foreach(fun(P)->
                           MSISDN = pushes:extract(P, msisdn),
                           ChatName = pushes:extract(P, chat_name),

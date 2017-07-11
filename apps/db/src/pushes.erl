@@ -56,7 +56,7 @@ get(MSISDN) ->
 
 pull_outdated(ExpirationTime) ->
     MatchHead = #pushes{msisdn='$1',chat_name='$2',last_msg='$3',count='$4',timestamp='$5'},
-    Guard = {'>', '$5', ExpirationTime},
+    Guard = {'>', ExpirationTime, '$5'},
     Result = ['$1', '$2', '$3', '$4', '$5'],
     Fun = fun() ->
                   List = mnesia:select('pushes',[{MatchHead, [Guard], [Result]}]),
