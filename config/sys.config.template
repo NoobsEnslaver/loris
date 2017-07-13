@@ -40,7 +40,7 @@
         ,{apns_priority,    10}
         ,{apns_topic,       "com.kimoff.egg"}
         ,{apns_collapse_id, undefined}
-        ,{feedback_host,    "feedback.push.apple.com"}
-        ,{feedback_port,    2195}
+        ,{feedback_host,    "feedback.sandbox.push.apple.com"}
+        ,{feedback_port,    2196}
   ]}
 ].

@@ -23,7 +23,12 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {push_server_pid :: pid(), voip_server_pid :: pid()}).
+-record(state, {push_server_pid :: pid()
+               ,voip_server_pid :: pid()
+               ,push_feedback_conf :: map()
+               ,voip_feedback_conf :: map()
+               ,voip_ref, push_ref
+               ,get_feedback_interval :: non_neg_integer()}).
 
 %%%===================================================================
 %%% API
@@ -56,25 +61,46 @@ start_link(Opts) ->
 %%--------------------------------------------------------------------
 init([]) ->             %% TODO: increase init dropdown time
     GetFeedbackInterval = application:get_env('push', 'apns_get_feedback_interval', 60) * 1000,  %default: 1 min
-    erlang:send_after(GetFeedbackInterval, self(), {'get_feedback', GetFeedbackInterval}),
+    erlang:send_after(GetFeedbackInterval, self(), 'get_push_feedback'),
+    erlang:send_after(GetFeedbackInterval, self(), 'get_voip_feedback'),
     PrivDir = code:priv_dir('push'),
+    VoipCertFilePath = PrivDir ++ "/dev/voip_cert_dev.pem",
+    VoipKeyFilePath = PrivDir ++ "/dev/voip_key_dev.pem",
+    PushCertFilePath = PrivDir ++ "/dev/apns_push_cert.pem",
+    PushKeyFilePath = PrivDir ++ "/dev/apns_push_key.pem",
+    PushServer = "api.development.push.apple.com",
+    FeedbackServer = "feedback.sandbox.push.apple.com",
     ApplePushConfig = #{'name' => apple_push
-                       ,'apple_host' => "api.development.push.apple.com"
+                       ,'apple_host' => PushServer
                        ,'apple_port' => 443
                        ,'type' => cert
-                       ,'certfile' => PrivDir ++ "/dev/apns_push_cert.pem"
-                       ,'keyfile' => PrivDir ++ "/dev/apns_push_key.pem"
+                       ,'certfile' => PushCertFilePath
+                       ,'keyfile' => PushKeyFilePath
                        ,'timeout' => 10000},
     AppleVoipPushConfig = #{'name' => apple_voip_push
-                           ,'apple_host' => "api.development.push.apple.com"
+                           ,'apple_host' => PushServer
                            ,'apple_port' => 443
                            ,'type' => cert
-                           ,'certfile' => PrivDir ++ "/dev/voip_cert_dev.pem"
-                           ,'keyfile' => PrivDir ++ "/dev/voip_key_dev.pem"
+                           ,'certfile' => VoipCertFilePath
+                           ,'keyfile' => VoipCertFilePath
                            ,'timeout' => 10000},
+    PushFeedbackConf = #{certfile => PushCertFilePath
+                        ,keyfile => PushKeyFilePath
+                        ,host => FeedbackServer
+                        ,port => 2196
+                        ,timeout => 30*60*1000},
+    VoipFeedbackConf = #{certfile => VoipCertFilePath
+                        ,keyfile => VoipKeyFilePath
+                        ,host => FeedbackServer
+                        ,port => 2196
+                        ,timeout => 30*60*1000},
     {ok, Pid1} = apns:connect(ApplePushConfig),
     {ok, Pid2} = apns:connect(AppleVoipPushConfig),
-    {ok, #state{push_server_pid = Pid1, voip_server_pid = Pid2}}.
+    {ok, #state{push_server_pid = Pid1
+               ,voip_server_pid = Pid2
+               ,push_feedback_conf = PushFeedbackConf
+               ,voip_feedback_conf = VoipFeedbackConf
+               ,get_feedback_interval = GetFeedbackInterval}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -104,7 +130,7 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, Device, CallerMSISDN}, _State) ->                                  %incoming call
+handle_cast({call, Device, CallerMSISDN}, _State) ->                    %incoming call
     PushToken = device:extract(Device, 'push_token'),
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
@@ -144,21 +170,41 @@ handle_cast(_Msg, _State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({'get_feedback', GetFeedbackInterval}, State) ->
+handle_info('get_voip_feedback', #state{voip_feedback_conf = VoipFeedbackConf} = State) ->
+    Self = self(),
+    Fun = fun()-> Self ! {'feedback', apns:get_feedback(VoipFeedbackConf)} end,
+    {_Pid, Ref} = erlang:spawn_monitor(Fun),
+    {noreply, State#state{voip_ref = Ref}};
+handle_info('get_push_feedback', #state{push_feedback_conf = PushFeedbackConf} = State) ->
+    Self = self(),
+    Fun = fun()-> Self ! {'feedback', apns:get_feedback(PushFeedbackConf)} end,
+    {_Pid, Ref} = erlang:spawn_monitor(Fun),
+    {noreply, State#state{push_ref = Ref}};
+handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{voip_ref = Ref, get_feedback_interval = GetFeedbackInterval} = State) ->
+    erlang:send_after(GetFeedbackInterval, self(), 'get_voip_feedback'),
+    {noreply, State#state{voip_ref = 'undefined'}};
+handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{push_ref = Ref, get_feedback_interval = GetFeedbackInterval} = State) ->
+    erlang:send_after(GetFeedbackInterval, self(), 'get_push_feedback'),
+    {noreply, State#state{push_ref = 'undefined'}};
+handle_info({feedback, Feedback}, _State) ->
+    lager:info("Feedback: ~p~n", [Feedback]),
     %% TODO: delete some devices
     %% TODO: metrics
-    erlang:send_after(GetFeedbackInterval, self(), {'get_feedback', GetFeedbackInterval}),
-    {noreply, State};
+    {noreply, _State};
 handle_info({'timeout', _StreamId}, State) ->
+    lager:debug("apns timeout on ~p", [_StreamId]),
     {noreply, State};
 handle_info({apns_response, _ServerPid, _StreamID, _Response}, State) ->
+    lager:debug("apns response on ~p:~p - ~p", [_ServerPid, _StreamID, _Response]),
     {noreply, State};
 handle_info({reconnecting, _ServerPid}, State) ->
+    lager:debug("apns reconnecting server ~p", [_ServerPid]),
     {noreply, State};
 handle_info({connection_up, _ServerPid}, State) ->
+    lager:debug("apns ~p connection_up", [_ServerPid]),
     {noreply, State};
 handle_info(_Info, State) ->
-    lager:info("unexpected msg on ~p:~p: ~p", [?MODULE, ?LINE, _Info]),
+    lager:info("unexpected msg ~p", [_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
