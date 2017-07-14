@@ -64,12 +64,16 @@ init([]) ->             %% TODO: increase init dropdown time
     erlang:send_after(GetFeedbackInterval, self(), 'get_push_feedback'),
     erlang:send_after(GetFeedbackInterval, self(), 'get_voip_feedback'),
     PrivDir = code:priv_dir('push'),
-    VoipCertFilePath = PrivDir ++ "/dev/voip_cert_dev.pem",
-    VoipKeyFilePath = PrivDir ++ "/dev/voip_key_dev.pem",
-    PushCertFilePath = PrivDir ++ "/dev/apns_push_cert.pem",
-    PushKeyFilePath = PrivDir ++ "/dev/apns_push_key.pem",
-    PushServer = "api.development.push.apple.com",
-    FeedbackServer = "feedback.sandbox.push.apple.com",
+    Mode = application:get_env('push', 'mode', 'dev'),
+    FeedbackTimeout = application:get_env('push', 'apns_get_feedback_timeout', 600) * 1000,      %default: 10 min
+    VoipCertFilePath = PrivDir ++"/" ++ atom_to_list(Mode) ++ "/voip_cert.pem",
+    VoipKeyFilePath = PrivDir ++ "/" ++ atom_to_list(Mode) ++ "/voip_key.pem",
+    PushCertFilePath = PrivDir ++"/" ++ atom_to_list(Mode) ++ "/apns_push_cert.pem",
+    PushKeyFilePath = PrivDir ++ "/" ++ atom_to_list(Mode) ++ "/apns_push_key.pem",
+    {PushServer, FeedbackServer} = case Mode of
+                                       'dev' -> {"api.development.push.apple.com", "feedback.sandbox.push.apple.com"};
+                                       'prod'-> {"api.push.apple.com", "feedback.push.apple.com"}
+                                   end,
     ApplePushConfig = #{'name' => apple_push
                        ,'apple_host' => PushServer
                        ,'apple_port' => 443
@@ -88,12 +92,12 @@ init([]) ->             %% TODO: increase init dropdown time
                         ,keyfile => PushKeyFilePath
                         ,host => FeedbackServer
                         ,port => 2196
-                        ,timeout => 30*60*1000},
+                        ,timeout => FeedbackTimeout},
     VoipFeedbackConf = #{certfile => VoipCertFilePath
                         ,keyfile => VoipKeyFilePath
                         ,host => FeedbackServer
                         ,port => 2196
-                        ,timeout => 30*60*1000},
+                        ,timeout => FeedbackTimeout},
     {ok, Pid1} = apns:connect(ApplePushConfig),
     {ok, Pid2} = apns:connect(AppleVoipPushConfig),
     {ok, #state{push_server_pid = Pid1
@@ -188,7 +192,8 @@ handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{push_ref = Ref, get_feedba
     {noreply, State#state{push_ref = 'undefined'}};
 handle_info({feedback, Feedback}, _State) ->
     lager:info("Feedback: ~p~n", [Feedback]),
-    %% TODO: delete some devices
+    Resp = device:delete_devices_by_token([list_to_binary(Token) || {_Time, Token} <- Feedback]),
+    lager:info("feedback handle result: ~p", [Resp]),
     %% TODO: metrics
     {noreply, _State};
 handle_info({'timeout', _StreamId}, State) ->

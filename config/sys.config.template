@@ -32,15 +32,10 @@
   ]},
   {mnesia, [{dir, "/home/ne/db"}]},
   {apns, [
-         {apple_host,       "api.development.push.apple.com"}
-        ,{apple_port,       443}
-        ,{timeout,          10000}
-        ,{apns_id,          undefined}
+         {apns_id,          undefined}
         ,{apns_expiration,  0}
         ,{apns_priority,    10}
         ,{apns_topic,       "com.kimoff.egg"}
         ,{apns_collapse_id, undefined}
-        ,{feedback_host,    "feedback.sandbox.push.apple.com"}
-        ,{feedback_port,    2196}
   ]}
 ].
