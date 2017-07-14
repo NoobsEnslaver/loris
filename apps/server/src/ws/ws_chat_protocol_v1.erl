@@ -66,8 +66,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId}) 
     #c2s_chat_typing{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId})->
-    #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId)};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId})->
+    Count = maps:get(<<"count">>, Msg, 30),
+    MsgId = maps:get(<<"msg_id">>,Msg, chats:get_last_msg_id(ChatId) - Count),
+    #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId), count = round(Count)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
     #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = MsgId};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
@@ -179,7 +181,8 @@ do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{chats = MyChats, mut
                                  ,users = chat_info:extract(ChatInfo, users)
                                  ,is_muted = lists:member(ChatId, MC)
                                  ,chat_owner = chat_info:extract(ChatInfo, chat_owner)
-                                 ,access_group = proplists:get_value(ChatId, MyChats)}
+                                 ,access_group = proplists:get_value(ChatId, MyChats)
+                                 ,last_msg_id = chats:get_last_msg_id(ChatId)}
            end,
     {Resp, State};
 do_action(#c2s_chat_create{users = [YourMSISDN], name = ChatName, is_p2p = 'true'}, #user_state{msisdn = MyMSISDN, chats = OldChats} = State) ->
@@ -289,12 +292,12 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                    #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};
-do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId}, #user_state{chats = Chats} = _State) ->
+do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count}, #user_state{chats = Chats} = _State) ->
     Resp = case proplists:get_value(ChatId, Chats) of
                'undefined' ->
                    #s2c_error{code = 403};
                _AccessGroup ->
-                   Messages = chats:get_messages_by_id(ChatId, MsgId),
+                   Messages = chats:get_messages_by_id(ChatId, MsgId, Count),
                    #s2c_message_list{messages = Messages, chat_id = ChatId}
            end,
     {Resp, _State};
