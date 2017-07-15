@@ -190,7 +190,10 @@ handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{voip_ref = Ref, get_feedba
 handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{push_ref = Ref, get_feedback_interval = GetFeedbackInterval} = State) ->
     erlang:send_after(GetFeedbackInterval, self(), 'get_push_feedback'),
     {noreply, State#state{push_ref = 'undefined'}};
-handle_info({feedback, Feedback}, _State) ->
+handle_info({'feedback', 'timeout'}, _State) ->
+    lager:info("Feedback: ~p~n", ['timeout']),
+    {noreply, _State};
+handle_info({'feedback', Feedback}, _State) when is_list(Feedback) ->
     lager:info("Feedback: ~p~n", [Feedback]),
     Resp = device:delete_devices_by_token([list_to_binary(Token) || {_Time, Token} <- Feedback]),
     lager:info("feedback handle result: ~p", [Resp]),
