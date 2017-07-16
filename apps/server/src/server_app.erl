@@ -27,9 +27,9 @@
 
 -spec start('normal' | {'failover',atom()} | {'takeover',atom()}, any()) -> {'ok', pid()} | {'error', any()}.
 start(_Type, _Args) ->
-    EnableTLS = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'enable_tls', true),
-    TcpOpts = get_tcp_opts(EnableTLS and not ?IS_TEST),
-    StaticDir = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'static_dir', "/srv"),
+    EnableTLS = application:get_env('server', 'enable_tls', true) and not ?IS_TEST,
+    TcpOpts = get_tcp_opts(EnableTLS),
+    StaticDir = application:get_env('server', 'static_dir', "/srv"),
     Dispatch = cowboy_router:compile(
                  [{'_',
                     [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}} %TODO: redirect to '/static'
@@ -42,11 +42,8 @@ start(_Type, _Args) ->
                   }]),
     ProtocolOpts = #{env => #{dispatch => Dispatch}
                     ,stream_handlers => [cowboy_compress_h, cowboy_stream_h]},
-    {'ok', _Pid} = case proplists:get_value(certfile, TcpOpts) of
-                       'undefined' ->
-                           cowboy:start_clear(?LISTENER_NAME, TcpOpts, ProtocolOpts);
-                       _ ->
-                           cowboy:start_tls(?LISTENER_NAME, TcpOpts, ProtocolOpts)
+    {'ok', _Pid} = if EnableTLS-> lager:debug("start TLS"), cowboy:start_tls(?LISTENER_NAME, TcpOpts, ProtocolOpts);
+                      'true'   -> lager:debug("start clear TCP"), cowboy:start_clear(?LISTENER_NAME, TcpOpts, ProtocolOpts)
                    end,
     server_sup:start_link().               %dummy
 
@@ -59,14 +56,20 @@ stop(_) ->
 %% Internal functions
 %%====================================================================
 get_tcp_opts('true') ->
-    PrivDir = code:priv_dir(server),
-    {ok, CertFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'certfile'),
-    {ok, KeyFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'keyfile'),
-    {ok, CacertFile} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'cacertfile'),
-    {ok, TcpOpts1} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'tcp_params'),
-    [{certfile, PrivDir ++ CertFile}
-    ,{cacertfile, PrivDir ++ CacertFile}
-    ,{keyfile, PrivDir ++ KeyFile}] ++ TcpOpts1;
+    PrivDir = code:priv_dir(server) ++ "/",
+    {ok, TlsOpts} = application:get_env('server', 'tls_params'),
+    {ok, TcpOpts} = application:get_env('server', 'tcp_params'),
+    CertFilePath = PrivDir ++ proplists:get_value('certfile', TlsOpts),
+    CaCertFilePath = PrivDir ++ proplists:get_value('cacertfile', TlsOpts),
+    KeyFilePath = PrivDir ++ proplists:get_value('keyfile', TlsOpts),
+    DhFilePath = PrivDir ++ proplists:get_value('dhfile', TlsOpts),
+    TlsOpts1 = proplists:delete('certfile', proplists:delete('cacertfile', proplists:delete('keyfile', proplists:delete('dhfile', TlsOpts)))),
+    CertOpts = [{'certfile', CertFilePath}
+               ,{'cacertfile', CaCertFilePath}
+               ,{'keyfile', KeyFilePath}
+               ,{'dhfile', DhFilePath}
+               ],
+    TlsOpts1 ++ TcpOpts ++ CertOpts;
 get_tcp_opts('false') ->
-    {ok, TcpOpts} = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'tcp_params'),
+    {ok, TcpOpts} = application:get_env('server', 'tcp_params'),
     TcpOpts.
