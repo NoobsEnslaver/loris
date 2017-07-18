@@ -83,7 +83,7 @@
 -record(c2s_chat_unmute, {msg_type = ?C2S_CHAT_UNMUTE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_typing, {msg_type = ?C2S_CHAT_TYPING_TYPE, chat_id :: binary()}).
 -record(c2s_message_send, {msg_type = ?C2S_MESSAGE_SEND_TYPE, chat_id :: binary(), msg_body :: binary()}).
--record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE, chat_id :: binary(), msg_id :: non_neg_integer()}).
+-record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), count :: non_neg_integer()}).
 -record(c2s_message_update, {msg_type = ?C2S_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: integer(), msg_body :: binary()}).
 -record(c2s_message_update_status, {msg_type = ?C2S_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id :: [non_neg_integer()]}).
 -record(c2s_system_logout, {msg_type = ?C2S_SYSTEM_LOGOUT_TYPE}).
@@ -155,7 +155,7 @@
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
--record(s2c_chat_info, {msg_type = ?S2C_CHAT_INFO_TYPE, chat_id :: binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), access_group :: atom()}).
+-record(s2c_chat_info, {msg_type = ?S2C_CHAT_INFO_TYPE, chat_id :: binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), access_group :: atom(), last_msg_id :: non_neg_integer()}).
 -record(s2c_chat_create_result, {msg_type = ?S2C_CHAT_CREATE_RESULT_TYPE, chat_id :: binary()}).
 -record(s2c_error, {msg_type = ?S2C_ERROR_TYPE, code :: non_neg_integer()}).
 -record(s2c_chat_invatation, {msg_type = ?S2C_CHAT_INVATATION_TYPE, chat_id :: binary()}).

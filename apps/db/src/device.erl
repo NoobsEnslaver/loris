@@ -12,6 +12,7 @@
 
 -export([new/4
         ,delete/1, delete/2
+        ,delete_devices_by_token/1
         ,get/1, get/2
         ,extract/2]).
 
@@ -48,6 +49,21 @@ delete(MSISDN, DeviceId) ->
                                         mnesia:delete_object(D)
                                 end, OldDevicesList),
                   {deleted, length(OldDevicesList)}
+          end,
+    case mnesia:transaction(Fun) of
+        {atomic, Res} -> Res;
+        _Error -> 'false'
+    end.
+
+delete_devices_by_token(Tokens) ->
+    Fun = fun()->
+                  Devices = lists:flatmap(fun(T)->
+                                                  mnesia:match_object(#device{msisdn ='_', id = '_', type = '_', push_token = T})
+                                          end, Tokens),
+                  lists:foreach(fun(D)->
+                                        mnesia:delete_object(D)
+                                end, Devices),
+                  {deleted, length(Devices)}
           end,
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;

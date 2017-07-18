@@ -15,7 +15,7 @@
         ,update_message/4
         ,update_message_status/2
         ,get_messages_from/2, get_messages_from/3
-        ,get_messages_by_id/2
+        ,get_messages_by_id/3
         ,subscribe/1
         ,unsubscribe/1
         ,invite_to_chat/3
@@ -24,6 +24,7 @@
         ,leave_chat/2
         ,delete/2
         ,typing/2
+        ,get_last_msg_id/1
         ]).
 
 
@@ -116,11 +117,11 @@ get_messages_from(TableId, TimeStampFrom, TimeStampTo) ->       %TODO: optimize 
     {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
     Res.
 
-get_messages_by_id(ChatId, MsgId) ->
+get_messages_by_id(ChatId, MsgId, Count) ->
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
-    Res.
+    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId
+                                                , M#message.msg_id =< MsgId + Count]),
+    mnesia:async_dirty(fun()-> qlc:e(Q) end).
 
 subscribe(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
@@ -177,6 +178,16 @@ leave_chat(ChatId, MSISDN) ->
 
 typing(ChatId, MSISDN) ->
     notify_all_online_chat_users(ChatId, {chat_typing, ChatId, MSISDN}).
+
+get_last_msg_id(TableId) ->
+    TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
+    Fun = fun()->
+                  mnesia:dirty_read('index', TableName)
+          end,
+    case mnesia:async_dirty(Fun) of
+        Num when is_number(Num) -> Num;
+        _ -> -1
+    end.
 
 %%%===================================================================
 %%% internal functions
