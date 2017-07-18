@@ -640,7 +640,7 @@ message_get_list_test(Config) ->
     timer:sleep(50),
     tester:flush_messages(),
     %% Requests chat history
-    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0}, c2s_message_get_list), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
      ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_id">> := 1, <<"msg_body">> := <<"@system:invite_to_chat">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_id">> := 2, <<"msg_body">> := <<"@system:accept_invatation">>}
@@ -734,7 +734,7 @@ message_update_status_test(Config) ->
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid1, Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid2, Transport2),
     %% get messages list, check statuses
-    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0}, c2s_message_get_list), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
      ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_id">> := 1, <<"msg_body">> := <<"@system:invite_to_chat">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_id">> := 2, <<"msg_body">> := <<"@system:accept_invatation">>}
@@ -766,7 +766,7 @@ message_update_test(Config) ->
     %% User2 receive message about it
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1, <<"msg_body">> := <<"Hello world!">>} = receive_packet(ConPid2, Transport2),
     %% get messages list
-    send_packet(ConPid2, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0}, c2s_message_get_list), Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport2),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
      ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_id">> := 1, <<"msg_body">> := <<"@system:invite_to_chat">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_id">> := 2, <<"msg_body">> := <<"@system:accept_invatation">>}

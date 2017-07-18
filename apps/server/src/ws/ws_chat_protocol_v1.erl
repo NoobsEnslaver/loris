@@ -68,7 +68,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, 
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId})->
     Count = maps:get(<<"count">>, Msg, 30),
-    MsgId = maps:get(<<"msg_id">>,Msg, chats:get_last_msg_id(ChatId) - Count),
+    MsgId = case maps:get(<<"msg_id">>,Msg) of
+                undefined -> chats:get_last_msg_id(ChatId) - Count;
+                Num -> Num
+            end,
     #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId), count = round(Count)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
     #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = MsgId};
