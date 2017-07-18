@@ -69,7 +69,6 @@
 -define(S2C_CALL_ANSWER_TYPE, 123).
 -define(S2C_TURN_SERVER_TYPE, 124).
 -define(S2C_USER_INFO_BULK_TYPE, 125).
--define(S2C_USER_CHANGE_STATUS_TYPE, 126).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -167,7 +166,7 @@
 -record(s2c_message_list, {msg_type = ?S2C_MESSAGE_LIST_TYPE, chat_id :: binary(), messages :: [#s2c_message{}]}).
 -record(s2c_user_info, {msg_type = ?S2C_USER_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
 -record(s2c_user_info_bulk, {msg_type = ?S2C_USER_INFO_BULK_TYPE, users :: [#s2c_user_info{}]}).
--record(s2c_user_status, {msg_type = ?S2C_USER_STATUS_TYPE, user_msisdn :: non_neg_integer(), is_online = 'false', last_visit_timestamp :: non_neg_integer()}).
+-record(s2c_user_status, {msg_type = ?S2C_USER_STATUS_TYPE, msisdn :: non_neg_integer(), status :: atom(), last_visit_timestamp :: non_neg_integer()}).
 -record(s2c_user_search_result, {msg_type = ?S2C_USER_SEARCH_RESULT_TYPE, users :: [non_neg_integer()]}).
 -record(s2c_room_list, {msg_type = ?S2C_ROOM_LIST_TYPE, room_id :: non_neg_integer()}).
 -record(s2c_room_tree, {msg_type = ?S2C_ROOM_TREE_TYPE, room_id :: non_neg_integer()}).
@@ -180,7 +179,6 @@
 -record(s2c_call_ack, {msg_type = ?S2C_CALL_ACK_TYPE}).
 -record(s2c_call_ice_candidate, {msg_type = ?S2C_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(s2c_call_bye, {msg_type = ?S2C_CALL_BYE_TYPE, code :: non_neg_integer()}).
--record(s2c_user_change_status, {msg_type = ?S2C_USER_CHANGE_STATUS_TYPE, msisdn :: non_neg_integer(), status :: binary()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
@@ -204,8 +202,7 @@
                            | #s2c_call_ack{}
                            | #s2c_call_ice_candidate{}
                            | #s2c_call_bye{}
-                           | #s2c_turn_server{}
-                           | #s2c_user_change_status{}.
+                           | #s2c_turn_server{}.
 
 -type msg_type() :: server_msg_type()
                   | client_msg_type().

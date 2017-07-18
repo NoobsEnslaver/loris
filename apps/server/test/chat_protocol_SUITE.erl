@@ -126,6 +126,7 @@ groups() ->
     ,{users, [], [user_get_info_test
                  ,user_get_info_bulk_test
                  ,user_get_status_test
+                 ,user_subscribe_unsubscribe_test
                  ,user_set_info_test
                  %% ,user_search_test
                  ]}
@@ -801,22 +802,51 @@ user_get_status_test(Config)->
                           timer:sleep(50),
                           %% Get new user status
                           send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'false', <<"last_visit_timestamp">> := <<"undefined">>} = receive_packet(ConPid, Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
                           {ok, Token} = authorize(MSISDN),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
                           timer:sleep(50),
-                          TimeStamp1 = common:timestamp(),
                           send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'true', <<"last_visit_timestamp">> := TimeStamp2} = receive_packet(ConPid, Transport),
-                          true = (TimeStamp2 - TimeStamp1) < 1000,
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN, <<"status">> := <<"online">>} = receive_packet(ConPid, Transport),
                           gun:close(ConPid2),
-                          TimeStamp3 = common:timestamp(),
+                          TimeStamp1 = common:timestamp(),
                           timer:sleep(2000),
                           send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"user_msisdn">> := MSISDN, <<"is_online">> := 'false', <<"last_visit_timestamp">> := TimeStamp4} = receive_packet(ConPid, Transport),
-                          true = (TimeStamp4 - TimeStamp3) < 1000
-                  end, Env),
-    ok.
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN, <<"status">> := <<"offline">>, <<"last_visit_timestamp">> := TimeStamp2} = receive_packet(ConPid, Transport),
+                          true = (TimeStamp2 - TimeStamp1) < 1000
+                  end, Env).
+
+user_subscribe_unsubscribe_test(Config) ->
+    Env = proplists:get_value(env, Config),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid})->
+                          %% Register new user
+                          MSISDN1 = rand:uniform(89999999) + 1000000,
+                          _User1 = users:new(MSISDN1, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          MSISDN2 = rand:uniform(89999999) + 1000000,
+                          _User2 = users:new(MSISDN2, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          timer:sleep(50),
+                          %% subscribe
+                          send_packet(ConPid, ?R2M(#c2s_user_subscribe{msisdn = [MSISDN1, MSISDN2]}, c2s_user_subscribe), Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN2, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
+                          {ok, Token1} = authorize(MSISDN1),
+                          {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token1) ++ "/ws/v1/chat", Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"online">>} = receive_packet(ConPid, Transport),
+                          {ok, Token2} = authorize(MSISDN2),
+                          {ok, ConPid3} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token2) ++ "/ws/v1/chat", Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN2, <<"status">> := <<"online">>} = receive_packet(ConPid, Transport),
+                          timer:sleep(50),
+                          gun:close(ConPid2),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
+                          {ok, ConPid4} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token1) ++ "/ws/v1/chat", Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"online">>} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_user_unsubscribe{msisdn = [MSISDN1, MSISDN2]}, c2s_user_unsubscribe), Transport),
+                          timer:sleep(1000),
+                          gun:close(ConPid3),
+                          gun:close(ConPid4),
+                          timer:sleep(2000),
+                          {error, timeout} = receive_packet(ConPid, Transport)
+                  end, Env).
 
 user_get_info_test(Config) ->
     Env = proplists:get_value(env, Config),

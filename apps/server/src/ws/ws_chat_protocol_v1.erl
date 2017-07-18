@@ -137,7 +137,11 @@ wrap_msg(Msg) when is_record(Msg, s2c_user_info) -> ?R2M(Msg, s2c_user_info);
 wrap_msg(Msg) when is_record(Msg, s2c_user_info_bulk) ->
     UsersMap = [maps:remove(<<"msg_type">>, ?R2M(UserInfo, s2c_user_info)) || UserInfo <- Msg#s2c_user_info_bulk.users],
     ?R2M(Msg#s2c_user_info_bulk{users = UsersMap}, s2c_user_info_bulk);
-wrap_msg(Msg) when is_record(Msg, s2c_user_status) -> ?R2M(Msg, s2c_user_status);
+wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
+    case Msg#s2c_user_status.last_visit_timestamp of
+        'undefined' -> maps:remove(<<"last_visit_timestamp">>, ?R2M(Msg, s2c_user_status));
+        _ -> ?R2M(Msg, s2c_user_status)
+    end;
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
 wrap_msg(Msg) when is_record(Msg, s2c_room_info) -> ?R2M(Msg, s2c_room_info);
@@ -158,7 +162,6 @@ wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
 wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
 wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server);
-wrap_msg(Msg) when is_record(Msg, s2c_user_change_status) -> ?R2M(Msg, s2c_user_change_status);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -334,26 +337,16 @@ do_action(#c2s_user_get_info_bulk{msisdns = MSISDNS}, _State) ->
     Resp = #s2c_user_info_bulk{users = FoundedUsers},
     {Resp, _State};
 do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
-    Resp = case sessions:get_by_owner_id(MSISDN) of
+    Resp = case sessions:is_online(MSISDN) of
                'false' ->
                    case users:get(MSISDN) of
                        'false' ->
                            #s2c_error{code = 404};
                        User ->
-                           #s2c_user_status{user_msisdn = MSISDN, is_online = 'false', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
+                           #s2c_user_status{msisdn = MSISDN, status = 'offline', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
                    end;
-               Session ->
-                   case sessions:extract(Session, ws_pid) of
-                       'undefined' ->
-                           case users:get(MSISDN) of
-                               'false' ->
-                                   #s2c_error{code = 404};
-                               User ->
-                                   #s2c_user_status{user_msisdn = MSISDN, is_online = 'false', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
-                           end;
-                       _Pid ->
-                           #s2c_user_status{user_msisdn = MSISDN, is_online = 'true', last_visit_timestamp = common:timestamp()}
-                   end
+               'true' ->
+                   #s2c_user_status{msisdn = MSISDN, status = 'online'}
            end,
     {Resp, _State};
 do_action(#c2s_user_set_info{fname = FName, lname = LName, age = Age, is_male = IsMale}, #user_state{msisdn = MSISDN} = _State) ->
@@ -481,7 +474,14 @@ do_action(#c2s_device_register{push_token = PushToken, type = Type, device_id = 
            end,
     {Resp, _State};
 do_action(#c2s_user_subscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
-    [users:subscribe(U, MSISDN) || U <- Users],
+    Self = self(),
+    lists:foreach(fun(U)->
+                          case sessions:get_ws_pid(U) of
+                              false -> Self ! {notify, U, offline, undefined};
+                              Pid -> Self ! {notify, U, online, Pid}
+                          end,
+                          users:subscribe(U, MSISDN)
+                  end, Users),
     {ok, _State};
 do_action(#c2s_user_unsubscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
     [users:unsubscribe(U, MSISDN) || U <- Users],
@@ -566,13 +566,19 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#messag
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
     {Resp, _State};
-do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = SdpOffer, msisdn = MSISDN}, msisdn = MyMSISDN, turn_server = TurnServer} = State) ->
+do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = SdpOffer, msisdn = MSISDN}, msisdn = MyMSISDN, turn_server = TurnServer} = State) when is_pid(Pid) ->
     Ref = monitor(process, Pid),
     Pid ! {call_offer, MyMSISDN, SdpOffer, self(), TurnServer},
     Resp = #s2c_call_offer{msisdn = MyMSISDN, sdp = SdpOffer, turn_server = TurnServer},
     {Resp, State#user_state{call = #call_info{pid = Pid, msisdn = MSISDN, ref = Ref}}};
 do_action({notify, MSISDN, Status, _Pid}, _State) ->
-    Resp = #s2c_user_change_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8')},
+    Resp = case Status of
+               'offline' ->
+                   User = users:get(MSISDN),
+                   #s2c_user_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8'), last_visit_timestamp = users:extract(User, last_visit_timestamp)};
+               _ ->
+                   #s2c_user_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8')}
+               end,
     {Resp, _State};
 do_action('undefined', _State) ->
     {ok, _State};
@@ -582,10 +588,10 @@ do_action(_Msg, _State) ->
     {Resp, _State}.
 
 terminate(#user_state{msisdn = MSISDN, token = Token} = _State) ->
+    users:update_last_visit_timestamp(MSISDN),
     users:notify(MSISDN, 'offline'),
     users:unsubscribe(MSISDN),
     sessions:bind_pid_to_session(Token, 'undefined'),
-    users:update_last_visit_timestamp(MSISDN),
     ok.
 
 %%%===================================================================
