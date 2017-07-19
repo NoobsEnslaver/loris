@@ -57,9 +57,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    SessionsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
-    SmsCleaningInterval = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
-    LoudPushDelay = application:get_env(push, 'loud_push_delay', 60) * 1000,  %default: 1 min
+    SessionsCleaningInterval = application:get_env('db', 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
+    SmsCleaningInterval = application:get_env('db', 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
+    LoudPushDelay = application:get_env('push', 'loud_push_delay', 60) * 1000,  %default: 1 min
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
     erlang:send_after(LoudPushDelay, self(), 'send_clean_pushes'),
@@ -118,7 +118,7 @@ handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     {'noreply', Map};
 handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
     erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
-    ExpirationTime = common:timestamp() - PushInterval * 1000, %in microsec
+    ExpirationTime = common:timestamp() - PushInterval,
     send_clean_pushes(ExpirationTime),
     {'noreply', Map};
 handle_info(_Info, _State) ->
@@ -155,9 +155,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 sessions_cleaning() ->
-    lager:debug("start sessions cleaning"),     %FIXME: timestamp now in microseconds
-    {MSec, Sec, _} = erlang:timestamp(),
-    Now = MSec * 1000000 + Sec,
+    lager:debug("start sessions cleaning"),
+    Now = common:timestamp(),
     MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3'}, %TODO: will close websocket
     Guard = {'>', Now, '$2'},
     Result = ['$1'],
@@ -169,9 +168,8 @@ sessions_cleaning() ->
 
 sms_cleaning() ->
     lager:debug("start sms cleaning"),
-    {MSec, Sec, _} = erlang:timestamp(),
-    Now = MSec * 1000000 + Sec,
-    SmsLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sms_live_time', 3600), %1 hour
+    Now = common:timestamp(),
+    SmsLiveTime = application:get_env('db', 'sms_live_time', 3600) * 1000, %1 hour
     Q = qlc:q([M#sms.msisdn || M <- mnesia:table(sms), Now - M#sms.timestamp  > SmsLiveTime]),
     mnesia:transaction(fun()->
                                ExpiredSms = qlc:e(Q),

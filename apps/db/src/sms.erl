@@ -26,8 +26,7 @@
 
 new(MSISDN) ->
     Code = ?CODE,
-    {MSec, Sec, _} = erlang:timestamp(),
-    Now = MSec * 1000000 + Sec,
+    Now = common:timestamp(),
     Fun = fun()->
                   case mnesia:read(sms, MSISDN) of
                       [] ->
@@ -59,8 +58,7 @@ get(MSISDN) ->
     end.
 
 update_timestamp(MSISDN) ->
-    {MSec, Sec, _} = erlang:timestamp(),
-    Now = MSec * 1000000 + Sec,
+    Now = common:timestamp(),
     Fun = fun()->
                   case mnesia:read(sms, MSISDN) of
                       [] ->

@@ -12,7 +12,7 @@
 -export([bin2hex/1
         ,get_body_data/1
         ,timestamp/0
-        ,trace_it/1
+        ,trace_it/1, trace_it/2
         ,to_integer/1
         ,take_first/1, take_first/2
         ,start_measure/1
@@ -50,12 +50,16 @@ get_body_data(Req)->
 
 timestamp()->
     {MegaSecs,Secs,MicroSecs} = erlang:timestamp(),
-        (MegaSecs*1000000 + Secs)*1000000 + MicroSecs.
+    round((MegaSecs*1000000 + Secs)*1000 + MicroSecs/1000). %in miliseconds
 
 trace_it(Module)->
     dbg:tracer(),
     dbg:p(all, c),
     dbg:tpl(Module, '_', '_', []).
+trace_it(Module, Func)->
+    dbg:tracer(),
+    dbg:p(all, c),
+    dbg:tpl(Module, Func, '_', []).
 
 to_integer(X) when is_integer(X) -> X;
 to_integer(X) when is_binary(X) -> binary_to_integer(X);

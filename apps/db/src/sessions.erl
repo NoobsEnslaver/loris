@@ -66,7 +66,7 @@ new(MSISDN, LiveTime) ->                   %LiveTime in sec
         _ ->
             RandBytes = crypto:strong_rand_bytes(16),
             Token = common:bin2hex(RandBytes),
-            ExpirationTime = common:timestamp() + LiveTime, %FIXME: common:timestamp() in microseconds
+            ExpirationTime = common:timestamp() + LiveTime*1000, %common:timestamp() in miliseconds
             User = users:get(MSISDN),
             AccessLevel = users:extract(User, 'access_level'),
             Group = users:extract(User, 'group'),
