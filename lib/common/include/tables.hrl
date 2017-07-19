@@ -30,7 +30,6 @@
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()
                  ,group :: access_group()
-                 ,ws_pid :: pid()
                  ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).
 
@@ -65,5 +64,8 @@
                 ,count :: non_neg_integer()
                 ,last_msg :: binary()
                 ,chat_name :: binary()}).
+
+-record(pids, {msisdn :: non_neg_integer()
+              ,pid :: pid()}).
 
 -endif.

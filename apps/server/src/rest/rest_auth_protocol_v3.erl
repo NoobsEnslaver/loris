@@ -45,7 +45,7 @@ handle(<<"POST">>, Req, #q_state{body = B, req_body = ReqBody} = State, Args) ->
                                 SmsCode ->
                                     lager:info("user authorized ~p from IP: ~p", [MSISDN, IP]),
                                     sms:delete(MSISDN),
-                                    Token = sessions:new(User, 'undefined', SessionLiveTime),
+                                    Token = sessions:new(User, SessionLiveTime),
                                     case lists:member(T, ?SUPPORTED_TRANSPORT) of
                                         'true' ->
                                             {Req, State#q_state{body = transport_lib:encode(#{<<"token">> => <<B/binary, Token/binary>>}, T), code = 200}, []};
@@ -67,7 +67,7 @@ handle(<<"POST">>, Req, #q_state{body = B, req_body = ReqBody} = State, Args) ->
                     {Req, State#q_state{code = 401}, []};       %unauthorized
                 User ->
                     lager:info("user authorized ~p from IP: ~p", [MSISDN, IP]),
-                    Token = sessions:new(User, 'undefined', SessionLiveTime),
+                    Token = sessions:new(User, SessionLiveTime),
                     case lists:member(T, ?SUPPORTED_TRANSPORT) of
                         'true' ->
                             {Req, State#q_state{body = transport_lib:encode(#{<<"token">> => <<B/binary, Token/binary>>}, T), code = 200}, []};

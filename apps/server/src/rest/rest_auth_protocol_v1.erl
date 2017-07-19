@@ -25,7 +25,7 @@ handle(<<"POST">>, _Req, #q_state{body = B, req_body = #{<<"msisdn">> := BMSISDN
                        State#q_state{code = 401}; %unauthorized
                    User ->
                        lager:info("user ~p authorized with pair ~p:~p from IP: ~p", [User, MSISDN, PwdHash, IP]),
-                       Token = sessions:new(User, 'undefined', SessionLiveTime),
+                       Token = sessions:new(User, SessionLiveTime),
                        T = common:take_first(Args),
                        case lists:member(T, ?SUPPORTED_TRANSPORT) of
                            'true' ->

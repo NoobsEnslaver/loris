@@ -155,17 +155,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 sessions_cleaning() ->
-    lager:debug("start sessions cleaning"),
+    lager:debug("start sessions cleaning"),     %FIXME: timestamp now in microseconds
     {MSec, Sec, _} = erlang:timestamp(),
     Now = MSec * 1000000 + Sec,
-    MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3', ws_pid = '$4'}, %TODO: will close websocket
+    MatchHead = #session{token = '$1', expiration_time = '$2', owner_id = '$3'}, %TODO: will close websocket
     Guard = {'>', Now, '$2'},
-    Result = ['$1', '$2', '$3', '$4'],
+    Result = ['$1'],
     Fun = fun() ->
                   List = mnesia:select('session',[{MatchHead, [Guard], [Result]}]),
-                  lists:foreach(fun([T,E,OID,W]) ->
-                                        mnesia:delete_object(#session{token = T, expiration_time = E, owner_id = OID, ws_pid = W})
-                                end, List)
+                  lists:foreach(fun([T]) -> mnesia:delete({session, T}) end, List)
           end,
     mnesia:transaction(Fun).
 

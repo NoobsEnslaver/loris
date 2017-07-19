@@ -114,7 +114,7 @@ handle_cast(_Msg, _State) ->
 %%--------------------------------------------------------------------
 handle_info(<<"users_online">>, _State) ->
     erlang:send_after(?GET_METRICS_INTERVAL, self(), <<"users_online">>),
-    get_users_online(),
+    folsom_metrics:notify(<<"users_online">>, {common:timestamp(), mnesia:table_info('pids', 'size')}),
     {'noreply', _State};
 handle_info(<<"ram">>, _State) ->
     erlang:send_after(?GET_METRICS_INTERVAL, self(), <<"ram">>),
@@ -157,20 +157,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-get_users_online() ->
-    Fun1 = fun(#session{ws_pid = Pid}, Acc) when is_pid(Pid) -> Acc + 1;
-              (_, Acc) -> Acc
-           end,
-    Fun2 = fun()->
-                   mnesia:foldl(Fun1, 0, session)
-           end,
-    case mnesia:transaction(Fun2) of
-        {atomic, Res} ->
-            folsom_metrics:notify(<<"users_online">>, {common:timestamp(), Res});
-        _Error ->
-            lager:error("Can't get users online count: ~p~n", [_Error])
-    end.
-
 get_ram_usage() ->
     RamInfo = folsom_vm_metrics:get_memory(),
     folsom_metrics:notify(<<"ram">>, {common:timestamp(), RamInfo}).

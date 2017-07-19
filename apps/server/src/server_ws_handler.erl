@@ -101,7 +101,8 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 -spec websocket_init(#state{}) -> call_result(#state{}).
 websocket_init(#state{token = Token, protocol = Module} = State) ->
     TC = common:start_measure('server_ws_handler_ws_init'),
-    sessions:bind_pid_to_session(Token, self()),
+    MSISDN = sessions:extract(sessions:get(Token), owner_id),
+    users:set_pid(MSISDN, self()),
     US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
     common:end_measure('server_ws_handler_ws_init', TC),
     {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM

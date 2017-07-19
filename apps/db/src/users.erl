@@ -27,6 +27,9 @@
         ,subscribe/2
         ,unsubscribe/1, unsubscribe/2
         ,notify/2
+        ,set_pid/2
+        ,get_pid/1
+        ,delete_pid/1
         ]).
 
 -spec authorize(non_neg_integer(), binary()) -> #user{} | 'false'.
@@ -291,7 +294,7 @@ unsubscribe(SubscriberMSISDN) ->
 notify(MSISDN, Status) ->
     Fun = fun()->
                   Subscribers = mnesia:read(user_subscribe, MSISDN),
-                  Pids = [sessions:get_ws_pid(S) || #user_subscribe{subscriber = S} <- Subscribers],
+                  Pids = [get_pid(S) || #user_subscribe{subscriber = S} <- Subscribers],
                   [P ! {notify, MSISDN, Status, self()} || P <- Pids, is_pid(P)],
                   ok
           end,
@@ -299,6 +302,28 @@ notify(MSISDN, Status) ->
         {'atomic', Res} -> Res;
         _Error -> 'false'
     end.
+
+set_pid(MSISDN, Pid) ->
+    Fun = fun()-> mnesia:write(#pids{msisdn = MSISDN, pid = Pid}) end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
+    end.
+
+get_pid(MSISDN) ->
+    Fun = fun()-> mnesia:dirty_read('pids', MSISDN) end,
+    case mnesia:async_dirty(Fun) of
+        [#pids{pid = P}] -> P;
+        _ -> 'false'
+    end.
+
+delete_pid(MSISDN) ->
+    Fun = fun()-> mnesia:delete({'pids', MSISDN}) end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
+    end.
+
 
 %%%-------------------------------------------------------------------
 %%% Data extractors

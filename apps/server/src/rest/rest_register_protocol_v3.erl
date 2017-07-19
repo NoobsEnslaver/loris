@@ -59,8 +59,8 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_co
                                            User ->
                                                lager:info("Creating user ~p with access level ~p on group ~p from IP: ~p", [MSISDN, AL, Group, IP]),
                                                sms:delete(MSISDN),
-                                               SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
-                                               Token = sessions:new(User, 'undefined', SessionLiveTime),
+                                               SessionLiveTime = application:get_env('server', 'sessions_live_time', 3600), %1 hour
+                                               Token = sessions:new(User, SessionLiveTime),
                                                case lists:member(T, ?SUPPORTED_TRANSPORT) of
                                                    'true' ->
                                                        State#q_state{body = transport_lib:encode(#{<<"token">> => <<Token/binary>>}, T), code = 201}; % created
@@ -82,7 +82,7 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_co
                            User ->
                                lager:info("Creating user ~p with access level ~p on group ~p from IP: ~p", [MSISDN, AL, Group, IP]),
                                SessionLiveTime = application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'sessions_live_time', 3600), %1 hour
-                               Token = sessions:new(User, 'undefined', SessionLiveTime),
+                               Token = sessions:new(User, SessionLiveTime),
                                case lists:member(T, ?SUPPORTED_TRANSPORT) of
                                    'true' ->
                                        State#q_state{body = transport_lib:encode(#{<<"token">> => <<Token/binary>>}, T), code = 201}; % created

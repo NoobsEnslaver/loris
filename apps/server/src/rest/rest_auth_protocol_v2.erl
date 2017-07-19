@@ -34,7 +34,7 @@ handle(<<"POST">>, _Req, #q_state{body = B, req_body = #{<<"msisdn">> := BMSISDN
                                    User ->
                                        lager:info("user authorized with pair ~p:~p from IP: ~p", [MSISDN, PwdHash, IP]),
                                        sms:delete(MSISDN),
-                                       Token = sessions:new(User, 'undefined', SessionLiveTime),
+                                       Token = sessions:new(User, SessionLiveTime),
                                        T = common:take_first(Args),
                                        case lists:member(T, ?SUPPORTED_TRANSPORT) of
                                            'true' ->

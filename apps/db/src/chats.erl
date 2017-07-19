@@ -134,8 +134,8 @@ unsubscribe(TableId)->
 invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
     users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
     send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
-    case sessions:get_by_owner_id(UserMSISDN) of
-        #session{ws_pid = WsPid} when is_pid(WsPid)->
+    case users:get_pid(UserMSISDN) of
+        WsPid when is_pid(WsPid)->
             WsPid ! {chat_invatation, ChatId};
         _ ->
             'ok'
@@ -204,22 +204,10 @@ notify_all_online_chat_users(ChatId, Msg)->
     ChatInfo = chat_info:get(ChatId),
     Users = chat_info:extract(ChatInfo, users),
     lists:foreach(fun(U)->
-                          case sessions:get_by_owner_id(U) of
-                              #session{ws_pid = WsPid} when is_pid(WsPid)->
+                          case users:get_pid(U) of
+                              WsPid when is_pid(WsPid)->
                                   WsPid ! Msg;
                               _ ->
                                   'ok'
                           end
-                  end, Users),
-    ok.
-
-%% notify_chat_online_owner(ChatId, Msg)->
-%%     ChatInfo = chat_info:get(ChatId),
-%%     OwnerId = chat_info:extract(ChatInfo, chat_owner),
-%%     case sessions:get_by_owner_id(OwnerId) of
-%%         #session{ws_pid = WsPid} when is_pid(WsPid)->
-%%             WsPid ! Msg;
-%%         _ ->
-%%             'ok'
-%%     end,
-%%     ok.
+                  end, Users).

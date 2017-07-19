@@ -201,9 +201,9 @@ do_action(#c2s_chat_create{users = [YourMSISDN], name = ChatName, is_p2p = 'true
             users:accept_invatation(ChatId, MyMSISDN),
             users:accept_invatation(ChatId, YourMSISDN),
             chats:subscribe(ChatId),
-            case sessions:get_ws_pid(YourMSISDN) of
-                'false' -> ok;
-                 Pid -> Pid ! {chat_p2p_invatation, ChatId}
+            case users:get_pid(YourMSISDN) of
+                Pid when is_pid(Pid) -> Pid ! {chat_p2p_invatation, ChatId};
+                _ -> ok
             end,
             {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
         {already_exists, ChatId} ->
@@ -294,7 +294,7 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                    lists:foreach(fun(U)->
                                          pushes:put(U, MsgBody, ChatName),                      %for loud push if required
                                          push_app:notify_msg_silent(U, ChatId, MsgId)           %send silent push to offline users
-                                 end, [U || U <- ChatUsers, not(sessions:is_online(U))]),
+                                 end, [U || U <- ChatUsers, not(is_pid(users:get_pid(U)))]),
                    #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};
@@ -343,16 +343,16 @@ do_action(#c2s_user_get_info_bulk{msisdns = MSISDNS}, _State) ->
     Resp = #s2c_user_info_bulk{users = FoundedUsers},
     {Resp, _State};
 do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
-    Resp = case sessions:is_online(MSISDN) of
-               'false' ->
+    Resp = case users:get_pid(MSISDN) of
+               _Pid when is_pid(_Pid) ->
+                   #s2c_user_status{msisdn = MSISDN, status = 'online'};
+               _ ->
                    case users:get(MSISDN) of
                        'false' ->
                            #s2c_error{code = 404};
                        User ->
                            #s2c_user_status{msisdn = MSISDN, status = 'offline', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
-                   end;
-               'true' ->
-                   #s2c_user_status{msisdn = MSISDN, status = 'online'}
+                   end
            end,
     {Resp, _State};
 do_action(#c2s_user_set_info{fname = FName, lname = LName, age = Age, is_male = IsMale}, #user_state{msisdn = MSISDN} = _State) ->
@@ -403,8 +403,8 @@ do_action(#c2s_call_offer{msisdn = CalleeMSISDN, sdp = Offer}, #user_state{msisd
                                          _ ->
                                              do_action(#c2s_lock_turn_server{}, State)
                                      end,
-            case sessions:get_by_owner_id(CalleeMSISDN) of
-                #session{ws_pid = CalleePid} when is_pid(CalleePid) ->                  %user online
+            case users:get_pid(CalleeMSISDN) of
+                CalleePid when is_pid(CalleePid) ->                  %user online
                     Ref = monitor(process, CalleePid),
                     CalleePid ! {call_offer, CallerMSISDN, Offer, self(), TurnServer},
                     {ok, NewState#user_state{call = #call_info{pid = CalleePid, msisdn = CalleeMSISDN, ref = Ref}}};
@@ -482,9 +482,9 @@ do_action(#c2s_device_register{push_token = PushToken, type = Type, device_id = 
 do_action(#c2s_user_subscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
     Self = self(),
     lists:foreach(fun(U)->
-                          case sessions:get_ws_pid(U) of
-                              false -> Self ! {notify, U, offline, undefined};
-                              Pid -> Self ! {notify, U, online, Pid}
+                          case users:get_pid(U) of
+                              Pid when is_pid(Pid) -> Self ! {notify, U, online, Pid};
+                              _ -> Self ! {notify, U, offline, undefined}
                           end,
                           users:subscribe(U, MSISDN)
                   end, Users),
@@ -593,11 +593,11 @@ do_action(_Msg, _State) ->
     Resp = #s2c_error{code = 501},
     {Resp, _State}.
 
-terminate(#user_state{msisdn = MSISDN, token = Token} = _State) ->
+terminate(#user_state{msisdn = MSISDN} = _State) ->
     users:update_last_visit_timestamp(MSISDN),
     users:notify(MSISDN, 'offline'),
     users:unsubscribe(MSISDN),
-    sessions:bind_pid_to_session(Token, 'undefined'),
+    users:delete_pid(MSISDN),
     ok.
 
 %%%===================================================================
