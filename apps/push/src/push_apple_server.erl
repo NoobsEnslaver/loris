@@ -138,7 +138,7 @@ handle_cast({call, Device, CallerMSISDN}, _State) ->                    %incomin
     PushToken = device:extract(Device, 'push_token'),
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
-    Headers = #{},
+    Headers = #{'apns_priority' => <<"10">>},
     apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
     {noreply, _State};
 handle_cast({msg_silent, Device, 'undefined', 'undefined'}, _State) ->  %chat invatation
