@@ -33,11 +33,10 @@
                  ,access_level = 'infinity' :: non_neg_integer() | 'infinity'
                  ,expiration_time :: non_neg_integer()}).
 
--record(message, {msg_id :: binary()
+-record(message, {msg_id :: non_neg_integer()
                  ,msg_body :: binary()
-                 ,timestamp :: non_neg_integer()
                  ,status :: 'pending' | 'delivered' | 'readed'
-                 ,from :: binary()}).
+                 ,from :: non_neg_integer()}).
 
 -record(chat_info, {chat_id :: binary()
                    ,name :: binary()

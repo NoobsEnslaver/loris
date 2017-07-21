@@ -14,7 +14,6 @@
         ,send_message/3
         ,update_message/4
         ,update_message_status/2
-        ,get_messages_from/2, get_messages_from/3
         ,get_messages_by_id/3
         ,subscribe/1
         ,unsubscribe/1
@@ -54,74 +53,69 @@ new_p2p(MSISDN1, MSISDN2) ->
 
 send_message(TableId, MsgBody, From) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    TimeStamp = common:timestamp(),
-    Id = mnesia:dirty_update_counter('index', TableName, 1),
+    Id = common:timestamp(),
     Fun = fun()->
-                  mnesia:write(TableName, #message{msg_id = Id
-                                                  ,msg_body = MsgBody
-                                                  ,timestamp = TimeStamp
-                                                  ,status = 'pending'
-                                                  ,from = From}, 'write')
+                  mnesia:dirty_write(TableName, #message{msg_id = Id
+                                                        ,msg_body = MsgBody
+                                                        ,status = 'pending'
+                                                        ,from = From})
           end,
-    case mnesia:transaction(Fun) of
-        {atomic, _} -> Id;
-        _ -> false
-    end.
+    mnesia:sync_dirty(Fun),
+    Id.
 
 update_message(TableId, MsgId, MsgBody, MSISDN) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     Fun = fun()->
-                  [#message{from = MSISDN} = OldMsg] = mnesia:read(TableName, MsgId),
-                  NewMsg = OldMsg#message{msg_body = MsgBody},
-                  mnesia:write(TableName, NewMsg, 'write')
+                  case mnesia:dirty_read(TableName, MsgId) of
+                      [#message{from = MSISDN} = OldMsg] ->
+                          NewMsg = OldMsg#message{msg_body = MsgBody},
+                          mnesia:dirty_write(TableName, NewMsg);
+                      _ -> false
+                  end
           end,
-    case mnesia:transaction(Fun) of
-        {atomic, _Res} -> ok;
-        _ -> false
-    end.
+    mnesia:sync_dirty(Fun).
 
 update_message_status(TableId, MsgIdList) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     Fun = fun()->                               %TODO: optimize it with custom lock and dirty operations
                   lists:foreach(fun(MsgId)->
-                                        case mnesia:read(TableName, MsgId) of
+                                        case mnesia:dirty_read(TableName, MsgId) of
                                             [#message{status = OldStatus}] = [OldMsg] ->
                                                 case OldStatus of
                                                     'delivered' ->
-                                                        mnesia:write(TableName, OldMsg#message{status = 'read'}, 'write'),
+                                                        mnesia:dirty_write(TableName, OldMsg#message{status = 'read'}),
                                                         'read';
                                                     'read' ->
                                                         'read'; %no update
                                                     _ ->
-                                                        mnesia:write(TableName, OldMsg#message{status = 'delivered'}, 'write'),
+                                                        mnesia:dirty_write(TableName, OldMsg#message{status = 'delivered'}),
                                                         'delivered'
                                                 end;
                                             _ -> ok
                                         end
                                 end, MsgIdList)
           end,
-    case mnesia:transaction(Fun) of
-        {atomic, Res} -> Res;
-        _ -> 'false'
-    end.
+    mnesia:sync_dirty(Fun).
 
-get_messages_from(TableId, TimeStampFrom) ->
-    TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.timestamp > TimeStampFrom]),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
-    Res.
-get_messages_from(TableId, TimeStampFrom, TimeStampTo) ->       %TODO: optimize it with cursor
-    TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.timestamp >  TimeStampFrom
-                                                 ,M#message.timestamp =< TimeStampTo]),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q) end),
-    Res.
-
+get_messages_by_id(ChatId, 'undefined', Count) ->
+    MsgId = common:timestamp(),
+    TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
+    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId]),
+    mnesia:sync_dirty(fun()->
+                              Cursor = qlc:cursor(Q),
+                              Resp = qlc:next_answers(Cursor, Count),
+                              qlc:delete_cursor(Cursor),
+                              Resp
+                      end);
 get_messages_by_id(ChatId, MsgId, Count) ->
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId
-                                                , M#message.msg_id =< MsgId + Count]),
-    mnesia:async_dirty(fun()-> qlc:e(Q) end).
+    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]),
+    mnesia:sync_dirty(fun()->
+                              Cursor = qlc:cursor(Q),
+                              Resp = qlc:next_answers(Cursor, Count),
+                              qlc:delete_cursor(Cursor),
+                              Resp
+                      end).
 
 subscribe(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
@@ -181,13 +175,7 @@ typing(ChatId, MSISDN) ->
 
 get_last_msg_id(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    Fun = fun()->
-                  mnesia:dirty_read('index', TableName)
-          end,
-    case mnesia:async_dirty(Fun) of
-        Num when is_number(Num) -> Num;
-        _ -> -1
-    end.
+    mnesia:sync_dirty(fun()-> mnesia:dirty_last(TableName) end).
 
 %%%===================================================================
 %%% internal functions

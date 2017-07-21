@@ -67,16 +67,16 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId}) 
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId})->
-    Count = maps:get(<<"count">>, Msg, 30),
+    Count = round(maps:get(<<"count">>, Msg, 30)),
     MsgId = case maps:get(<<"msg_id">>,Msg) of
-                undefined -> chats:get_last_msg_id(ChatId) - Count;
-                Num -> Num
+                undefined -> undefined;
+                Num when is_number(Num) -> round(Num)
             end,
-    #c2s_message_get_list{chat_id = ChatId, msg_id = round(MsgId), count = round(Count)};
+    #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
-    #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = MsgId};
+    #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = round(MsgId)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
-    #c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList};
+    #c2s_message_update_status{chat_id = ChatId, msg_id = [round(M) || M <- MsgIdList]};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
@@ -538,7 +538,7 @@ do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyM
                'true' ->
                    ok;
                'false'->
-                   #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, timestamp = common:timestamp(), status = 'pending', msg_id = 0, from = MSISDN}
+                   #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, status = 'pending', msg_id = common:timestamp(), from = MSISDN}
            end,
     {Resp, State#user_state{chats = proplists:delete(ChatId, Chats)}};
 do_action({chat_p2p_invatation, ChatId}, #user_state{chats = OldChats} = State) ->
@@ -555,9 +555,9 @@ do_action({mnesia_table_event, {write, _Table, #message{from = MSISDN}, [], _Act
 %%     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
 %%     Resp = #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId},
 %%     {Resp, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, from = From}, [], _ActivityId}}, _State) -> %if no old msg, that's new message
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = MsgBody, status = Status, from = From}, [], _ActivityId}}, _State) -> %if no old msg, that's new message
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
-    Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, timestamp = TimeStamp, status = Status, msg_id = MsgId, from = From},
+    Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, status = Status, msg_id = MsgId, from = From},
     {Resp, _State};
 do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, status = Status, msg_body = MsgBody, from = From}, [#message{msg_id = MsgId, status = Status}], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) -> %if msg statuses are equal, that's msg_body update
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
