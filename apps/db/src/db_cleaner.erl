@@ -186,5 +186,5 @@ send_clean_pushes(ExpirationTime)->
                           ChatName = pushes:extract(P, chat_name),
                           Msg = pushes:extract(P, last_msg),
                           Badge = pushes:extract(P, count),
-                          push_app:notify_msg(MSISDN, ChatName, Msg, Badge)
+                          push_app:notify_msg_loud(MSISDN, ChatName, Msg, Badge)
                   end, Pushes).

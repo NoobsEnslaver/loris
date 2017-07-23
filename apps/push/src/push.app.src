@@ -6,10 +6,12 @@
   {applications,
    [kernel,
     stdlib,
-    apns
+    apns,
+    fcm
    ]},
   {env,[{'apns_get_feedback_interval', 120}     %2 min
        ,{'apns_get_feedback_timeout', 600}      %10 min
+       ,{'fcm_api_key', "AAAAQss2XR4:APA91bGl5mbEesEAF3mgoRLn4UW3qCKfQGs-QbZf1wJjBC13LsLPAxh6XA9daPrFRMS1cLhsMTtlh2uFbdATr4tQj68f-22OYntezRd1uCcW6s5HfD4l2vj4XwxBcbLiUF89rFkdsEmQ"}
        ,{'loud_push_delay', 60}                 %60 sec
        ,{'mode', 'dev'}]},                      % or 'prod'
   {modules, []},

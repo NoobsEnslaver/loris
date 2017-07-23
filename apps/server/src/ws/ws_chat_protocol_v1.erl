@@ -291,10 +291,8 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                    ChatUsers = chat_info:extract(chat_info:get(ChatId), 'users'),
                    MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
                    ChatName = chat_info:extract(chat_info:get(ChatId), 'name'),
-                   lists:foreach(fun(U)->
-                                         pushes:put(U, MsgBody, ChatName),                      %for loud push if required
-                                         push_app:notify_msg_silent(U, ChatId, MsgId)           %send silent push to offline users
-                                 end, [U || U <- ChatUsers, not(is_pid(users:get_pid(U)))]),
+                   OfflineUsers = [U || U <- ChatUsers, not(is_pid(users:get_pid(U)))],
+                   push_app:notify_msg(OfflineUsers, ChatId, ChatName, MsgId, MsgBody),          %send silent push to offline users
                    #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};

@@ -14,6 +14,7 @@
         ,delete/1, delete/2
         ,delete_devices_by_token/1
         ,get/1, get/2
+        ,get_tokens_by_type/1
         ,extract/2]).
 
 new(MSISDN, DeviceId, Type, PushToken) ->
@@ -71,13 +72,8 @@ delete_devices_by_token(Tokens) ->
     end.
 
 get(MSISDN) ->
-    Fun = fun() ->
-                  mnesia:read('device', MSISDN)
-          end,
-    case mnesia:transaction(Fun) of
-        {atomic, Res} -> Res;
-        _Error -> 'false'
-    end.
+    Fun = fun()-> mnesia:dirty_read('device', MSISDN) end,
+    mnesia:sync_dirty(Fun).
 
 get(MSISDN, DeviceId) ->
     Fun = fun() ->
@@ -87,6 +83,16 @@ get(MSISDN, DeviceId) ->
         {atomic, [Res]} -> Res;
         _Error -> 'false'
     end.
+
+-spec get_tokens_by_type([non_neg_integer()]) -> map().
+get_tokens_by_type(MSISDNs)->
+    Fun = fun(MSISDN, #{ios := OldIosTokens, android := OldAndroidTokens, ios_voip := OldIosVoipTokens})->
+                  Devices = device:get(MSISDN),
+                  #{ios => OldIosTokens ++ [D#device.push_token || D <- Devices, D#device.type == android]
+                   ,android => OldAndroidTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios]
+                   ,ios_voip => OldIosVoipTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios_voip]}
+          end,
+    lists:foldl(Fun, #{ios => [], android => [], ios_voip => []}, MSISDNs).
 
 %%%-------------------------------------------------------------------
 %%% Data extractors

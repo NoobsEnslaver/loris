@@ -134,27 +134,23 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, Device, CallerMSISDN}, _State) ->                    %incoming call
-    PushToken = device:extract(Device, 'push_token'),
+handle_cast({call, PushToken, CallerMSISDN}, _State) ->                    %incoming call
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
     Headers = #{'apns_priority' => <<"10">>},
     apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
     {noreply, _State};
-handle_cast({msg_silent, Device, 'undefined', 'undefined'}, _State) ->  %chat invatation
-    PushToken = device:extract(Device, 'push_token'),
+handle_cast({msg_silent, PushToken, 'undefined', 'undefined'}, _State) ->  %chat invatation
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
     apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
-handle_cast({msg_silent, Device, ChatId, MsgId}, _State) ->             %new chat msg
-    PushToken = device:extract(Device, 'push_token'),
+handle_cast({msg_silent, PushToken, ChatId, MsgId}, _State) ->             %new chat msg
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"chat_id">> => ChatId
                ,<<"msg_id">> => MsgId},
     apns:push_notification(apple_push, PushToken, Payload),
     {noreply, _State};
-handle_cast({msg, Device, ChatName, Msg, Badge}, _State) ->             %loud push msg
-    PushToken = device:extract(Device, 'push_token'),
+handle_cast({msg, PushToken, ChatName, Msg, Badge}, _State) ->             %loud push msg
     Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => ChatName,
                                                 <<"body">> => Msg}}
                ,<<"badge">> => Badge},     %% number of unread

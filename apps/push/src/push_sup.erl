@@ -53,8 +53,7 @@ init([]) ->
     SupFlags = #{strategy => 'one_for_one',
                  intensity => 1,
                  period => 5},
-    AChildParams = [{hibernate_after, 30000}    %30 sec
-                   ,{timeout,15000}             %15 sec
+    AChildParams = [{timeout,15000}             %15 sec
                    ,{global, 'push_apple_server'}],
     AChild = #{id => 'push_apple_server',
                start => {'push_apple_server', start_link, [AChildParams]},
