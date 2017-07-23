@@ -83,7 +83,7 @@
 -record(c2s_chat_unmute, {msg_type = ?C2S_CHAT_UNMUTE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_typing, {msg_type = ?C2S_CHAT_TYPING_TYPE, chat_id :: binary()}).
 -record(c2s_message_send, {msg_type = ?C2S_MESSAGE_SEND_TYPE, chat_id :: binary(), msg_body :: binary()}).
--record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), count :: non_neg_integer()}).
+-record(c2s_message_get_list, {msg_type = ?C2S_MESSAGE_GET_LIST_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), count :: non_neg_integer(), direction :: up | down}).
 -record(c2s_message_update, {msg_type = ?C2S_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: integer(), msg_body :: binary()}).
 -record(c2s_message_update_status, {msg_type = ?C2S_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id :: [non_neg_integer()]}).
 -record(c2s_system_logout, {msg_type = ?C2S_SYSTEM_LOGOUT_TYPE}).

@@ -14,7 +14,7 @@
         ,send_message/3
         ,update_message/4
         ,update_message_status/2
-        ,get_messages_by_id/3
+        ,get_messages_by_id/4
         ,subscribe/1
         ,unsubscribe/1
         ,invite_to_chat/3
@@ -97,19 +97,15 @@ update_message_status(TableId, MsgIdList) ->
           end,
     mnesia:sync_dirty(Fun).
 
-get_messages_by_id(ChatId, 'undefined', Count) ->
-    MsgId = common:timestamp(),
+-spec get_messages_by_id(binary(), non_neg_integer() | 'undefined', non_neg_integer(), 'up' | 'down') -> [#message{}].
+get_messages_by_id(ChatId, 'undefined', Count, _Direction) ->
+    get_messages_by_id(ChatId, common:timestamp(), Count, 'down');
+get_messages_by_id(ChatId, MsgId, Count, Direction) ->
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId]),
-    mnesia:sync_dirty(fun()->
-                              Cursor = qlc:cursor(Q),
-                              Resp = qlc:next_answers(Cursor, Count),
-                              qlc:delete_cursor(Cursor),
-                              Resp
-                      end);
-get_messages_by_id(ChatId, MsgId, Count) ->
-    TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    Q = qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]),
+    Q = case Direction of
+            'up'  -> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]);
+            'down'-> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId])
+        end,
     mnesia:sync_dirty(fun()->
                               Cursor = qlc:cursor(Q),
                               Resp = qlc:next_answers(Cursor, Count),

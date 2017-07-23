@@ -67,12 +67,16 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_TYPING_TYPE, <<"chat_id">> := ChatId}) 
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_SEND_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody}) ->
     #c2s_message_send{chat_id = ChatId, msg_body = MsgBody};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> := ChatId})->
+    Direction = case maps:get(<<"direction">>, Msg, <<"up">>) of
+                    <<"down">> -> 'down';
+                    _ -> 'up'
+                end,
     Count = round(maps:get(<<"count">>, Msg, 30)),
     MsgId = case maps:get(<<"msg_id">>,Msg) of
                 undefined -> undefined;
                 Num when is_number(Num) -> round(Num)
             end,
-    #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count};
+    #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count, direction = Direction};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
     #c2s_message_update{chat_id = ChatId, msg_body = MsgBody, msg_id = round(MsgId)};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
@@ -296,12 +300,12 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                    #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId}
            end,
     {Resp, State};
-do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count}, #user_state{chats = Chats} = _State) ->
+do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count, direction = Direction}, #user_state{chats = Chats} = _State) ->
     Resp = case proplists:get_value(ChatId, Chats) of
                'undefined' ->
                    #s2c_error{code = 403};
                _AccessGroup ->
-                   Messages = chats:get_messages_by_id(ChatId, MsgId, Count),
+                   Messages = chats:get_messages_by_id(ChatId, MsgId, Count, Direction),
                    #s2c_message_list{messages = Messages, chat_id = ChatId}
            end,
     {Resp, _State};
