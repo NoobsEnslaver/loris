@@ -36,7 +36,9 @@ notify_call(CalleeMSISDN, CallerMSISDN)->
             AndroidMessage = [{<<"data">>, [{<<"msisdn">>, CallerMSISDN}]}
                              ,{<<"time_to_live">>, 60}
                              ,{<<"priority">>, <<"high">>}],
-            fcm:sync_push(push_android_server, AndroidTokens, AndroidMessage)
+            case fcm:sync_push(push_android_server, AndroidTokens, AndroidMessage) of
+                Resp -> lager:debug("fcm:push responce: ~p~n", [Resp]) %TODO: handle responce
+            end
     end,
     lists:foreach(fun(T)->
                           gen_server:cast('push_apple_server', {call, T, CallerMSISDN})
@@ -55,7 +57,9 @@ notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
                                                    ,{<<"title">>, ChatName}]}
                              ,{<<"time_to_live">>,3600}
                              ,{<<"collapse_key">>, list_to_binary(pid_to_list(self()))}],
-            fcm:sync_push(push_android_server, AndroidTokens, AndroidMessage)
+            case fcm:sync_push(push_android_server, AndroidTokens, AndroidMessage) of
+                Resp -> lager:debug("fcm:push responce: ~p~n", [Resp]) %TODO: handle responce
+            end
     end,
     lists:foreach(fun(T)->
                           gen_server:cast('push_apple_server', {msg_silent, T, ChatId, MsgId})
