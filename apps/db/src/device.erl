@@ -88,8 +88,8 @@ get(MSISDN, DeviceId) ->
 get_tokens_by_type(MSISDNs)->
     Fun = fun(MSISDN, #{ios := OldIosTokens, android := OldAndroidTokens, ios_voip := OldIosVoipTokens})->
                   Devices = device:get(MSISDN),
-                  #{ios => OldIosTokens ++ [D#device.push_token || D <- Devices, D#device.type == android]
-                   ,android => OldAndroidTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios]
+                  #{ios => OldIosTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios]
+                   ,android => OldAndroidTokens ++ [D#device.push_token || D <- Devices, D#device.type == android]
                    ,ios_voip => OldIosVoipTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios_voip]}
           end,
     lists:foldl(Fun, #{ios => [], android => [], ios_voip => []}, MSISDNs).
