@@ -19,6 +19,10 @@
 
 new(MSISDN, DeviceId, Type, PushToken) ->
     Fun = fun()->
+                  Dublicates = mnesia:match_object(#device{msisdn = MSISDN, id = '_', type = '_', push_token = PushToken}),
+                  lists:foreach(fun(D)->
+                                        mnesia:delete_object(D)
+                                end, Dublicates),
                   case mnesia:match_object(#device{msisdn = MSISDN, id = DeviceId, type = Type, push_token = '_'}) of
                       [] ->
                           mnesia:write(#device{msisdn = MSISDN, id = DeviceId, type = Type, push_token = PushToken}),
