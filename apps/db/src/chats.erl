@@ -99,12 +99,12 @@ update_message_status(TableId, MsgIdList) ->
 
 -spec get_messages_by_id(binary(), non_neg_integer() | 'undefined', non_neg_integer(), 'up' | 'down') -> [#message{}].
 get_messages_by_id(ChatId, 'undefined', Count, _Direction) ->
-    get_messages_by_id(ChatId, common:timestamp(), Count, 'down');
+    get_messages_by_id(ChatId, common:timestamp(), Count, 'up');
 get_messages_by_id(ChatId, MsgId, Count, Direction) ->
     TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
     Q = case Direction of
-            'up'  -> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId]);
-            'down'-> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId])
+            'up'  -> qlc:sort(qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId]), [{'order', 'descending'}]);
+            'down'-> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId])
         end,
     mnesia:sync_dirty(fun()->
                               Cursor = qlc:cursor(Q),
