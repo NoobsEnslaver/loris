@@ -622,10 +622,12 @@ message_get_list_test(Config) ->
     MSISDN1 = users:extract(User1, msisdn),
     MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
-    send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
-    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN1]}, c2s_chat_create), Transport2),
+    #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_id">> := MsgId00} = receive_packet(ConPid2, Transport2),
     %% Accept invatation
-    send_packet(ConPid2, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info), Transport2),
+    send_packet(ConPid1, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_id">> := MsgId01} = receive_packet(ConPid2, Transport2),
     timer:sleep(50),
     tester:flush_messages(),
     %% Start chating
@@ -646,18 +648,39 @@ message_get_list_test(Config) ->
     {MsgId8, ChatId} = send_message(ConPid2, Transport2, ChatId, <<"Bye">>),
     receive_packet(ConPid1, Transport1),
     %% Requests chat history
-    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport1),
+    MsgHistory = [#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId00, <<"msg_body">> => <<"@system:invite_to_chat">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId01, <<"msg_body">> => <<"@system:accept_invatation">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId1, <<"msg_body">> => <<"Hello Joe?">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN2, <<"msg_id">> => MsgId2, <<"msg_body">> => <<"Hello Mike!">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId3, <<"msg_body">> => <<"It's still working?">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN2, <<"msg_id">> => MsgId4, <<"msg_body">> => <<"Yeah, it's fine.">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId5, <<"msg_body">> => <<"Fine">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN2, <<"msg_id">> => MsgId6, <<"msg_body">> => <<"Yeah, fine">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN1, <<"msg_id">> => MsgId7, <<"msg_body">> => <<"Good  bye">>, <<"status">> => <<"pending">>}
+                 ,#{<<"from">> => MSISDN2, <<"msg_id">> => MsgId8, <<"msg_body">> => <<"Bye">>, <<"status">> => <<"pending">>}],
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30, direction = 'down'}, c2s_message_get_list), Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
-     ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>}
-                        ,#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:accept_invatation">>}
-                        ,#{<<"from">> := MSISDN1, <<"msg_id">> := MsgId1, <<"msg_body">> := <<"Hello Joe?">>}
-                        ,#{<<"from">> := MSISDN2, <<"msg_id">> := MsgId2, <<"msg_body">> := <<"Hello Mike!">>}
-                        ,#{<<"from">> := MSISDN1, <<"msg_id">> := MsgId3, <<"msg_body">> := <<"It's still working?">>}
-                        ,#{<<"from">> := MSISDN2, <<"msg_id">> := MsgId4, <<"msg_body">> := <<"Yeah, it's fine.">>}
-                        ,#{<<"from">> := MSISDN1, <<"msg_id">> := MsgId5, <<"msg_body">> := <<"Fine">>}
-                        ,#{<<"from">> := MSISDN2, <<"msg_id">> := MsgId6, <<"msg_body">> := <<"Yeah, fine">>}
-                        ,#{<<"from">> := MSISDN1, <<"msg_id">> := MsgId7, <<"msg_body">> := <<"Good  bye">>}
-                        ,#{<<"from">> := MSISDN2, <<"msg_id">> := MsgId8, <<"msg_body">> := <<"Bye">>}]} = receive_packet(ConPid1, Transport1),
+     ,<<"messages">> := MsgHistory} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId8, count = 30, direction = 'up'}, c2s_message_get_list), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
+     ,<<"messages">> := MsgList1} = receive_packet(ConPid1, Transport1),
+    MsgList1 = tl(lists:reverse(MsgHistory)),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId8, count = 3, direction = 'up'}, c2s_message_get_list), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
+     ,<<"messages">> := MsgList2} = receive_packet(ConPid1, Transport1),
+    MsgList2 = lists:sublist(lists:reverse(MsgHistory),2,3),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 3, direction = 'down'}, c2s_message_get_list), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
+     ,<<"messages">> := MsgList3} = receive_packet(ConPid1, Transport1),
+    MsgList3 = lists:sublist(MsgHistory,1,3),
+    send_packet(ConPid1, #{<<"chat_id">> => ChatId, <<"msg_type">> => ?C2S_MESSAGE_GET_LIST_TYPE}, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
+     ,<<"messages">> := MsgList4} = receive_packet(ConPid1, Transport1),
+    MsgList4 = lists:reverse(MsgHistory),
+    send_packet(ConPid1, #{<<"chat_id">> => ChatId, <<"msg_type">> => ?C2S_MESSAGE_GET_LIST_TYPE, <<"count">> => 3}, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
+     ,<<"messages">> := MsgList5} = receive_packet(ConPid1, Transport1),
+    MsgList5 = lists:sublist(lists:reverse(MsgHistory),1,3),
     ok.
 
 chat_typing_mute_unmute_test(Config) ->
@@ -740,7 +763,7 @@ message_update_status_test(Config) ->
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid1, Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid2, Transport2),
     %% get messages list, check statuses
-    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30, direction = down}, c2s_message_get_list), Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
      ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:accept_invatation">>}
@@ -772,7 +795,7 @@ message_update_test(Config) ->
     %% User2 receive message about it
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1, <<"msg_body">> := <<"Hello world!">>} = receive_packet(ConPid2, Transport2),
     %% get messages list
-    send_packet(ConPid2, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30}, c2s_message_get_list), Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30, direction = down}, c2s_message_get_list), Transport2),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
      ,<<"messages">> := [#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_body">> := <<"@system:accept_invatation">>}
