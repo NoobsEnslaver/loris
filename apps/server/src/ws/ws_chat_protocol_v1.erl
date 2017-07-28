@@ -72,8 +72,8 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> :
                     _ -> 'up'
                 end,
     Count = round(maps:get(<<"count">>, Msg, 30)),
-    MsgId = case maps:get(<<"msg_id">>,Msg) of
-                undefined -> undefined;
+    MsgId = case maps:get(<<"msg_id">>,Msg, 'undefined') of
+                'undefined' -> 'undefined';
                 Num when is_number(Num) -> round(Num)
             end,
     #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count, direction = Direction};
