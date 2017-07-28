@@ -17,7 +17,8 @@
         ,take_first/1, take_first/2
         ,start_measure/1
         ,end_measure/2
-        ,stringify/1]).
+        ,stringify/1
+        ,get_limited_amount_from_query/2]).
 
 %%====================================================================
 %% API functions
@@ -101,6 +102,14 @@ stringify(X) when is_tuple(X)->
 stringify(X) when is_list(X) -> list_to_binary(X);
 stringify(X) when is_pid(X) -> stringify(erlang:pid_to_list(X));
 stringify(X) when is_number(X) orelse is_binary(X) -> X.
+
+get_limited_amount_from_query(Q, Count) ->
+    fun()->
+            Cursor = qlc:cursor(Q),
+            Resp = qlc:next_answers(Cursor, Count),
+            qlc:delete_cursor(Cursor),
+            Resp
+    end.
 
 %%====================================================================
 %% Internal functions

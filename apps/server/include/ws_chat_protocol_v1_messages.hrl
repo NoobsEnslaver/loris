@@ -91,7 +91,7 @@
 -record(c2s_user_get_info_bulk, {msg_type = ?C2S_USER_GET_INFO_BULK_TYPE, msisdns :: [non_neg_integer()]}).
 -record(c2s_user_get_status, {msg_type = ?C2S_USER_GET_STATUS_TYPE, user_msisdn :: non_neg_integer()}).
 -record(c2s_user_set_info, {msg_type = ?C2S_USER_SET_INFO_TYPE, fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
--record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).                   %TODO
+-record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_room_get_tree, {msg_type = ?C2S_ROOM_GET_TREE_TYPE, room_id :: non_neg_integer()}).

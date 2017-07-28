@@ -170,20 +170,22 @@ leave_chat(ChatId, MSISDN)->
         _Error -> _Error
     end.
 
-search(<<>>, <<>>) -> [];
-search(<<>>, LName) ->
-    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch']),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
-    Res;
-search(FName, <<>>) ->
-    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch']),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
-    Res;
-search(FName, LName) ->
+%% TODO: optimize it
+search(FName, LName) when byte_size(FName) > 2 andalso byte_size(LName) > 2 ->
     Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
                                                          , binary:match(U#user.lname, LName) /= 'nomatch']),
-    {atomic, Res} = mnesia:transaction(fun()-> qlc:e(Q, {max_list_size, 30}) end),
-    Res.
+    Fun = common:get_limited_amount_from_query(Q, 20),
+    mnesia:sync_dirty(Fun);
+search(_, LName) when byte_size(LName) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch']),
+    Fun = common:get_limited_amount_from_query(Q, 20),
+    mnesia:sync_dirty(Fun);
+search(FName, _) when byte_size(FName) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch']),
+    Fun = common:get_limited_amount_from_query(Q, 20),
+    mnesia:sync_dirty(Fun);
+search(_, _) -> [].
+
 
 mute_chat(MSISDN, ChatId) ->
     Fun = fun()->

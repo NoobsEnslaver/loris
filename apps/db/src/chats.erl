@@ -106,12 +106,8 @@ get_messages_by_id(ChatId, MsgId, Count, Direction) ->
             'up'  -> qlc:sort(qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id < MsgId]), [{'order', 'descending'}]);
             'down'-> qlc:q([M || M <- mnesia:table(TableName), M#message.msg_id > MsgId])
         end,
-    mnesia:sync_dirty(fun()->
-                              Cursor = qlc:cursor(Q),
-                              Resp = qlc:next_answers(Cursor, Count),
-                              qlc:delete_cursor(Cursor),
-                              Resp
-                      end).
+    Fun = common:get_limited_amount_from_query(Q, Count),
+    mnesia:sync_dirty(Fun).
 
 subscribe(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),

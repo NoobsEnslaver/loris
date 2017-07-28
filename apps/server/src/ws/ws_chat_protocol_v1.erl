@@ -72,7 +72,7 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> :
                     _ -> 'up'
                 end,
     Count = case maps:get(<<"count">>, Msg, 30) of
-                Num when Num =< 50 -> round(Num);
+                Num1 when Num1 =< 50 -> round(Num1);
                 _ -> 50
             end,
     MsgId = case maps:get(<<"msg_id">>,Msg, 'undefined') of
@@ -94,7 +94,8 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
                       ,lname = maps:get(<<"lname">>, Msg, 'undefined')
                       ,age = maps:get(<<"age">>, Msg, 'undefined')
                       ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE}) -> #c2s_user_search{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE, <<"fname">> := FName, <<"lname">> := LName}) ->
+    #c2s_user_search{fname = FName, lname = LName};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_TREE_TYPE}) -> #c2s_room_get_tree{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE}) -> #c2s_room_get_info{};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_RENAME_TYPE}) -> #c2s_room_rename{};
