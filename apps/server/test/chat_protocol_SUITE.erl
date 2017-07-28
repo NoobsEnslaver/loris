@@ -128,7 +128,7 @@ groups() ->
                  ,user_get_status_test
                  ,user_subscribe_unsubscribe_test
                  ,user_set_info_test
-                 %% ,user_search_test
+                 ,user_search_test
                  ]}
     ,{rooms, [], [room_get_tree_test
                  ,room_get_info_test
@@ -918,6 +918,24 @@ user_set_info_test(Config) ->
                           send_packet(ConPid, ?R2M(#c2s_user_get_info{user_msisdn = MSISDN}, c2s_user_get_info), Transport),
                           #{<<"msg_type">> := ?S2C_USER_INFO_TYPE, <<"user_msisdn">> := MSISDN, <<"fname">> := <<"Joe">> , <<"lname">> := <<"Armstrong">>, <<"age">> := 70, <<"is_male">> := 'true'} = receive_packet(ConPid, Transport)
                   end, Env),
+    ok.
+
+user_search_test(Config) ->
+    [#{user := User1, transport := Transport, connection := ConPid}
+    ,#{user := User2} | _] = proplists:get_value(env, Config),
+    MSISDN1 = users:extract(User1, msisdn),
+    MSISDN2 = users:extract(User2, msisdn),
+    send_packet(ConPid, ?R2M(#c2s_user_search{fname = <<"Nik">>, lname = <<>>}, c2s_user_search), Transport),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users1} = receive_packet(ConPid, Transport),
+    'true' = lists:member(MSISDN1, Users1) and lists:member(MSISDN2, Users1),
+    send_packet(ConPid, ?R2M(#c2s_user_search{fname = <<>>, lname = <<"Voron">>}, c2s_user_search), Transport),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users2} = receive_packet(ConPid, Transport),
+    'true' = lists:member(MSISDN1, Users2) and lists:member(MSISDN2, Users2),
+    send_packet(ConPid,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => <<"Vor">>, <<"fname">> => <<"Nik">>}, Transport),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users3} = receive_packet(ConPid, Transport),
+    'true' = lists:member(MSISDN1, Users3) and lists:member(MSISDN2, Users3),
+    send_packet(ConPid,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => <<"V">>, <<"fname">> => <<"N">>}, Transport),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := []} = receive_packet(ConPid, Transport),
     ok.
 
 %%--------------------------------------------------------------------
