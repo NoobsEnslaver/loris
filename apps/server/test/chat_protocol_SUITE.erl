@@ -144,6 +144,7 @@ groups() ->
                  ,call_reject_call_test
                  ,call_to_busy_test
                  ,call_to_bad_msisdn_test
+                 ,call_to_offline_test
                  ]}
     ,{system, [], [system_logout_test]}].
 
@@ -1050,6 +1051,37 @@ call_to_bad_msisdn_test(Config) ->
     timer:sleep(100),
     {error, timeout} = receive_packet(ConPid1, Transport1),
     ok.
+
+call_to_offline_test(Config) ->
+    Env = proplists:get_value(env, Config),
+    lists:foreach(fun(#{transport := Transport1, connection := ConPid1, user := User1})->
+                          MSISDN1 = users:extract(User1, msisdn),
+                          MSISDN2 = rand:uniform(89999999) + 1000000,
+                          Transport2 = Transport1,
+                          _User = users:new(MSISDN2, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          timer:sleep(50),
+                          send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
+                          #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid1, Transport1),
+                          send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+                          #{<<"msg_type">> := ?S2C_CALL_ACK_TYPE} = receive_packet(ConPid1, Transport1),
+                          {ok, Token} = authorize(MSISDN2),
+                          {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport2),
+                          timer:sleep(50),
+                          #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+                          %% User2 reject call
+                          send_packet(ConPid2, ?R2M(#c2s_call_bye{code = 200}, c2s_call_bye), Transport2),
+                          #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 200} = receive_packet(ConPid1, Transport1),
+                          timer:sleep(200),
+                          %% User1 recall and it's still working
+                          send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+                          #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
+                          send_packet(ConPid2, ?R2M(#c2s_call_answer{sdp = <<"sdp2">>}, c2s_call_answer), Transport2),
+                          #{<<"msg_type">> := ?S2C_CALL_ANSWER_TYPE, <<"sdp">> := <<"sdp2">>} = receive_packet(ConPid1, Transport1),
+                          timer:sleep(100),
+                          {error, timeout} = receive_packet(ConPid1, Transport1),
+                          {error, timeout} = receive_packet(ConPid2, Transport2),
+                          ok
+                  end, Env).
 
 %%%===================================================================
 %%% Internal functions
