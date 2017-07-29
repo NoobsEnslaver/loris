@@ -152,7 +152,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_user_info_bulk) ->
     ?R2M(Msg#s2c_user_info_bulk{users = UsersMap}, s2c_user_info_bulk);
 wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
     case Msg#s2c_user_status.last_visit_timestamp of
-        'undefined' -> maps:remove(<<"last_visit_timestamp">>, ?R2M(Msg, s2c_user_status));
+        'undefined' -> maps:remove(last_visit_timestamp, ?R2M(Msg, s2c_user_status));
         _ -> ?R2M(Msg, s2c_user_status)
     end;
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
@@ -581,7 +581,8 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#messag
 do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = SdpOffer, msisdn = MSISDN}, msisdn = MyMSISDN, turn_server = TurnServer} = State) when is_pid(Pid) andalso SdpOffer /= 'undefined' andalso TurnServer /= 'undefined'->
     Ref = monitor(process, Pid),
     Pid ! {call_offer, MyMSISDN, SdpOffer, self(), TurnServer},
-    {ok, State#user_state{call = #call_info{pid = Pid, msisdn = MSISDN, ref = Ref}}};
+    Resp = #s2c_user_status{msisdn = MSISDN, status = 'online'},
+    {Resp, State#user_state{call = #call_info{pid = Pid, msisdn = MSISDN, ref = Ref}}};
 do_action({notify, MSISDN, Status, _Pid}, _State) ->
     Resp = case Status of
                'offline' ->

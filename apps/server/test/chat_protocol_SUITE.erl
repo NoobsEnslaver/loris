@@ -1067,6 +1067,7 @@ call_to_offline_test(Config) ->
                           {ok, Token} = authorize(MSISDN2),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport2),
                           timer:sleep(50),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE,<<"msisdn">> := MSISDN2, <<"status">> := <<"online">>} = receive_packet(ConPid1, Transport1),
                           #{<<"msg_type">> := ?S2C_CALL_OFFER_TYPE, <<"msisdn">> := MSISDN1, <<"sdp">> := <<"sdp1">>, <<"turn_server">> := _} = receive_packet(ConPid2, Transport2),
                           %% User2 reject call
                           send_packet(ConPid2, ?R2M(#c2s_call_bye{code = 200}, c2s_call_bye), Transport2),
