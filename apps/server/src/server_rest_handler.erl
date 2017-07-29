@@ -44,6 +44,7 @@ fold(Req, _Ver, State, []) ->
 fold(Req, Ver, State, [Mod | Args]) ->
     try binary_to_existing_atom(<<"rest_", Mod/binary, "_protocol_", Ver/binary>>, 'utf8') of
         Module ->
+            ?HARDLOG('debug', "call ~p", Module),
             Method = cowboy_req:method(Req),
             QState = State#q_state.tmp_state,
             Session = maps:get('session', QState, 'false'),

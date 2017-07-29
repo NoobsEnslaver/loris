@@ -102,6 +102,8 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 websocket_init(#state{token = Token, protocol = Module} = State) ->
     TC = common:start_measure('server_ws_handler_ws_init'),
     MSISDN = sessions:extract(sessions:get(Token), owner_id),
+    Md = proplists:delete(msisdn, lager:md()),
+    lager:md([{msisdn, MSISDN}] ++ Md),
     users:set_pid(MSISDN, self()),
     US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
     common:end_measure('server_ws_handler_ws_init', TC),
@@ -113,6 +115,7 @@ websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protoc
     Ref = maps:get(<<"ref">>, RawMsg, 'undefined'),
     TC1 = common:start_measure('ws_unwrap_msg'),
     Msg = Protocol:unwrap_msg(RawMsg),
+    ?HARDLOG('debug', ">> ~p", if is_tuple(Msg)-> element(1, Msg); 'true' -> Msg end),
     common:end_measure('ws_unwrap_msg', TC1),
     {MetricName, TC2} = case Msg of
                             _ when is_atom(Msg) -> {Msg, common:start_measure(Msg)};
@@ -124,6 +127,7 @@ websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protoc
             common:end_measure(MetricName, TC2),
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
+            ?HARDLOG('debug', "<< ~p", if is_tuple(RawResp)-> element(1, RawResp); 'true' -> RawResp end),
             common:end_measure(MetricName, TC2),
             TC3 = common:start_measure('ws_wrap_msg'),
             Resp = case Protocol:wrap_msg(RawResp) of
