@@ -14,7 +14,7 @@
         ,delete/1, delete/2
         ,delete_devices_by_token/1
         ,get/1, get/2
-        ,get_tokens_by_type/1
+        ,get_by_type/1
         ,extract/2]).
 
 new(MSISDN, DeviceId, Type, PushToken) ->
@@ -88,13 +88,13 @@ get(MSISDN, DeviceId) ->
         _Error -> 'false'
     end.
 
--spec get_tokens_by_type([non_neg_integer()]) -> map().
-get_tokens_by_type(MSISDNs)->
-    Fun = fun(MSISDN, #{ios := OldIosTokens, android := OldAndroidTokens, ios_voip := OldIosVoipTokens})->
+-spec get_by_type([non_neg_integer()]) -> map().
+get_by_type(MSISDNs)->
+    Fun = fun(MSISDN, #{ios := OldIosDevices, android := OldAndroidDevices, ios_voip := OldIosVoipDevices})->
                   Devices = device:get(MSISDN),
-                  #{ios => OldIosTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios]
-                   ,android => OldAndroidTokens ++ [D#device.push_token || D <- Devices, D#device.type == android]
-                   ,ios_voip => OldIosVoipTokens ++ [D#device.push_token || D <- Devices, D#device.type == ios_voip]}
+                  #{ios => OldIosDevices ++ [D || D <- Devices, D#device.type == ios]
+                   ,android => OldAndroidDevices ++ [D || D <- Devices, D#device.type == android]
+                   ,ios_voip => OldIosVoipDevices ++ [D || D <- Devices, D#device.type == ios_voip]}
           end,
     lists:foldl(Fun, #{ios => [], android => [], ios_voip => []}, MSISDNs).
 

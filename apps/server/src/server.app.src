@@ -49,7 +49,7 @@
                             ,credential_type => <<"password">>}]}
         ,{'enable_tls', true}
         ,{'static_dir', "/srv/static"}
-        ,{'max_file_size', 16777216}                 %16 MB
+        ,{'max_file_size', 134217728}                %128 MB
         ,{'sessions_live_time', 2592000}             %30 days
         ,{'sms_live_time', 3600}                     %1 hour
         ,{'sms_resend_interval', 60}                 %1 min
