@@ -22,7 +22,6 @@
               ,access_level :: non_neg_integer() | 'infinity'
               ,chats_invatations = [] :: [{binary(), access_group()}]
               ,chats = [] :: [{binary(), access_group()}]
-              ,rooms = [] :: [{binary(), access_group()}]
               ,is_male :: boolean()
               ,muted_chats = [] :: [binary()]
               ,last_visit_timestamp :: non_neg_integer()}).
@@ -75,12 +74,9 @@
               ,access :: map()                  %#{all => access_group(), MSISDN => access_group()} - access level for all, and exclusions
               ,chat_id :: binary()}).
 
--record(room_tag, {room_id,tag1 ,tag2 ,tag3 ,tag4 ,tag5 ,tag6 ,tag7 ,tag8 ,tag9 ,tag10
-                          ,tag11,tag12,tag13,tag14,tag15,tag16,tag17,tag18,tag19,tag20
-                          ,tag21,tag22,tag23,tag24,tag25,tag26,tag27,tag28,tag29,tag30
-                          ,tag31,tag32,tag33,tag34,tag35,tag36,tag37,tag38,tag39,tag40
-                          ,tag41,tag42,tag43,tag44,tag45,tag46,tag47,tag48,tag49,tag50
-                          ,tag51,tag52,tag53,tag54,tag55,tag56,tag57,tag58,tag59,tag60
-                          ,tag61,tag62,tag63,tag64}). %all boolean
+-record(room_tag, {room_id,tag1 ='false',tag2 ='false',tag3 ='false',tag4 ='false',tag5 ='false',tag6 ='false',tag7 ='false',tag8 ='false',tag9 ='false',tag10='false'
+                          ,tag11='false',tag12='false',tag13='false',tag14='false',tag15='false',tag16='false',tag17='false',tag18='false',tag19='false',tag20='false'
+                          ,tag21='false',tag22='false',tag23='false',tag24='false',tag25='false',tag26='false',tag27='false',tag28='false',tag29='false',tag30='false'
+                          ,tag31='false',tag32='false'}).
 
 -endif.

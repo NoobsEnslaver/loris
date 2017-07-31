@@ -245,7 +245,6 @@ set_info(MSISDN, Proplist) ->
                                             pwd_hash -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
                                             created -> User#user{created = Value};
                                             chats -> User#user{chats = Value};
-                                            rooms -> User#user{rooms = Value};
                                             chats_invatations -> User#user{chats_invatations = Value};
                                             age -> User#user{age = Value};
                                             fname -> User#user{fname = Value};
@@ -330,13 +329,12 @@ delete_pid(MSISDN) ->
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
--spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|rooms|chats|chats_invatations|is_male|access_level|muted_chats) -> binary() | non_neg_integer() | 'infinity' | access_group().
+-spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|chats|chats_invatations|is_male|access_level|muted_chats) -> binary() | non_neg_integer() | 'infinity' | access_group().
 extract(#user{msisdn = MSISDN}, 'msisdn')-> MSISDN;
 extract(#user{group = G}, 'group')-> G;
 extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
 extract(#user{created = Created}, 'created')-> Created;
 extract(#user{chats = Chats}, 'chats')-> Chats;
-extract(#user{rooms = Rooms}, 'rooms')-> Rooms;
 extract(#user{chats_invatations = CI}, 'chats_invatations')-> CI;
 extract(#user{age = Age}, 'age')-> Age;
 extract(#user{fname = FName}, 'fname')-> FName;

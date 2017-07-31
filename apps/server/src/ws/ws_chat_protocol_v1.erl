@@ -19,7 +19,7 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, rooms, token, muted_chats, msisdn, call, turn_server}).
+-record(user_state, {chats, token, muted_chats, msisdn, call, turn_server}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
 default_user_state(Token)->
@@ -37,7 +37,6 @@ default_user_state(Token)->
     pushes:delete(UserMSISDN),                  %delete all not sended pushes
     #user_state{chats = users:extract(User, chats)
                ,msisdn = users:extract(User, msisdn)
-               ,rooms = users:extract(User, rooms)
                ,token = sessions:extract(Session, token)
                ,muted_chats = users:extract(User, muted_chats)}.
 

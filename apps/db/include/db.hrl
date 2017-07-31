@@ -18,7 +18,7 @@
                         ,?GET_FIELDS(user_subscribe, [{ram_copies, [node() | nodes()]}, {type, bag}, {index, [#user_subscribe.subscriber]}])
                         ,?GET_FIELDS(pushes, [{ram_copies, [node() | nodes()]}, {index, [#pushes.timestamp]}])
                         ,?GET_FIELDS(pids, [{ram_copies, [node() | nodes()]}])
-                        ,?GET_FIELDS(room, [{disc_copies, [node() | nodes()]}])
+                        ,?GET_FIELDS(room, [{disc_copies, [node() | nodes()]}, {index, [#room.owner_id]}])
                         ,?GET_FIELDS(room_tag, [{disc_copies, [node() | nodes()]}, {index, tl(record_info(fields, room_tag))}])
                         ]).
 
