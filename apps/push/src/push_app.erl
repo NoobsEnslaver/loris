@@ -6,6 +6,7 @@
 -module(push_app).
 
 -behaviour(application).
+-include_lib("common/include/tables.hrl").
 
 %% Application callbacks
 -export([start/2
@@ -36,18 +37,12 @@ notify_call(CalleeMSISDN, CallerMSISDN)->
             AndroidMessage = [{<<"data">>, [{<<"msisdn">>, CallerMSISDN, <<"type">>, <<"call">>}]}
                              ,{<<"time_to_live">>, 60}
                              ,{<<"priority">>, <<"high">>}],
-            case fcm:sync_push(push_android_server, [deivce:extract(D, push_token) || D <- AndroidDevices], AndroidMessage) of
-                Resp ->
-                    BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
-                    lists:foreach(fun(T) ->
-                                          [{BadMSISDN, BadDevId}] = [{device:extract(D, msisdn), device:extract(D, id)} || D <- AndroidDevices, device:extract(D, push_token) == T],
-                                          device:delete(BadMSISDN, BadDevId)
-                                  end, BadTokens)
-            end
+            Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
+            BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
+            [device:delete(M, Id) || #device{msisdn = M, id = Id, push_token = T} <- AndroidDevices, lists:member(T, BadTokens)]
     end,
-    lists:foreach(fun(T)->
-                          gen_server:cast('push_apple_server', {call, T, CallerMSISDN})
-                  end, [deivce:extract(D, push_token) || D <- IosDevices]).
+    [gen_server:cast('push_apple_server', {call, D#device.push_token, CallerMSISDN}) || D <- IosDevices],
+    ok.
 
 notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
     #{ios := IosDevices
@@ -62,24 +57,17 @@ notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
                                                    ,{<<"title">>, ChatName}]}
                              ,{<<"time_to_live">>,3600}
                              ,{<<"collapse_key">>, list_to_binary(pid_to_list(self()))}],
-            case fcm:sync_push(push_android_server, [deivce:extract(D, push_token) || D <- AndroidDevices], AndroidMessage) of
-                Resp ->
-                    BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
-                    lists:foreach(fun(T) ->
-                                          [{BadMSISDN, BadDevId}] = [{device:extract(D, msisdn), device:extract(D, id)} || D <- AndroidDevices, device:extract(D, push_token) == T],
-                                          device:delete(BadMSISDN, BadDevId)
-                                  end, BadTokens)
-            end
+            Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
+            BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
+            [device:delete(M, Id) || #device{msisdn = M, id = Id, push_token = T} <- AndroidDevices, lists:member(T, BadTokens)]
     end,
-    lists:foreach(fun(T)->
-                          gen_server:cast('push_apple_server', {msg_silent, T, ChatId, MsgId})
-                  end, [deivce:extract(D, push_token) || D <- IosDevices]).
+    [gen_server:cast('push_apple_server', {msg, D#device.push_token, ChatId, MsgId}) || D <- IosDevices],
+    ok.
 
 notify_msg_loud(MSISDN, ChatName, Msg, Badge)->
     #{ios := IosDevices} = device:get_by_type([MSISDN]),
-    lists:foreach(fun(T)->
-                          gen_server:cast('push_apple_server', {msg, T, ChatName, Msg, Badge})
-                  end, [deivce:extract(D, push_token) || D <- IosDevices]).
+    [gen_server:cast('push_apple_server', {msg_loud, D#device.push_token, ChatName, Msg, Badge}) || D <- IosDevices],
+    ok.
 
 %%====================================================================
 %% Internal functions
