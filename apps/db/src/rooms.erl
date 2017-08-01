@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -compile({no_auto_import,[get/1
                          ,set/1]}).
--export([new/5
+-export([new/6
         ,delete/1
         ,get/1
         ,get_tag/1
@@ -23,8 +23,8 @@
         ,search_by_tags/1
         ]).
 
--spec new(non_neg_integer(), binary(), binary(), map(), #room_tag{}) -> #room{} | 'false'.
-new(OwnerId, Name, Description, AccessMap, Tags) ->
+-spec new(non_neg_integer(), binary(), binary(), map(), map(), #room_tag{}) -> #room{} | 'false'.
+new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
     Id = mnesia:dirty_update_counter('index', 'room', 1),
     Fun = fun()->
                   ChatId = chats:new(),
@@ -34,13 +34,15 @@ new(OwnerId, Name, Description, AccessMap, Tags) ->
                               ,description = Description
                               ,sub_rooms = []
                               ,owner_id = OwnerId
-                              ,access = AccessMap
+                              ,room_access = RoomAccessMap
+                              ,chat_access = ChatAccessMap
                               ,chat_id = ChatId},
                   mnesia:write(Room),
-                  mnesia:write(Tags#room_tag{room_id = Id})
+                  mnesia:write(Tags#room_tag{room_id = Id}),
+                  Room
           end,
     case mnesia:transaction(Fun) of
-        {'atomic', 'ok'} -> Room;
+        {'atomic', Result} -> Result;
         _Error -> 'false'
     end.
 
@@ -97,22 +99,22 @@ get_by_owner_id(OwnerId) ->
     Fun = fun()-> mnesia:dirty_index_read('room', OwnerId, #room.owner_id) end,
     mnesia:sync_dirty(Fun).
 
--spec get_chat(non_neg_integer(), non_neg_integer()) -> {binary(), access_group()} | 'not_exists' | 'forbidden'.
+-spec get_chat(non_neg_integer(), non_neg_integer()) -> {binary(), 0..7} | 'not_exists' | 'forbidden'.
 get_chat(RoomId, MSISDN) ->
     Fun = fun()->
                   case mnesia:dirty_read('room', RoomId) of
                       [#room{'chat_id' = 'undefined'}] ->
                           'not_exists';
-                      [#room{'access'  = #{MSISDN := 'banned'}}] ->
+                      [#room{'chat_access'  = #{MSISDN := 0}}] ->
                           'forbidden';
                       [#room{'chat_id' = ChatId
-                            ,'access'  = #{MSISDN := AccessGroup}}] ->
-                          {ChatId, AccessGroup};
-                      [#room{'access'  = #{'all' := 'banned'}}] ->
+                            ,'chat_access'  = #{MSISDN := AccessLevel}}] ->
+                          {ChatId, AccessLevel};
+                      [#room{'chat_access'  = #{'default' := 0}}] ->
                           'forbidden';
                       [#room{'chat_id' = ChatId
-                            ,'access'  = #{'all' := AccessGroup}}] ->
-                          {ChatId, AccessGroup};
+                            ,'chat_access'  = #{'default' := AccessLevel}}] ->
+                          {ChatId, AccessLevel};
                       _ ->
                           'not_exists'
                   end

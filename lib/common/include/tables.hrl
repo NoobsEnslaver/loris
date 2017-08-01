@@ -71,7 +71,8 @@
               ,description :: binary()
               ,sub_rooms :: [#room{}]
               ,owner_id :: non_neg_integer()
-              ,access :: map()                  %#{all => access_group(), MSISDN => access_group()} - access level for all, and exclusions
+              ,room_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
+              ,chat_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
               ,chat_id :: binary()}).
 
 -record(room_tag, {room_id,tag1 ='false',tag2 ='false',tag3 ='false',tag4 ='false',tag5 ='false',tag6 ='false',tag7 ='false',tag8 ='false',tag9 ='false',tag10='false'
