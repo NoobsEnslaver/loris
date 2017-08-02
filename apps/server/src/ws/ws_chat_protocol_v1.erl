@@ -22,6 +22,18 @@
 -record(user_state, {chats, rooms, token, muted_chats, msisdn, call, turn_server}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
+-define(ROOM_TO_ROOM_INFO(R), #s2c_room_info{room_id = R#room.id
+                                            ,name = R#room.name
+                                            ,description = R#room.description
+                                            ,tags = rooms:get_tag(R#room.id)
+                                            ,subrooms = R#room.subrooms
+                                            ,chat_id = R#room.chat_id
+                                            ,room_access = R#room.room_access
+                                            ,chat_access = R#room.chat_access}).
+-define(MAY_ADMIN(AL), AL div 4 == 1).
+-define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
+-define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
+
 default_user_state(Token)->
     Session = sessions:get(Token),
     UserMSISDN = Session#session.owner_id,
@@ -169,7 +181,10 @@ wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
         _ -> ?R2M(Msg, s2c_user_status)
     end;
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
-wrap_msg(Msg) when is_record(Msg, s2c_room_info) -> ?R2M(Msg, s2c_room_info);
+wrap_msg(Msg) when is_record(Msg, s2c_room_info) ->
+    TagsMap = common:remove('false', ?R2M(Msg#s2c_room_info.tags, room_tag)),
+    Map = ?R2M(Msg#s2c_room_info{tags = TagsMap}, s2c_room_info),
+    common:remove('undefined', Map);
 wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_create_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
 wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
@@ -340,7 +355,7 @@ do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #use
     Resp = case proplists:get_value(ChatId, Chats) of
                'undefined' ->
                    #s2c_error{code = 403};
-                _ ->
+               _ ->
                    chats:update_message_status(ChatId, MsgIdList),
                    ok
            end,
@@ -383,9 +398,62 @@ do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
     Users = users:search(FName, LName),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
-do_action(#c2s_room_get_info{}, _State) ->
-    Resp = #s2c_room_info{},
-    {Resp, _State};
+do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = State) ->
+    Response = case rooms:get(RoomId) of
+                   'false' ->                               % not found
+                       #s2c_error{code = 404};
+                   #room{owner_id = MSISDN} = R ->          % it's owner
+                       ?ROOM_TO_ROOM_INFO(R);
+                   #room{room_access = #{MSISDN := AL}} = R when ?MAY_ADMIN(AL) ->  %it's admin
+                       ?ROOM_TO_ROOM_INFO(R);
+                   #room{room_access = #{MSISDN := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) ->     % have access to the room...
+                       case CA of
+                           #{MSISDN := AL} when ?MAY_ADMIN(AL) ->   % chat admin
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined'};
+                           #{MSISDN := 0} ->                        % it's user with baned chat
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                           #{MSISDN := _} ->                        % it's user with normal chat access
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
+                           #{'default' := AL} when ?MAY_ADMIN(AL) -> % all chat admins
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined'};
+                           #{'default' := 0} ->       % chat closed
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                           _ ->                        % all users have normal chat access
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'}
+                       end;
+                   #room{room_access = #{'default' := AL}} = R when ?MAY_ADMIN(AL) ->       %all admins
+                       ?ROOM_TO_ROOM_INFO(R);
+                   #room{room_access = #{'default' := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) -> % have common access to the room...
+                       case CA of
+                           #{MSISDN := AL} when ?MAY_ADMIN(AL) ->   % chat admin
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined'};
+                           #{MSISDN := AL} when ?MAY_READ(AL) ->    % it's user with normal chat access
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
+                           #{MSISDN := _} ->                        % it's user with baned chat
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                           #{'default' := AL} when ?MAY_ADMIN(AL) -> % all chat admins
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined'};
+                           #{'default' := AL} when ?MAY_READ(AL) ->  % all users have normal chat access
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
+                           #{'default' := _} ->                     % chat closed
+                               Resp = ?ROOM_TO_ROOM_INFO(R),
+                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'}
+                       end;
+                   _ ->
+                       #s2c_error{code = 403}
+               end,
+    {Response, State};
 do_action(#c2s_room_set_info{}, _State) ->
     {ok, _State};
 do_action(#c2s_room_add_subroom{}, _State) ->

@@ -32,7 +32,7 @@ new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
                   Room = #room{id = Id
                               ,name = Name
                               ,description = Description
-                              ,sub_rooms = []
+                              ,subrooms = []
                               ,owner_id = OwnerId
                               ,room_access = RoomAccessMap
                               ,chat_access = ChatAccessMap

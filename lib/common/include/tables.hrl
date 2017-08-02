@@ -70,7 +70,7 @@
 -record(room, {id :: non_neg_integer()
               ,name :: binary()
               ,description :: binary()
-              ,sub_rooms :: [#room{}]
+              ,subrooms :: [#room{}]
               ,owner_id :: non_neg_integer()
               ,room_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
               ,chat_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions

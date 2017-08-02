@@ -18,7 +18,8 @@
         ,start_measure/1
         ,end_measure/2
         ,stringify/1
-        ,get_limited_amount_from_query/2]).
+        ,get_limited_amount_from_query/2
+        ,remove/2]).
 
 %%====================================================================
 %% API functions
@@ -50,8 +51,7 @@ get_body_data(Req)->
     end.
 
 timestamp()->
-    {MegaSecs,Secs,MicroSecs} = erlang:timestamp(),
-    round((MegaSecs*1000000 + Secs)*1000 + MicroSecs/1000). %in miliseconds
+    os:system_time('millisecond').
 
 trace_it(Module)->
     dbg:tracer(),
@@ -110,6 +110,11 @@ get_limited_amount_from_query(Q, Count) ->
             qlc:delete_cursor(Cursor),
             Resp
     end.
+
+remove(Value, [{_,_} | _] = Proplist)->
+    [{A,B} || {A,B} <- Proplist, A /= Value, B /= Value];
+remove(Value, Map) when is_map(Map) ->
+    maps:from_list(remove(Value, maps:to_list(Map))).
 
 %%====================================================================
 %% Internal functions
