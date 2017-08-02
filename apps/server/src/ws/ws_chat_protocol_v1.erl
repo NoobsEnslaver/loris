@@ -95,16 +95,27 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
                       ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE, <<"fname">> := FName, <<"lname">> := LName}) ->
     #c2s_user_search{fname = FName, lname = LName};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_TREE_TYPE}) -> #c2s_room_get_tree{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE}) -> #c2s_room_get_info{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_RENAME_TYPE}) -> #c2s_room_rename{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_ADD_USER_TYPE}) -> #c2s_room_add_user{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_DEL_USER_TYPE}) -> #c2s_room_del_user{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE}) -> #c2s_room_add_subroom{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE}) -> #c2s_room_create{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE}) -> #c2s_room_delete{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_ENTER_TO_CHAT_TYPE}) -> #c2s_room_enter_to_chat{};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_SEND_MESSAGE_TYPE}) -> #c2s_room_send_message{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
+    #c2s_room_get_info{room_id = RoomId};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := RoomId}) ->
+    Name = maps:get(<<"name">>, Msg, 'undefined'),
+    Desc = maps:get(<<"description">>, Msg, 'undefined'),
+    Tags = maps:get(<<"tags">>, Msg, 'undefined'),
+    RoomAccess = maps:get(<<"room_access">>, Msg, 'undefined'),
+    ChatAccess = maps:get(<<"chat_access">>, Msg, 'undefined'),
+    #c2s_room_set_info{name = Name, description = Desc, room_id = RoomId, tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
+    #c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DEL_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
+    #c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := RoomAccess, <<"chat_access">> := ChatAccess, <<"tags">> := Tags}) ->
+    #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE, <<"room_id">> := RoomId}) ->
+    #c2s_room_delete{room_id = RoomId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE, <<"name">> := Name, <<"tags">> := Tags}) ->
+    #c2s_room_search{name = Name, tags = Tags};
+unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := RoomId}) ->
+    #c2s_room_join_to_chat{room_id = RoomId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_accept_invatation{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
@@ -155,10 +166,9 @@ wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
         _ -> ?R2M(Msg, s2c_user_status)
     end;
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
-wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
 wrap_msg(Msg) when is_record(Msg, s2c_room_info) -> ?R2M(Msg, s2c_room_info);
-wrap_msg(Msg) when is_record(Msg, s2c_room_tree) -> ?R2M(Msg, s2c_room_tree);
 wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_create_result);
+wrap_msg(Msg) when is_record(Msg, s2c_room_search_result) -> ?R2M(Msg, s2c_room_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
 wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
 wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
@@ -370,30 +380,26 @@ do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
     Users = users:search(FName, LName),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
-do_action(_Msg = #c2s_room_get_tree{}, _State) ->
-    Resp = #s2c_room_tree{},
-    {Resp, _State};
-do_action(_Msg = #c2s_room_get_info{}, _State) ->
+do_action(#c2s_room_get_info{}, _State) ->
     Resp = #s2c_room_info{},
     {Resp, _State};
-do_action(_Msg = #c2s_room_rename{}, _State) ->
+do_action(#c2s_room_set_info{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_room_add_user{}, _State) ->
+do_action(#c2s_room_add_subroom{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_room_del_user{}, _State) ->
+do_action(#c2s_room_del_subroom{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_room_add_subroom{}, _State) ->
-    {ok, _State};
-do_action(_Msg = #c2s_room_create{}, _State) ->
+do_action(#c2s_room_search{}, _State) ->
+    Resp = #s2c_room_search_result{},
+    {Resp, _State};
+do_action(#c2s_room_create{}, _State) ->
     Resp = #s2c_room_create_result{},
     {Resp, _State};
-do_action(_Msg = #c2s_room_delete{}, _State) ->
+do_action(#c2s_room_delete{}, _State) ->
     {ok, _State};
-do_action(_Msg = #c2s_room_enter_to_chat{}, _State) ->
+do_action(#c2s_room_join_to_chat{}, _State) ->
     Resp = #s2c_chat_info{},
     {Resp, _State};
-do_action(_Msg = #c2s_room_send_message{}, _State) ->
-    {ok, _State};
 do_action(#c2s_call_offer{}, #user_state{call = #call_info{}} = _State) ->      % call record defined, call in progress
     Resp = #s2c_call_bye{code = 491},                                           % Request Pending
     {Resp, _State};

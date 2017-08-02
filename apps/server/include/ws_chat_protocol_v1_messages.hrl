@@ -27,12 +27,10 @@
 -define(C2S_ROOM_DELETE_TYPE, 20).
 -define(C2S_ROOM_SET_INFO_TYPE, 21).
 -define(C2S_ROOM_GET_INFO_TYPE, 22).
--define(C2S_ROOM_SET_ACCESS_TYPE, 23).
--define(C2S_ROOM_ADD_SUBROOM_TYPE, 24).
--define(C2S_ROOM_DEL_SUBROOM_TYPE, 25).
--define(C2S_ROOM_JOIN_TO_CHAT_TYPE, 26).
--define(C2S_ROOM_SET_TAGS_TYPE, 27).
--define(C2S_ROOM_SEARCH_TYPE, 28).
+-define(C2S_ROOM_ADD_SUBROOM_TYPE, 23).
+-define(C2S_ROOM_DEL_SUBROOM_TYPE, 24).
+-define(C2S_ROOM_JOIN_TO_CHAT_TYPE, 25).
+-define(C2S_ROOM_SEARCH_TYPE, 26).
 
 -define(C2S_CHAT_ACCEPT_INVATATION_TYPE, 29).
 -define(C2S_CHAT_REJECT_INVATATION_TYPE, 30).
@@ -97,15 +95,13 @@
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
--record(c2s_room_set_access, {msg_type = ?C2S_ROOM_SET_ACCESS_TYPE, room_id :: non_neg_integer(), chat_access :: map(), room_access :: map()}).
 -record(c2s_room_add_subroom, {msg_type = ?C2S_ROOM_ADD_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_del_subroom, {msg_type = ?C2S_ROOM_DEL_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_create, {msg_type = ?C2S_ROOM_CREATE_TYPE, name :: binary(), description :: binary(), room_access :: map(), chat_access :: map(), tags :: #room_tag{}}).
 -record(c2s_room_delete, {msg_type = ?C2S_ROOM_DELETE_TYPE, room_id :: non_neg_integer()}).
--record(c2s_room_set_info, {msg_type = ?C2S_ROOM_SET_INFO_TYPE, room_id :: non_neg_integer(), description :: binary(), name :: binary()}).
+-record(c2s_room_set_info, {msg_type = ?C2S_ROOM_SET_INFO_TYPE, room_id :: non_neg_integer(), description :: binary(), name :: binary(), tags :: #room_tag{}, room_access :: map(), chat_access :: map()}).
 -record(c2s_room_get_info, {msg_type = ?C2S_ROOM_GET_INFO_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_join_to_chat, {msg_type = ?C2S_ROOM_JOIN_TO_CHAT_TYPE, room_id :: non_neg_integer()}).
--record(c2s_room_set_tags, {msg_type = ?C2S_ROOM_SET_TAGS_TYPE, room_id :: non_neg_integer(), tags :: #room_tag{}}).
 -record(c2s_room_search, {msg_type = ?C2S_ROOM_SEARCH_TYPE, room_id :: non_neg_integer(), tags :: #room_tag{}, name :: binary()}).
 -record(c2s_call_offer, {msg_type = ?C2S_CALL_OFFER_TYPE, msisdn :: non_neg_integer(), sdp :: binary()}).
 -record(c2s_call_answer, {msg_type = ?C2S_CALL_ANSWER_TYPE, sdp :: binary()}).
@@ -142,7 +138,6 @@
                            | #c2s_room_set_info{}
                            | #c2s_room_get_info{}
                            | #c2s_room_join_to_chat{}
-                           | #c2s_room_set_tags{}
                            | #c2s_room_search{}
                            | #c2s_call_offer{}
                            | #c2s_call_answer{}
