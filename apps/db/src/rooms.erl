@@ -39,6 +39,9 @@ new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
                               ,chat_id = ChatId},
                   mnesia:write(Room),
                   mnesia:write(Tags#room_tag{room_id = Id}),
+                  User = users:get(OwnerId),
+                  RoomList = User#user.rooms,
+                  users:set_info(OwnerId, [{rooms, [{Id, 7} | RoomList]}]),
                   Room
           end,
     case mnesia:transaction(Fun) of
