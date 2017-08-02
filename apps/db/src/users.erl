@@ -247,6 +247,7 @@ set_info(MSISDN, Proplist) ->
                                             chats -> User#user{chats = Value};
                                             chats_invatations -> User#user{chats_invatations = Value};
                                             age -> User#user{age = Value};
+                                            rooms -> User#user{rooms = Value};
                                             fname -> User#user{fname = Value};
                                             lname -> User#user{lname = Value};
                                             is_male -> User#user{is_male = Value};
@@ -329,7 +330,7 @@ delete_pid(MSISDN) ->
 %%%-------------------------------------------------------------------
 %%% Data extractors
 %%%-------------------------------------------------------------------
--spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|age|chats|chats_invatations|is_male|access_level|muted_chats) -> binary() | non_neg_integer() | 'infinity' | access_group().
+-spec extract(#user{}, msisdn|group|pwd_hash|created|fname|lname|rooms|age|chats|chats_invatations|is_male|access_level|muted_chats) -> binary() | non_neg_integer() | 'infinity' | access_group().
 extract(#user{msisdn = MSISDN}, 'msisdn')-> MSISDN;
 extract(#user{group = G}, 'group')-> G;
 extract(#user{pwd_hash = PwdHash}, 'pwd_hash')-> PwdHash;
@@ -339,6 +340,7 @@ extract(#user{chats_invatations = CI}, 'chats_invatations')-> CI;
 extract(#user{age = Age}, 'age')-> Age;
 extract(#user{fname = FName}, 'fname')-> FName;
 extract(#user{lname = LName}, 'lname')-> LName;
+extract(#user{rooms = Rooms}, 'rooms')-> Rooms;
 extract(#user{is_male = IsMale}, 'is_male')-> IsMale;
 extract(#user{muted_chats = MC}, 'muted_chats')-> MC;
 extract(#user{last_visit_timestamp = LVTS}, 'last_visit_timestamp')-> LVTS;

@@ -22,6 +22,7 @@
               ,access_level :: non_neg_integer() | 'infinity'
               ,chats_invatations = [] :: [{binary(), access_group()}]
               ,chats = [] :: [{binary(), access_group()}]
+              ,rooms = [] :: [{non_neg_integer(), 0..7}]
               ,is_male :: boolean()
               ,muted_chats = [] :: [binary()]
               ,last_visit_timestamp :: non_neg_integer()}).

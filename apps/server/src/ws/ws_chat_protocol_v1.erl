@@ -19,26 +19,27 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, token, muted_chats, msisdn, call, turn_server}).
+-record(user_state, {chats, rooms, token, muted_chats, msisdn, call, turn_server}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
 default_user_state(Token)->
     Session = sessions:get(Token),
-    UserMSISDN = sessions:extract(Session, owner_id),
+    UserMSISDN = Session#session.owner_id,
     User = users:get(UserMSISDN),
-    ChatInvatations = users:extract(User, chats_invatations),
+    ChatInvatations = User#user.chats_invatations,
     lists:foreach(fun({ChatId, _})->
                           self() ! {chat_invatation, ChatId}
                   end, ChatInvatations),
     lists:foreach(fun({C, _AccessGroup})->
                           chats:subscribe(C)
-                  end, users:extract(User, chats)),
+                  end, User#user.chats),
     users:notify(UserMSISDN, 'online'),         %notify all subscribers
     pushes:delete(UserMSISDN),                  %delete all not sended pushes
-    #user_state{chats = users:extract(User, chats)
-               ,msisdn = users:extract(User, msisdn)
-               ,token = sessions:extract(Session, token)
-               ,muted_chats = users:extract(User, muted_chats)}.
+    #user_state{chats = User#user.chats
+               ,rooms = User#user.rooms
+               ,msisdn = User#user.msisdn
+               ,token = Session#session.token
+               ,muted_chats = User#user.muted_chats}.
 
 %%%===================================================================
 %%% Parse users message
@@ -114,8 +115,10 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE, <<"room_id">> := RoomId}) 
     #c2s_room_delete{room_id = RoomId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE, <<"name">> := Name, <<"tags">> := Tags}) ->
     #c2s_room_search{name = Name, tags = Tags};
-unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := RoomId}) ->
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_join_to_chat{room_id = RoomId};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_MY_ROOMS}) ->
+    #c2s_room_get_my_rooms{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_accept_invatation{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
@@ -168,7 +171,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
 wrap_msg(Msg) when is_record(Msg, s2c_user_search_result) -> ?R2M(Msg, s2c_user_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_info) -> ?R2M(Msg, s2c_room_info);
 wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_create_result);
-wrap_msg(Msg) when is_record(Msg, s2c_room_search_result) -> ?R2M(Msg, s2c_room_search_result);
+wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
 wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
 wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
 wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
@@ -390,7 +393,7 @@ do_action(#c2s_room_add_subroom{}, _State) ->
 do_action(#c2s_room_del_subroom{}, _State) ->
     {ok, _State};
 do_action(#c2s_room_search{}, _State) ->
-    Resp = #s2c_room_search_result{},
+    Resp = #s2c_room_list{},
     {Resp, _State};
 do_action(#c2s_room_create{}, _State) ->
     Resp = #s2c_room_create_result{},
@@ -398,8 +401,11 @@ do_action(#c2s_room_create{}, _State) ->
 do_action(#c2s_room_delete{}, _State) ->
     {ok, _State};
 do_action(#c2s_room_join_to_chat{}, _State) ->
-    Resp = #s2c_chat_info{},
+    Resp = #s2c_chat_invatation{},
     {Resp, _State};
+do_action(#c2s_room_get_my_rooms{}, #user_state{rooms = Rooms} = State) ->
+    Resp = #s2c_room_list{rooms = [RoomId || {RoomId, _} <- Rooms]},
+    {Resp, State};
 do_action(#c2s_call_offer{}, #user_state{call = #call_info{}} = _State) ->      % call record defined, call in progress
     Resp = #s2c_call_bye{code = 491},                                           % Request Pending
     {Resp, _State};
