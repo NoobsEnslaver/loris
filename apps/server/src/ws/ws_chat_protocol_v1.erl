@@ -587,8 +587,13 @@ do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,cha
                RoomId -> #s2c_room_create_result{room_id = RoomId}
            end,
     {Resp, State};
-do_action(#c2s_room_delete{}, _State) ->
-    {ok, _State};
+do_action(#c2s_room_delete{room_id = RoomId}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN} -> rooms:delete(RoomId), ok;
+               #room{} -> #s2c_error{code = 403};
+               _ -> #s2c_error{code = 404}
+           end,
+    {Resp, _State};
 do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN} = _State) ->
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN, chat_id = ChatId} when ChatId /= 'undefined' ->
