@@ -112,9 +112,24 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := RoomId}) ->
     Name = maps:get(<<"name">>, Msg, 'undefined'),
     Desc = maps:get(<<"description">>, Msg, 'undefined'),
-    Tags = maps:get(<<"tags">>, Msg, 'undefined'),
-    RoomAccess = maps:get(<<"room_access">>, Msg, 'undefined'),
-    ChatAccess = maps:get(<<"chat_access">>, Msg, 'undefined'),
+    Tags = case maps:get(<<"tags">>, Msg, 'undefined') of
+               'undefined' -> 'undefined';
+               Map when is_map(Map) -> map_to_record(room_tag, Map)
+           end,
+    RoomAccess = case maps:get(<<"room_access">>, Msg, 'undefined') of
+                     'undefined' -> 'undefined';
+                     Map1 when is_map(Map1) ->
+                         maps:fold(fun(K,V,Acc)->
+                                           maps:put(common:to_integer(K), common:to_integer(V), Acc)
+                                   end, #{}, Map1)
+                 end,
+    ChatAccess = case maps:get(<<"chat_access">>, Msg, 'undefined') of
+                     'undefined' -> 'undefined';
+                     Map2 when is_map(Map2) ->
+                         maps:fold(fun(K,V,Acc)->
+                                           maps:put(common:to_integer(K), common:to_integer(V), Acc)
+                                   end, #{}, Map2)
+                 end,
     #c2s_room_set_info{name = Name, description = Desc, room_id = RoomId, tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
     #c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId};
@@ -460,8 +475,59 @@ do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = S
                        #s2c_error{code = 403}
                end,
     {Response, State};
-do_action(#c2s_room_set_info{}, _State) ->
-    {ok, _State};
+do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,room_access=RA,chat_access=CA},#user_state{msisdn=MSISDN}=_State)->
+    UpdateRoom = fun(Room)->
+                         Room1 = case Name of
+                                     undefined -> Room;
+                                     _ -> Room#room{name = Name}
+                                 end,
+                         Room2 = case Desc of
+                                     'undefined' -> Room1;
+                                     _ -> Room#room{description = Desc}
+                                 end,
+                         Room3 = case RA of
+                                     'undefined' -> Room2;
+                                     _ -> Room#room{room_access = RA}
+                                 end,
+                         Room4 = case CA of
+                                     'undefined' -> Room3;
+                                     _ -> Room#room{chat_access = CA}
+                                 end,
+                         case T of
+                             undefined -> ok;
+                             _ when is_map(T) ->
+                                 rooms:set_tag(T#room_tag{room_id = RoomId})
+                         end,
+                         rooms:set(Room4),
+                         ok
+                 end,
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN} = Room ->
+                   UpdateRoom(Room);
+               #room{room_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   UpdateRoom(Room);
+               #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   UpdateRoom(Room);
+               #room{chat_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   case CA of
+                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
+                       _ -> #s2c_error{code = 403}
+                   end;
+               #room{chat_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{chat_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   case CA of
+                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
+                       _ -> #s2c_error{code = 403}
+                   end;
+               #room{} ->
+                   #s2c_error{code = 403};
+               _ ->
+                   #s2c_error{code = 404}
+           end,
+    {Resp, _State};
 do_action(#c2s_room_add_subroom{}, _State) ->
     {ok, _State};
 do_action(#c2s_room_del_subroom{}, _State) ->
