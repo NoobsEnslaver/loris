@@ -589,8 +589,29 @@ do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,cha
     {Resp, State};
 do_action(#c2s_room_delete{}, _State) ->
     {ok, _State};
-do_action(#c2s_room_join_to_chat{}, _State) ->
-    Resp = #s2c_chat_invatation{},
+do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, 7), ok;
+               #room{room_access = #{MSISDN := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{MSISDN := _}, chat_access = #{MSISDN := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{MSISDN := _}, chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{'default' := 0}} ->
+                   #s2c_error{code = 403};
+               #room{chat_access = #{MSISDN := 0}} ->
+                   #s2c_error{code = 403};
+               #room{chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{chat_access = #{'default' := 0}} ->
+                   #s2c_error{code = 403};
+               #room{chat_access = #{'default' := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               _ ->
+                   #s2c_error{code = 404}
+           end,
     {Resp, _State};
 do_action(#c2s_room_get_my_rooms{}, #user_state{msisdn = MSISDN} = State) ->
     User = users:get(MSISDN),
