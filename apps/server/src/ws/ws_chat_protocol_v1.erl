@@ -108,7 +108,7 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE, <<"fname">> := FName, <<"lname">> := LName}) ->
     #c2s_user_search{fname = FName, lname = LName};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
-    #c2s_room_get_info{room_id = RoomId};
+    #c2s_room_get_info{room_id = round(RoomId)};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := RoomId}) ->
     Name = maps:get(<<"name">>, Msg, 'undefined'),
     Desc = maps:get(<<"description">>, Msg, 'undefined'),
@@ -130,11 +130,11 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := R
                                            maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map2)
                  end,
-    #c2s_room_set_info{name = Name, description = Desc, room_id = RoomId, tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
+    #c2s_room_set_info{name = Name, description = Desc, room_id = round(RoomId), tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
-    #c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId};
+    #c2s_room_add_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DEL_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
-    #c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId};
+    #c2s_room_del_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := BRoomAccess, <<"chat_access">> := BChatAccess, <<"tags">> := BTags}) ->
     RoomAccess = maps:fold(fun(K,V,Acc)->
                                    maps:put(common:to_integer(K), common:to_integer(V), Acc)
@@ -145,11 +145,11 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"des
     Tags = map_to_record(room_tag, BTags),
     #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE, <<"room_id">> := RoomId}) ->
-    #c2s_room_delete{room_id = RoomId};
+    #c2s_room_delete{room_id = round(RoomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE, <<"name">> := Name, <<"tags">> := Tags}) ->
     #c2s_room_search{name = Name, tags = Tags};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := RoomId}) ->
-    #c2s_room_join_to_chat{room_id = RoomId};
+    #c2s_room_join_to_chat{room_id = round(RoomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_MY_ROOMS}) ->
     #c2s_room_get_my_rooms{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
@@ -528,10 +528,38 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                    #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(#c2s_room_add_subroom{}, _State) ->
-    {ok, _State};
-do_action(#c2s_room_del_subroom{}, _State) ->
-    {ok, _State};
+do_action(#c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN} = Room ->
+                   rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
+               #room{room_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
+               #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
+               #room{} ->
+                   #s2c_error{code = 403};
+               _ ->
+                   #s2c_error{code = 404}
+           end,
+    {Resp, _State};
+do_action(#c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN} = Room ->
+                   rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
+               #room{room_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
+               #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
+               #room{} ->
+                   #s2c_error{code = 403};
+               _ ->
+                   #s2c_error{code = 404}
+           end,
+    {Resp, _State};
 do_action(#c2s_room_search{}, _State) ->
     Resp = #s2c_room_list{},
     {Resp, _State};
