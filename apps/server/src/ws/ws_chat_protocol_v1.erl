@@ -146,7 +146,12 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"des
     #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_delete{room_id = round(RoomId)};
-unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE, <<"name">> := Name, <<"tags">> := Tags}) ->
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE}) ->
+    Name = maps:get(<<"name">>, Msg, 'undefined'),
+    Tags = case maps:get(<<"tags">>, Msg, 'undefined') of
+               'undefined' -> 'undefined';
+               BTags when is_map(BTags) -> map_to_record(room_tag, BTags, '_')
+           end,
     #c2s_room_search{name = Name, tags = Tags};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_join_to_chat{room_id = round(RoomId)};
@@ -560,8 +565,21 @@ do_action(#c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId}, #user
                    #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(#c2s_room_search{}, _State) ->
-    Resp = #s2c_room_list{},
+do_action(#c2s_room_search{name = 'undefined', tags = 'undefined'}, _State) ->
+    {ok, _State};
+do_action(#c2s_room_search{name = 'undefined', tags = Tags}, _State) ->
+    Rooms = rooms:search_by_tags(Tags#room_tag{room_id = '_'}),
+    Resp = #s2c_room_list{rooms = Rooms},
+    {Resp, _State};
+do_action(#c2s_room_search{name = Name, tags = 'undefined'}, _State) ->
+    Rooms = rooms:search_by_name(Name),
+    Resp = #s2c_room_list{rooms = Rooms},
+    {Resp, _State};
+do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
+    Rooms1 = rooms:search_by_tags(Tags#room_tag{room_id = '_'}),
+    Rooms2 = rooms:search_by_name(Name),
+    Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
+    Resp = #s2c_room_list{rooms = Intersection},
     {Resp, _State};
 do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
     Resp = case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
@@ -802,35 +820,37 @@ access_level() ->
 %%% Internal functions
 %%%===================================================================
 map_to_record('room_tag', Map) ->
-    #room_tag{tag1 = maps:get(Map, <<"tag1">>, 'false')
-             ,tag2 = maps:get(Map, <<"tag2">>, 'false')
-             ,tag3 = maps:get(Map, <<"tag3">>, 'false')
-             ,tag4 = maps:get(Map, <<"tag4">>, 'false')
-             ,tag5 = maps:get(Map, <<"tag5">>, 'false')
-             ,tag6 = maps:get(Map, <<"tag6">>, 'false')
-             ,tag7 = maps:get(Map, <<"tag7">>, 'false')
-             ,tag8 = maps:get(Map, <<"tag8">>, 'false')
-             ,tag9 = maps:get(Map, <<"tag9">>, 'false')
-             ,tag10= maps:get(Map, <<"tag10">>, 'false')
-             ,tag11= maps:get(Map, <<"tag11">>, 'false')
-             ,tag12= maps:get(Map, <<"tag12">>, 'false')
-             ,tag13= maps:get(Map, <<"tag13">>, 'false')
-             ,tag14= maps:get(Map, <<"tag14">>, 'false')
-             ,tag15= maps:get(Map, <<"tag15">>, 'false')
-             ,tag16= maps:get(Map, <<"tag16">>, 'false')
-             ,tag17= maps:get(Map, <<"tag17">>, 'false')
-             ,tag18= maps:get(Map, <<"tag18">>, 'false')
-             ,tag19= maps:get(Map, <<"tag19">>, 'false')
-             ,tag20= maps:get(Map, <<"tag20">>, 'false')
-             ,tag21= maps:get(Map, <<"tag21">>, 'false')
-             ,tag22= maps:get(Map, <<"tag22">>, 'false')
-             ,tag23= maps:get(Map, <<"tag23">>, 'false')
-             ,tag24= maps:get(Map, <<"tag24">>, 'false')
-             ,tag25= maps:get(Map, <<"tag25">>, 'false')
-             ,tag26= maps:get(Map, <<"tag26">>, 'false')
-             ,tag27= maps:get(Map, <<"tag27">>, 'false')
-             ,tag28= maps:get(Map, <<"tag28">>, 'false')
-             ,tag29= maps:get(Map, <<"tag29">>, 'false')
-             ,tag30= maps:get(Map, <<"tag30">>, 'false')
-             ,tag31= maps:get(Map, <<"tag31">>, 'false')
-             ,tag32= maps:get(Map, <<"tag32">>, 'false')}.
+    map_to_record('room_tag', Map, 'false').
+map_to_record('room_tag', Map, Default) ->
+    #room_tag{tag1 = maps:get(Map, <<"tag1">>, Default)
+             ,tag2 = maps:get(Map, <<"tag2">>, Default)
+             ,tag3 = maps:get(Map, <<"tag3">>, Default)
+             ,tag4 = maps:get(Map, <<"tag4">>, Default)
+             ,tag5 = maps:get(Map, <<"tag5">>, Default)
+             ,tag6 = maps:get(Map, <<"tag6">>, Default)
+             ,tag7 = maps:get(Map, <<"tag7">>, Default)
+             ,tag8 = maps:get(Map, <<"tag8">>, Default)
+             ,tag9 = maps:get(Map, <<"tag9">>, Default)
+             ,tag10= maps:get(Map, <<"tag10">>, Default)
+             ,tag11= maps:get(Map, <<"tag11">>, Default)
+             ,tag12= maps:get(Map, <<"tag12">>, Default)
+             ,tag13= maps:get(Map, <<"tag13">>, Default)
+             ,tag14= maps:get(Map, <<"tag14">>, Default)
+             ,tag15= maps:get(Map, <<"tag15">>, Default)
+             ,tag16= maps:get(Map, <<"tag16">>, Default)
+             ,tag17= maps:get(Map, <<"tag17">>, Default)
+             ,tag18= maps:get(Map, <<"tag18">>, Default)
+             ,tag19= maps:get(Map, <<"tag19">>, Default)
+             ,tag20= maps:get(Map, <<"tag20">>, Default)
+             ,tag21= maps:get(Map, <<"tag21">>, Default)
+             ,tag22= maps:get(Map, <<"tag22">>, Default)
+             ,tag23= maps:get(Map, <<"tag23">>, Default)
+             ,tag24= maps:get(Map, <<"tag24">>, Default)
+             ,tag25= maps:get(Map, <<"tag25">>, Default)
+             ,tag26= maps:get(Map, <<"tag26">>, Default)
+             ,tag27= maps:get(Map, <<"tag27">>, Default)
+             ,tag28= maps:get(Map, <<"tag28">>, Default)
+             ,tag29= maps:get(Map, <<"tag29">>, Default)
+             ,tag30= maps:get(Map, <<"tag30">>, Default)
+             ,tag31= maps:get(Map, <<"tag31">>, Default)
+             ,tag32= maps:get(Map, <<"tag32">>, Default)}.

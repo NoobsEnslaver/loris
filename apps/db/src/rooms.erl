@@ -127,7 +127,7 @@ get_chat(RoomId, MSISDN) ->
 %% TODO: optimize it
 -spec search_by_name(binary()) -> [non_neg_integer()].
 search_by_name(Name) when  byte_size(Name) > 2 ->
-    Q = qlc:q([R#room.name || R <- mnesia:table('room'), binary:match(R#room.name, Name) /= 'nomatch']),
+    Q = qlc:q([R#room.id || R <- mnesia:table('room'), binary:match(R#room.name, Name) /= 'nomatch']),
     Fun = common:get_limited_amount_from_query(Q, 20),
     mnesia:sync_dirty(Fun);
 search_by_name(_) -> [].
