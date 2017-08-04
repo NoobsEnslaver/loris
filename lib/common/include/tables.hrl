@@ -40,7 +40,7 @@
 
 -record(chat_info, {chat_id :: binary()
                    ,name :: binary()
-                   ,users :: [binary()]
+                   ,users :: [non_neg_integer()]
                    ,chat_owner :: non_neg_integer()}).
 
 -record(index, {name :: binary()
@@ -70,7 +70,7 @@
 -record(room, {id :: non_neg_integer()
               ,name :: binary()
               ,description :: binary()
-              ,subrooms :: [#room{}]
+              ,subrooms :: [non_neg_integer()]
               ,owner_id :: non_neg_integer()
               ,room_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
               ,chat_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
@@ -79,6 +79,6 @@
 -record(room_tag, {room_id,tag1 ='false',tag2 ='false',tag3 ='false',tag4 ='false',tag5 ='false',tag6 ='false',tag7 ='false',tag8 ='false',tag9 ='false',tag10='false'
                           ,tag11='false',tag12='false',tag13='false',tag14='false',tag15='false',tag16='false',tag17='false',tag18='false',tag19='false',tag20='false'
                           ,tag21='false',tag22='false',tag23='false',tag24='false',tag25='false',tag26='false',tag27='false',tag28='false',tag29='false',tag30='false'
-                          ,tag31='false',tag32='false'}).
+                          ,tag31='false',tag32='false', name :: binary()}).
 
 -endif.

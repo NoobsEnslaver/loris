@@ -213,6 +213,7 @@ wrap_msg(Msg) when is_record(Msg, s2c_room_info) ->
     common:remove('undefined', Map);
 wrap_msg(Msg) when is_record(Msg, s2c_room_create_result) -> ?R2M(Msg, s2c_room_create_result);
 wrap_msg(Msg) when is_record(Msg, s2c_room_list) -> ?R2M(Msg, s2c_room_list);
+wrap_msg(Msg) when is_record(Msg, s2c_room_search_result) -> ?R2M(Msg, s2c_room_search_result);
 wrap_msg(Msg) when is_record(Msg, s2c_chat_invatation) -> ?R2M(Msg, s2c_chat_invatation);
 wrap_msg(Msg) when is_record(Msg, s2c_error) -> ?R2M(Msg, s2c_error);
 wrap_msg(Msg) when is_record(Msg, s2c_message_send_result) -> ?R2M(Msg, s2c_message_send_result);
@@ -272,16 +273,19 @@ do_action(#c2s_chat_create{users = [YourMSISDN], name = ChatName, is_p2p = 'true
         _ -> {#s2c_error{code = 500}, State}
     end;
 do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
-    ChatId = chats:new(),
-    chat_info:new(ChatId, ChatName, MSISDN),
-    users:invite_to_chat(ChatId, MSISDN, 'administrators'),
-    users:accept_invatation(ChatId, MSISDN),
-    chats:subscribe(ChatId),
-    lists:foreach(fun(U)->
-                          chats:invite_to_chat(ChatId, U, 'users')
-                  end, Users),
-    Resp = #s2c_chat_create_result{chat_id = ChatId},
-    {Resp, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
+    case chats:new() of
+        {ok, ChatId} ->
+            chat_info:new(ChatId, ChatName, MSISDN),
+            users:invite_to_chat(ChatId, MSISDN, 'administrators'),
+            users:accept_invatation(ChatId, MSISDN),
+            chats:subscribe(ChatId),
+            lists:foreach(fun(U)->
+                                  chats:invite_to_chat(ChatId, U, 'users')
+                          end, Users),
+            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = [{ChatId, 'administrators'} | OldChats]}};
+        _ ->
+            {#s2c_error{code = 500}, State}
+    end;
 do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     case proplists:get_value(ChatId, OldChats) of
         'undefined' ->
@@ -500,8 +504,8 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                                  end,
                          case T of
                              undefined -> ok;
-                             _ when is_map(T) ->
-                                 rooms:set_tag(T#room_tag{room_id = RoomId})
+                             _ when is_map(T)->
+                                 rooms:set_tag(T#room_tag{room_id = RoomId, name = Room4#room.name})
                          end,
                          rooms:set(Room4),
                          ok
@@ -569,17 +573,17 @@ do_action(#c2s_room_search{name = 'undefined', tags = 'undefined'}, _State) ->
     {ok, _State};
 do_action(#c2s_room_search{name = 'undefined', tags = Tags}, _State) ->
     Rooms = rooms:search_by_tags(Tags#room_tag{room_id = '_'}),
-    Resp = #s2c_room_list{rooms = Rooms},
+    Resp = #s2c_room_search_result{rooms = Rooms},
     {Resp, _State};
 do_action(#c2s_room_search{name = Name, tags = 'undefined'}, _State) ->
     Rooms = rooms:search_by_name(Name),
-    Resp = #s2c_room_list{rooms = Rooms},
+    Resp = #s2c_room_search_result{rooms = Rooms},
     {Resp, _State};
 do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     Rooms1 = rooms:search_by_tags(Tags#room_tag{room_id = '_'}),
     Rooms2 = rooms:search_by_name(Name),
     Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
-    Resp = #s2c_room_list{rooms = Intersection},
+    Resp = #s2c_room_search_result{rooms = Intersection},
     {Resp, _State};
 do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
     Resp = case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
@@ -848,35 +852,35 @@ access_level() ->
 map_to_record('room_tag', Map) ->
     map_to_record('room_tag', Map, 'false').
 map_to_record('room_tag', Map, Default) ->
-    #room_tag{tag1 = maps:get(Map, <<"tag1">>, Default)
-             ,tag2 = maps:get(Map, <<"tag2">>, Default)
-             ,tag3 = maps:get(Map, <<"tag3">>, Default)
-             ,tag4 = maps:get(Map, <<"tag4">>, Default)
-             ,tag5 = maps:get(Map, <<"tag5">>, Default)
-             ,tag6 = maps:get(Map, <<"tag6">>, Default)
-             ,tag7 = maps:get(Map, <<"tag7">>, Default)
-             ,tag8 = maps:get(Map, <<"tag8">>, Default)
-             ,tag9 = maps:get(Map, <<"tag9">>, Default)
-             ,tag10= maps:get(Map, <<"tag10">>, Default)
-             ,tag11= maps:get(Map, <<"tag11">>, Default)
-             ,tag12= maps:get(Map, <<"tag12">>, Default)
-             ,tag13= maps:get(Map, <<"tag13">>, Default)
-             ,tag14= maps:get(Map, <<"tag14">>, Default)
-             ,tag15= maps:get(Map, <<"tag15">>, Default)
-             ,tag16= maps:get(Map, <<"tag16">>, Default)
-             ,tag17= maps:get(Map, <<"tag17">>, Default)
-             ,tag18= maps:get(Map, <<"tag18">>, Default)
-             ,tag19= maps:get(Map, <<"tag19">>, Default)
-             ,tag20= maps:get(Map, <<"tag20">>, Default)
-             ,tag21= maps:get(Map, <<"tag21">>, Default)
-             ,tag22= maps:get(Map, <<"tag22">>, Default)
-             ,tag23= maps:get(Map, <<"tag23">>, Default)
-             ,tag24= maps:get(Map, <<"tag24">>, Default)
-             ,tag25= maps:get(Map, <<"tag25">>, Default)
-             ,tag26= maps:get(Map, <<"tag26">>, Default)
-             ,tag27= maps:get(Map, <<"tag27">>, Default)
-             ,tag28= maps:get(Map, <<"tag28">>, Default)
-             ,tag29= maps:get(Map, <<"tag29">>, Default)
-             ,tag30= maps:get(Map, <<"tag30">>, Default)
-             ,tag31= maps:get(Map, <<"tag31">>, Default)
-             ,tag32= maps:get(Map, <<"tag32">>, Default)}.
+    #room_tag{tag1 = maps:get(<<"tag1">>, Map, Default)
+             ,tag2 = maps:get(<<"tag2">>, Map, Default)
+             ,tag3 = maps:get(<<"tag3">>, Map, Default)
+             ,tag4 = maps:get(<<"tag4">>, Map, Default)
+             ,tag5 = maps:get(<<"tag5">>, Map, Default)
+             ,tag6 = maps:get(<<"tag6">>, Map, Default)
+             ,tag7 = maps:get(<<"tag7">>, Map, Default)
+             ,tag8 = maps:get(<<"tag8">>, Map, Default)
+             ,tag9 = maps:get(<<"tag9">>, Map, Default)
+             ,tag10= maps:get(<<"tag10">>, Map, Default)
+             ,tag11= maps:get(<<"tag11">>, Map, Default)
+             ,tag12= maps:get(<<"tag12">>, Map, Default)
+             ,tag13= maps:get(<<"tag13">>, Map, Default)
+             ,tag14= maps:get(<<"tag14">>, Map, Default)
+             ,tag15= maps:get(<<"tag15">>, Map, Default)
+             ,tag16= maps:get(<<"tag16">>, Map, Default)
+             ,tag17= maps:get(<<"tag17">>, Map, Default)
+             ,tag18= maps:get(<<"tag18">>, Map, Default)
+             ,tag19= maps:get(<<"tag19">>, Map, Default)
+             ,tag20= maps:get(<<"tag20">>, Map, Default)
+             ,tag21= maps:get(<<"tag21">>, Map, Default)
+             ,tag22= maps:get(<<"tag22">>, Map, Default)
+             ,tag23= maps:get(<<"tag23">>, Map, Default)
+             ,tag24= maps:get(<<"tag24">>, Map, Default)
+             ,tag25= maps:get(<<"tag25">>, Map, Default)
+             ,tag26= maps:get(<<"tag26">>, Map, Default)
+             ,tag27= maps:get(<<"tag27">>, Map, Default)
+             ,tag28= maps:get(<<"tag28">>, Map, Default)
+             ,tag29= maps:get(<<"tag29">>, Map, Default)
+             ,tag30= maps:get(<<"tag30">>, Map, Default)
+             ,tag31= maps:get(<<"tag31">>, Map, Default)
+             ,tag32= maps:get(<<"tag32">>, Map, Default)}.

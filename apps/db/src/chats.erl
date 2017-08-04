@@ -34,8 +34,10 @@ new() ->
            ,{record_name, 'message'}
            ,{disc_copies,[node() | nodes()]}
            ,{type, ordered_set}],               %For fastest message grabbing by period
-    mnesia:create_table(Name, Opts),
-    Id.
+    case mnesia:create_table(Name, Opts) of
+        {atomic, ok} -> {ok, Id};
+        _ -> 'false'
+    end.
 
 new_p2p(MSISDN1, MSISDN2) ->
     [M1, M2] = [erlang:integer_to_binary(M) || M <- lists:sort([MSISDN1, MSISDN2])],

@@ -60,6 +60,7 @@
 -define(S2C_ROOM_CREATE_RESULT_TYPE, 113).
 -define(S2C_ROOM_INFO_TYPE, 114).
 -define(S2C_ROOM_LIST_TYPE, 115).
+-define(S2C_ROOM_SEARCH_RESULT_TYPE, 116).
 -define(S2C_MESSAGE_LIST_TYPE, 117).
 -define(S2C_MESSAGE_SEND_RESULT_TYPE, 118).
 -define(S2C_CALL_OFFER_TYPE, 119).
@@ -168,6 +169,7 @@
 -record(s2c_room_create_result, {msg_type = ?S2C_ROOM_CREATE_RESULT_TYPE, room_id :: non_neg_integer()}).
 -record(s2c_room_info, {msg_type = ?S2C_ROOM_INFO_TYPE, room_id :: non_neg_integer(), name :: binary(), description :: binary(), tags :: #room_tag{}, subrooms :: [non_neg_integer()], chat_id :: binary(),room_access :: map(), chat_access :: map()}).
 -record(s2c_room_list, {msg_type = ?S2C_ROOM_LIST_TYPE, rooms :: [non_neg_integer()]}).
+-record(s2c_room_search_result, {msg_type = ?S2C_ROOM_SEARCH_RESULT_TYPE, rooms :: map()}).
 -record(s2c_message_send_result, {msg_type = ?S2C_MESSAGE_SEND_RESULT_TYPE, msg_id :: non_neg_integer(), chat_id :: non_neg_integer()}).
 -record(s2c_turn_server, {msg_type = ?S2C_TURN_SERVER_TYPE, adress :: binary(), port :: non_neg_integer(), username :: binary(),realm :: binary(), credential :: binary(), credential_type :: binary()}).
 -record(s2c_call_offer, {msg_type = ?S2C_CALL_OFFER_TYPE, msisdn :: non_neg_integer(), sdp :: binary(), turn_server :: #s2c_turn_server{}}).
