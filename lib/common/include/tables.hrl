@@ -1,7 +1,7 @@
 -ifndef(TABLES_HRL).
 -define(TABLES_HRL, 'true').
 
--type access_group() :: 'guests'|'users'|'administrators'|'banned'.
+-type access_group() :: 'guests'|'users'|'administrators'|'company'.
 
 -record(file, {id :: non_neg_integer()
               ,hash :: binary()
@@ -20,8 +20,8 @@
               ,age :: non_neg_integer()
               ,created :: non_neg_integer()
               ,access_level :: non_neg_integer() | 'infinity'
-              ,chats_invatations = [] :: [{binary(), access_group()}]
-              ,chats = [] :: [{binary(), access_group()}]
+              ,chats_invatations = [] :: [{binary(), 0..7}]
+              ,chats = [] :: [{binary(), 0..7}]
               ,rooms = [] :: [{non_neg_integer(), 0..7}]
               ,is_male :: boolean()
               ,muted_chats = [] :: [binary()]

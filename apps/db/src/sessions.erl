@@ -12,6 +12,7 @@
 -export([get/1
         ,get_by_owner_id/1
         ,get_tokens/0
+        ,set/1
         ,delete/1
         ,new/2
         ,extract/2
@@ -35,6 +36,14 @@ get(Token)->
     case mnesia:transaction(Fun) of
         {'atomic', [Result]} -> Result;
         _ -> 'false'
+    end.
+
+-spec set(#session{}) -> 'ok' | 'false'.
+set(Session) when is_record(Session, session)->
+    Fun = fun()-> mnesia:write(Session) end,
+    case mnesia:transaction(Fun) of
+        {'atomic', Res} -> Res;
+        _Error -> 'false'
     end.
 
 -spec get_by_owner_id(binary()) -> #session{} | 'false'.

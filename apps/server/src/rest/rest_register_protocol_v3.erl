@@ -25,7 +25,8 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_co
     Group = case maps:get(<<"group">>, ReqBody, <<"users">>) of
                 <<"users">> -> 'users';
                 <<"guests">>-> 'guests';
-                <<"administrators">> -> 'administrators'
+                <<"administrators">> -> 'administrators';
+                <<"company">> -> 'company'
             end,
     FName = maps:get(<<"fname">>, ReqBody, <<>>),
     LName = maps:get(<<"lname">>, ReqBody, <<>>),

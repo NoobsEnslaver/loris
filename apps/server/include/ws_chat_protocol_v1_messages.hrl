@@ -43,6 +43,7 @@
 -define(C2S_DEVICE_REGISTER, 41).
 -define(C2S_USER_SUBSCRIBE_TYPE, 42).
 -define(C2S_USER_UNSUBSCRIBE_TYPE, 43).
+-define(C2S_USER_UPGRADE_TO_COMPANY_TYPE, 44).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -95,6 +96,7 @@
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
+-record(c2s_user_upgrade_to_company, {msg_type = ?C2S_USER_UPGRADE_TO_COMPANY_TYPE}).
 -record(c2s_room_add_subroom, {msg_type = ?C2S_ROOM_ADD_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_del_subroom, {msg_type = ?C2S_ROOM_DEL_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_create, {msg_type = ?C2S_ROOM_CREATE_TYPE, name :: binary(), description :: binary(), room_access :: map(), chat_access :: map(), tags :: #room_tag{}}).
@@ -149,7 +151,8 @@
                            | #c2s_lock_turn_server{}
                            | #c2s_device_register{}
                            | #c2s_user_subscribe{}
-                           | #c2s_user_unsubscribe{}.
+                           | #c2s_user_unsubscribe{}
+                           | #c2s_user_upgrade_to_company{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).

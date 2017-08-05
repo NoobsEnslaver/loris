@@ -96,6 +96,8 @@ unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> :=
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
     #c2s_message_update_status{chat_id = ChatId, msg_id = [round(M) || M <- MsgIdList]};
 unwrap_msg(_Msg = #{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_COMPANY_TYPE}) ->
+    #c2s_user_upgrade_to_company{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := MSISDN}) ->
@@ -392,6 +394,11 @@ do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #use
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
+do_action(#c2s_user_upgrade_to_company{}, #user_state{msisdn = MSISDN, token = Token} = _State) ->
+    users:set_info(MSISDN, [{'group', 'company'}]),
+    Session = sessions:get(Token),
+    sessions:set(Session#session{'group' = 'company'}),
+    {ok, _State};
 do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
     Resp = case users:get(MSISDN) of
                #user{fname = FName, lname = LName, age = Age, is_male = IsMale} ->
@@ -585,10 +592,15 @@ do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
     Resp = #s2c_room_search_result{rooms = Intersection},
     {Resp, _State};
-do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
-    Resp = case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
-               'false'-> #s2c_error{code = 500};
-               RoomId -> #s2c_room_create_result{room_id = RoomId}
+do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN,token=Token}=State) ->
+    Resp = case sessions:get(Token) of
+               #session{group = 'company'} ->
+                   case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
+                       'false'-> #s2c_error{code = 500};
+                       RoomId -> #s2c_room_create_result{room_id = RoomId}
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
            end,
     {Resp, State};
 do_action(#c2s_room_delete{room_id = RoomId}, #user_state{msisdn = MSISDN} = _State) ->
