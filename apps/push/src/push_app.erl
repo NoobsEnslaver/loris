@@ -41,7 +41,7 @@ notify_call(CalleeMSISDN, CallerMSISDN)->
             BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
             [device:delete(M, Id) || #device{msisdn = M, id = Id, push_token = T} <- AndroidDevices, lists:member(T, BadTokens)]
     end,
-    [gen_server:cast('push_apple_server', {call, D#device.push_token, CallerMSISDN}) || D <- IosDevices],
+    [gen_server:cast('push_apple_server', {call, D, CallerMSISDN}) || D <- IosDevices],
     ok.
 
 notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
@@ -61,12 +61,12 @@ notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
             BadTokens = [T || {T, <<"InvalidRegistration">>} <- Resp],
             [device:delete(M, Id) || #device{msisdn = M, id = Id, push_token = T} <- AndroidDevices, lists:member(T, BadTokens)]
     end,
-    [gen_server:cast('push_apple_server', {msg, D#device.push_token, ChatId, MsgId}) || D <- IosDevices],
+    [gen_server:cast('push_apple_server', {msg, D, ChatId, MsgId}) || D <- IosDevices],
     ok.
 
 notify_msg_loud(MSISDN, ChatName, Msg, Badge)->
     #{ios := IosDevices} = device:get_by_type([MSISDN]),
-    [gen_server:cast('push_apple_server', {msg_loud, D#device.push_token, ChatName, Msg, Badge}) || D <- IosDevices],
+    [gen_server:cast('push_apple_server', {msg_loud, D, ChatName, Msg, Badge}) || D <- IosDevices],
     ok.
 
 %%====================================================================

@@ -9,6 +9,7 @@
 -module(push_apple_server).
 
 -behaviour(gen_server).
+-include_lib("common/include/tables.hrl").
 
 %% API
 -export([start_link/1]).
@@ -134,27 +135,39 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, PushToken, CallerMSISDN}, _State) ->                    %incoming call
+handle_cast({call, #device{push_token = PushToken, id = DevId, msisdn = Owner}, CallerMSISDN}, _State) -> %incoming call
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
     Headers = #{'apns_priority' => <<"10">>},
-    apns:push_notification(apple_voip_push, PushToken, Payload, Headers),
+    case apns:push_notification(apple_voip_push, PushToken, Payload, Headers) of
+        {400,_,_} -> device:delete(Owner, DevId);
+        _ -> ok
+    end,
     {noreply, _State};
-handle_cast({msg, PushToken, 'undefined', 'undefined'}, _State) ->  %chat invatation
+handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, 'undefined', 'undefined'}, _State) ->    %chat invatation
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
-    apns:push_notification(apple_push, PushToken, Payload),
+    case apns:push_notification(apple_push, PushToken, Payload) of
+        {400,_,_} -> device:delete(Owner, DevId);
+        _ -> ok
+    end,
     {noreply, _State};
-handle_cast({msg, PushToken, ChatId, MsgId}, _State) ->             %new chat msg
+handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatId, MsgId}, _State) ->               %new chat msg
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"chat_id">> => ChatId
                ,<<"msg_id">> => MsgId},
-    apns:push_notification(apple_push, PushToken, Payload),
+    case apns:push_notification(apple_push, PushToken, Payload) of
+        {400,_,_} -> device:delete(Owner, DevId);
+        _ -> ok
+    end,
     {noreply, _State};
-handle_cast({msg_loud, PushToken, ChatName, Msg, Badge}, _State) ->             %loud push msg
+handle_cast({msg_loud, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatName, Msg, Badge}, _State) ->   %loud push msg
     Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => ChatName,
                                                 <<"body">> => Msg}}
                ,<<"badge">> => Badge},     %% number of unread
-    apns:push_notification(apple_push, PushToken, Payload),
+    case apns:push_notification(apple_push, PushToken, Payload) of
+        {400,_,_} -> device:delete(Owner, DevId);
+        _ -> ok
+    end,
     {noreply, _State};
 handle_cast(_Msg, _State) ->
     lager:info("unexpected msg on ~p:~p: ~p", [?MODULE, ?LINE, _Msg]),
