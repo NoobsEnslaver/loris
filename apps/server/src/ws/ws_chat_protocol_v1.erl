@@ -22,14 +22,17 @@
 -record(user_state, {chats, token, muted_chats, msisdn, call, turn_server}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
--define(ROOM_TO_ROOM_INFO(R), #s2c_room_info{room_id = R#room.id
-                                            ,name = R#room.name
-                                            ,description = R#room.description
-                                            ,tags = rooms:get_tag(R#room.id)
-                                            ,subrooms = R#room.subrooms
-                                            ,chat_id = R#room.chat_id
-                                            ,room_access = R#room.room_access
-                                            ,chat_access = R#room.chat_access}).
+-define(ROOM_TO_ROOM_INFO(R), begin
+                                  Tag = rooms:get_tag(R#room.id),
+                                  #s2c_room_info{room_id = R#room.id
+                                                ,name = R#room.name
+                                                ,description = R#room.description
+                                                ,tags = Tag#room_tag{name = false, room_id = false}
+                                                ,subrooms = R#room.subrooms
+                                                ,chat_id = R#room.chat_id
+                                                ,room_access = R#room.room_access
+                                                ,chat_access = R#room.chat_access}
+                              end).
 -define(MAY_ADMIN(AL), AL div 4 == 1).
 -define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
 -define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
@@ -121,15 +124,15 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := R
     RoomAccess = case maps:get(<<"room_access">>, Msg, 'undefined') of
                      'undefined' -> 'undefined';
                      Map1 when is_map(Map1) ->
-                         maps:fold(fun(K,V,Acc)->
-                                           maps:put(common:to_integer(K), common:to_integer(V), Acc)
+                         maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                                      (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map1)
                  end,
     ChatAccess = case maps:get(<<"chat_access">>, Msg, 'undefined') of
                      'undefined' -> 'undefined';
                      Map2 when is_map(Map2) ->
-                         maps:fold(fun(K,V,Acc)->
-                                           maps:put(common:to_integer(K), common:to_integer(V), Acc)
+                         maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                                      (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map2)
                  end,
     #c2s_room_set_info{name = Name, description = Desc, room_id = round(RoomId), tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
@@ -138,11 +141,11 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE, <<"room_id">> := Room
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DEL_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
     #c2s_room_del_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := BRoomAccess, <<"chat_access">> := BChatAccess, <<"tags">> := BTags}) ->
-    RoomAccess = maps:fold(fun(K,V,Acc)->
-                                   maps:put(common:to_integer(K), common:to_integer(V), Acc)
+    RoomAccess = maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                              (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BRoomAccess),
-    ChatAccess = maps:fold(fun(K,V,Acc)->
-                                   maps:put(common:to_integer(K), common:to_integer(V), Acc)
+    ChatAccess = maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                              (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BChatAccess),
     Tags = map_to_record(room_tag, BTags),
     #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags};
@@ -464,6 +467,8 @@ do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = S
                                Resp = ?ROOM_TO_ROOM_INFO(R),
                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'}
                        end;
+                   #room{room_access = #{MSISDN := _}} ->
+                       #s2c_error{code = 403};
                    #room{room_access = #{'default' := AL}} = R when ?MAY_ADMIN(AL) ->       %all admins
                        ?ROOM_TO_ROOM_INFO(R);
                    #room{room_access = #{'default' := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) -> % have common access to the room...
