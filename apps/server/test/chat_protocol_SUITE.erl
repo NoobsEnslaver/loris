@@ -135,8 +135,7 @@ groups() ->
                  ,room_set_info_test
                  %% ,room_join_to_chat_test
                  ,room_delete_test
-                 %% ,room_add_subroom_test
-                 %% ,room_del_subroom_test
+                 ,room_add_del_subroom_test
                  ]}
     ,{calls, [], [call_normal_answer_test
                  ,call_reject_call_test
@@ -1147,6 +1146,57 @@ room_delete_test(Config) ->
     timer:sleep(100),
     send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
     #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport1),
+    ok.
+
+room_add_del_subroom_test(Config)->
+    [#{user := User1, transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport2),
+    timer:sleep(100),
+    MSISDN2 = users:extract(User2, msisdn),
+    Room = #c2s_room_create{name= <<"Room1">>
+                           ,description= <<"">>
+                           ,room_access= #{}
+                           ,chat_access= #{}
+                           ,tags= #{}},
+    send_packet(ConPid1, ?R2M(Room, c2s_room_create), Transport1),
+    send_packet(ConPid2, ?R2M(Room#c2s_room_create{name = <<"Room2">>}, c2s_room_create), Transport2),
+    #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId1} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId2} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid1, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId1}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId1
+     ,<<"name">> := <<"Room1">>
+     ,<<"subrooms">> := [RoomId2]} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_del_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId1}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId1
+     ,<<"name">> := <<"Room1">>
+     ,<<"subrooms">> := []} = receive_packet(ConPid1, Transport1),
+    RoomAccess = #{MSISDN2 => 7},
+    send_packet(ConPid1, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"room_access">> => RoomAccess
+                          ,<<"room_id">> => RoomId1}, Transport1),
+    timer:sleep(100),
+    send_packet(ConPid2, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport2),
+    timer:sleep(100),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId1}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId1
+     ,<<"name">> := <<"Room1">>
+     ,<<"subrooms">> := [RoomId2]} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_room_del_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport2),
+    timer:sleep(100),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId1}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId1
+     ,<<"name">> := <<"Room1">>
+     ,<<"subrooms">> := []} = receive_packet(ConPid1, Transport1),
     ok.
 
 %%--------------------------------------------------------------------
