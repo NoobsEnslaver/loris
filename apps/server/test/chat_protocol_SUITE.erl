@@ -132,9 +132,9 @@ groups() ->
                  ]}
     ,{rooms, [], [room_create_test
                  ,room_get_info_test
-                 %% ,room_set_info_test
+                 ,room_set_info_test
                  %% ,room_join_to_chat_test
-                 %% ,room_delete_test
+                 ,room_delete_test
                  %% ,room_add_subroom_test
                  %% ,room_del_subroom_test
                  ]}
@@ -1003,6 +1003,150 @@ room_get_info_test(Config) ->
     Tmp3 = maps:remove(<<"chat_access">>,
                        maps:remove(<<"room_access">>, FullRoomInfo)),
     Tmp3 = receive_packet(ConPid6, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = 123}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport1),
+    ok.
+
+room_set_info_test(Config) ->
+    [#{transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
+    timer:sleep(100),
+    MSISDN2 = users:extract(User2, msisdn),
+    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6] = [MSISDN || MSISDN <- lists:seq(100000, 100003)],
+    RoomAccess = #{MSISDN2 => 0, MSISDN3 => 7, <<"default">> => 1},
+    ChatAccess = #{MSISDN4 => 7, MSISDN5 => 0, <<"default">> => 3},
+    Room = #c2s_room_create{name= <<"My Room">>
+                           ,description= <<"My Own Room">>
+                           ,room_access= RoomAccess
+                           ,chat_access= ChatAccess
+                           ,tags= #{<<"tag1">> => 'true'}},
+    send_packet(ConPid1, ?R2M(Room, c2s_room_create), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    [{MSISDN3, ConPid3}
+    ,{MSISDN4, ConPid4}
+    ,{MSISDN5, ConPid5}
+    ,{MSISDN6, ConPid6}] = [begin
+                                users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                                timer:sleep(100),
+                                {ok, Token} = authorize(MSISDN),
+                                {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
+                                {MSISDN, ConPid}
+                            end || MSISDN <- NewMSISDNs],
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId
+     ,<<"name">> := <<"My Room">>
+     ,<<"description">> := <<"My Own Room">>
+     ,<<"tags">> := #{<<"tag1">> := 'true'}
+     ,<<"subrooms">> := []
+     ,<<"chat_access">> := ChatAccess
+     ,<<"room_access">> := RoomAccess
+     ,<<"chat_id">> := _} = receive_packet(ConPid1, Transport1),
+    RoomAccess1 = RoomAccess#{123 => 0},
+    ChatAccess1 = ChatAccess#{123 => 0},
+    send_packet(ConPid1, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"tags">> => #{<<"tag2">> => 'true'}
+                          ,<<"room_access">> => RoomAccess1
+                          ,<<"chat_access">> => ChatAccess1
+                          ,<<"name">> => <<"Name2">>
+                          ,<<"description">> => <<"Desc2">>
+                          ,<<"room_id">> => RoomId}, Transport1),
+    timer:sleep(200),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId
+     ,<<"name">> := <<"Name2">>
+     ,<<"description">> := <<"Desc2">>
+     ,<<"tags">> := #{<<"tag2">> := 'true'}
+     ,<<"subrooms">> := []
+     ,<<"chat_access">> := ChatAccess1
+     ,<<"room_access">> := RoomAccess1
+     ,<<"chat_id">> := _} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"name">> => <<"Name3">>
+                          ,<<"room_id">> => RoomId}, Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"name">> := <<"Name2">>} = receive_packet(ConPid1, Transport1),
+    RoomAccess2 = maps:remove(123, RoomAccess1),
+    ChatAccess2 = maps:remove(123, ChatAccess1),
+    send_packet(ConPid3, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"tags">> => #{<<"tag3">> => 'true'}
+                          ,<<"room_access">> => RoomAccess2
+                          ,<<"chat_access">> => ChatAccess2
+                          ,<<"name">> => <<"Name3">>
+                          ,<<"description">> => <<"Desc3">>
+                          ,<<"room_id">> => RoomId}, Transport1),
+    timer:sleep(200),
+    send_packet(ConPid3, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId
+     ,<<"name">> := <<"Name3">>
+     ,<<"description">> := <<"Desc3">>
+     ,<<"tags">> := #{<<"tag3">> := 'true'}
+     ,<<"subrooms">> := []
+     ,<<"chat_access">> := ChatAccess2
+     ,<<"room_access">> := RoomAccess2
+     ,<<"chat_id">> := _} = receive_packet(ConPid3, Transport1),
+    RoomAccess3 = RoomAccess#{321 => 0},
+    ChatAccess3 = ChatAccess#{321 => 0},
+    send_packet(ConPid4, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"tags">> => #{<<"tag4">> => 'true'}
+                          ,<<"room_access">> => RoomAccess3
+                          ,<<"chat_access">> => ChatAccess3
+                          ,<<"name">> => <<"Name4">>
+                          ,<<"description">> => <<"Desc4">>
+                          ,<<"room_id">> => RoomId}, Transport1),
+    timer:sleep(200),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_INFO_TYPE
+     ,<<"room_id">> := RoomId
+     ,<<"name">> := <<"Name3">>
+     ,<<"description">> := <<"Desc3">>
+     ,<<"tags">> := #{<<"tag3">> := 'true'}
+     ,<<"subrooms">> := []
+     ,<<"chat_access">> := ChatAccess3
+     ,<<"room_access">> := RoomAccess2
+     ,<<"chat_id">> := _} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid5, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"name">> => <<"Name5">>
+                          ,<<"room_id">> => RoomId}, Transport1),
+    send_packet(ConPid6, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"name">> => <<"Name6">>
+                          ,<<"room_id">> => RoomId}, Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid5, Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid6, Transport1),
+    send_packet(ConPid6, #{<<"msg_type">> => ?C2S_ROOM_SET_INFO_TYPE
+                          ,<<"name">> => <<"Name7">>
+                          ,<<"room_id">> => 123}, Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid6, Transport1),
+    ok.
+
+room_delete_test(Config) ->
+    [#{transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
+    timer:sleep(100),
+    MSISDN2 = users:extract(User2, msisdn),
+    RoomAccess = #{MSISDN2 => 7, <<"default">> => 1},
+    ChatAccess = #{MSISDN2 => 7, <<"default">> => 3},
+    Room = #c2s_room_create{name= <<"My Room">>
+                           ,description= <<"My Own Room">>
+                           ,room_access= RoomAccess
+                           ,chat_access= ChatAccess
+                           ,tags= #{<<"tag1">> => 'true'}},
+    send_packet(ConPid1, ?R2M(Room, c2s_room_create), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_room_delete{room_id = RoomId}, c2s_room_delete), Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_room_delete{room_id = 123}, c2s_room_delete), Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid1, ?R2M(#c2s_room_delete{room_id = RoomId}, c2s_room_delete), Transport1),
+    timer:sleep(100),
+    send_packet(ConPid1, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport1),
     ok.
 
 %%--------------------------------------------------------------------

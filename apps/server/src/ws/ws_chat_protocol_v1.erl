@@ -504,19 +504,19 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                                  end,
                          Room2 = case Desc of
                                      'undefined' -> Room1;
-                                     _ -> Room#room{description = Desc}
+                                     _ -> Room1#room{description = Desc}
                                  end,
                          Room3 = case RA of
                                      'undefined' -> Room2;
-                                     _ -> Room#room{room_access = RA}
+                                     _ -> Room2#room{room_access = RA}
                                  end,
                          Room4 = case CA of
                                      'undefined' -> Room3;
-                                     _ -> Room#room{chat_access = CA}
+                                     _ -> Room3#room{chat_access = CA}
                                  end,
                          case T of
                              undefined -> ok;
-                             _ when is_map(T)->
+                             _ when is_record(T, 'room_tag')->
                                  rooms:set_tag(T#room_tag{room_id = RoomId, name = Room4#room.name})
                          end,
                          rooms:set(Room4),
