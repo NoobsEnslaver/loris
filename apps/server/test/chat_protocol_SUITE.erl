@@ -225,8 +225,7 @@ chat_create_and_get_info_test(Config) ->
                            ,<<"name">> := ChatName
                            ,<<"users">> := [MSISDN]
                            ,<<"is_muted">> := 'false'
-                           ,<<"chat_owner">> := MSISDN
-                           ,<<"access_group">> := <<"administrators">>} = receive_packet(ConPid, Transport),
+                           ,<<"chat_owner">> := MSISDN} = receive_packet(ConPid, Transport),
                           timer:sleep(100),
                           {error, timeout} = receive_packet(ConPid, Transport)
                   end, Env).
@@ -273,20 +272,18 @@ chat_invite_accept_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     %% Get my chats list
     #{ChatId := ChatName} = get_chats_list(ConPid1, Transport1),
     #{} = get_chats_list(ConPid2, Transport2),
     %% Send invataton
-    send_packet(ConPid1, ?R2M(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN2}, c2s_chat_invite_user), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN2, access_level = 3}, c2s_chat_invite_user), Transport1),
     timer:sleep(50),
     %% User1 receive message about invatation in chat
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:invite_to_chat">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
@@ -303,15 +300,13 @@ chat_invite_accept_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"users">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     'true' = lists:member(MSISDN1, BothUsers),
     'true' = lists:member(MSISDN2, BothUsers),
     %% Get my chats list
@@ -343,15 +338,13 @@ chat_invite_accept_on_chat_creation_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     %% Get my chats list
     #{ChatId := ChatName} = get_chats_list(ConPid1, Transport1),
     #{} = get_chats_list(ConPid2, Transport2),
@@ -366,15 +359,13 @@ chat_invite_accept_on_chat_creation_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"users">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     'true' = lists:member(MSISDN1, BothUsers),
     'true' = lists:member(MSISDN2, BothUsers),
     %% Get my chats list
@@ -414,8 +405,7 @@ chat_invite_reject_on_chat_creation_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     %% Get my chats list
     #{ChatId := ChatName} = get_chats_list(ConPid1, Transport1),
     #{} = get_chats_list(ConPid2, Transport2),
@@ -457,15 +447,13 @@ chat_leave_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"users">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     'true' = lists:member(MSISDN1, BothUsers),
     'true' = lists:member(MSISDN2, BothUsers),
     %% User2 leave chat
@@ -482,15 +470,13 @@ chat_leave_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := [MSISDN1]
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"undefined">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     ok.
 
 chat_delete_test(Config) ->
@@ -522,15 +508,13 @@ chat_delete_test(Config) ->
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"administrators">>} = get_chat_info(ConPid1, Transport1, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid1, Transport1, ChatId),
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
      ,<<"name">> := ChatName
      ,<<"users">> := BothUsers
      ,<<"is_muted">> := 'false'
-     ,<<"chat_owner">> := MSISDN1
-     ,<<"access_group">> := <<"users">>} = get_chat_info(ConPid2, Transport2, ChatId),
+     ,<<"chat_owner">> := MSISDN1} = get_chat_info(ConPid2, Transport2, ChatId),
     'true' = lists:member(MSISDN1, BothUsers),
     'true' = lists:member(MSISDN2, BothUsers),
     %% User2 try to delete chat

@@ -26,6 +26,7 @@
         ,get_last_msg_id/1
         ]).
 
+-define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
 
 new() ->
     Id = get_unique_chat_id(), %TODO: do it in transaction
@@ -119,12 +120,12 @@ unsubscribe(TableId)->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     mnesia:unsubscribe({table, TableName, detailed}).
 
-invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
-    users:invite_to_chat(ChatId, UserMSISDN, AccessGroup),
+invite_to_chat(ChatId, UserMSISDN, AL) ->
+    users:invite_to_chat(ChatId, UserMSISDN, AL),
     send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
     case users:get_pid(UserMSISDN) of
         WsPid when is_pid(WsPid)->
-            WsPid ! {chat_invatation, ChatId};
+            WsPid ! {chat_invatation, ChatId, AL};
         _ ->
             'ok'
     end.
@@ -132,11 +133,15 @@ invite_to_chat(ChatId, UserMSISDN, AccessGroup) ->
 accept_invatation(ChatId, MSISDN) ->
     case users:accept_invatation(ChatId, MSISDN) of
         'not_exists' -> 'not_exists';
-        AccessGroup ->
+        AL when ?MAY_READ(AL) ->
             chat_info:add_user(ChatId, MSISDN),
             subscribe(ChatId),
             send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
-            AccessGroup
+            AL;
+        AL ->
+            chat_info:add_user(ChatId, MSISDN),
+            send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+            AL
     end.
 
 reject_invatation(ChatId, MSISDN) ->

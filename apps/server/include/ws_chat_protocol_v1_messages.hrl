@@ -75,10 +75,10 @@
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
 -record(c2s_chat_get_info, {msg_type = ?C2S_CHAT_GET_INFO_TYPE, chat_id  :: binary()}).
--record(c2s_chat_create, {msg_type = ?C2S_CHAT_CREATE_TYPE, name :: binary(), users :: [non_neg_integer()], is_p2p :: boolean()}).
+-record(c2s_chat_create, {msg_type = ?C2S_CHAT_CREATE_TYPE, name :: binary(), users :: map(), is_p2p :: boolean()}).
 -record(c2s_chat_leave, {msg_type = ?C2S_CHAT_LEAVE_TYPE, chat_id :: binary()}).
 -record(c2s_chat_delete, {msg_type = ?C2S_CHAT_DELETE_TYPE, chat_id :: binary()}).
--record(c2s_chat_invite_user, {msg_type = ?C2S_CHAT_INVITE_USER_TYPE, chat_id :: binary(), user_msisdn :: non_neg_integer() }).
+-record(c2s_chat_invite_user, {msg_type = ?C2S_CHAT_INVITE_USER_TYPE, chat_id :: binary(), user_msisdn :: non_neg_integer(), access_level :: 0..7}).
 -record(c2s_chat_accept_invatation, {msg_type = ?C2S_CHAT_ACCEPT_INVATATION_TYPE, chat_id :: binary()}).
 -record(c2s_chat_reject_invatation, {msg_type = ?C2S_CHAT_REJECT_INVATATION_TYPE, chat_id :: binary()}).
 -record(c2s_chat_mute, {msg_type = ?C2S_CHAT_MUTE_TYPE, chat_id :: binary()}).
@@ -156,10 +156,10 @@
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
--record(s2c_chat_info, {msg_type = ?S2C_CHAT_INFO_TYPE, chat_id :: binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), access_group :: atom(), last_msg_id :: non_neg_integer()}).
+-record(s2c_chat_info, {msg_type = ?S2C_CHAT_INFO_TYPE, chat_id :: binary(), name :: binary(), users :: [non_neg_integer()], is_muted :: boolean(), chat_owner :: non_neg_integer(), last_msg_id :: non_neg_integer()}).
 -record(s2c_chat_create_result, {msg_type = ?S2C_CHAT_CREATE_RESULT_TYPE, chat_id :: binary()}).
 -record(s2c_error, {msg_type = ?S2C_ERROR_TYPE, code :: non_neg_integer()}).
--record(s2c_chat_invatation, {msg_type = ?S2C_CHAT_INVATATION_TYPE, chat_id :: binary()}).
+-record(s2c_chat_invatation, {msg_type = ?S2C_CHAT_INVATATION_TYPE, chat_id :: binary(), access_level :: 0..7}).
 -record(s2c_chat_typing, {msg_type = ?S2C_CHAT_TYPING_TYPE, chat_id :: binary(), user_msisdn :: non_neg_integer()}).
 -record(s2c_message, {msg_type = ?S2C_MESSAGE_TYPE, chat_id :: binary(), msg_body :: binary(), timestamp :: non_neg_integer(), status :: 'pending' | 'delivered' | 'read', msg_id :: non_neg_integer(), from :: non_neg_integer()}).
 -record(s2c_message_update, {msg_type = ?S2C_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), msg_body :: binary()}).
