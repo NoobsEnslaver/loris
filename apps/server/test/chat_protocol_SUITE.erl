@@ -133,7 +133,7 @@ groups() ->
     ,{rooms, [], [room_create_test
                  ,room_get_info_test
                  ,room_set_info_test
-                 %% ,room_join_to_chat_test
+                 ,room_join_to_chat_test
                  ,room_delete_test
                  ,room_add_del_subroom_test
                  ]}
@@ -1181,6 +1181,77 @@ room_add_del_subroom_test(Config)->
      ,<<"room_id">> := RoomId1
      ,<<"name">> := <<"Room1">>
      ,<<"subrooms">> := []} = receive_packet(ConPid1, Transport1),
+    ok.
+
+room_join_to_chat_test(Config) ->
+    [#{transport := Transport1, connection := ConPid1}
+    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
+    timer:sleep(100),
+    MSISDN2 = users:extract(User2, msisdn),
+    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6, MSISDN7] = [MSISDN || MSISDN <- lists:seq(100000, 100004)],
+    RoomAccess = #{MSISDN2 => 0, MSISDN3 => 7, <<"default">> => 1},
+    ChatAccess = #{MSISDN4 => 7, MSISDN5 => 0, MSISDN7 => 1, <<"default">> => 3},
+    Room = #c2s_room_create{name= <<"My Room">>
+                           ,description= <<"My Own Room">>
+                           ,room_access= RoomAccess
+                           ,chat_access= ChatAccess
+                           ,tags= #{<<"tag1">> => 'true'}},
+    send_packet(ConPid1, ?R2M(Room, c2s_room_create), Transport1),
+    #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId} = receive_packet(ConPid1, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_room_join_to_chat{room_id = RoomId}, c2s_room_join_to_chat), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_room_join_to_chat{room_id = RoomId}, c2s_room_join_to_chat), Transport2),
+    [{MSISDN3, ConPid3}
+    ,{MSISDN4, ConPid4}
+    ,{MSISDN5, ConPid5}
+    ,{MSISDN6, ConPid6}
+    ,{MSISDN7, ConPid7}] = [begin
+                                users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                                timer:sleep(100),
+                                {ok, Token} = authorize(MSISDN),
+                                {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
+                                send_packet(ConPid, ?R2M(#c2s_room_join_to_chat{room_id = RoomId}, c2s_room_join_to_chat), Transport1),
+                                {MSISDN, ConPid}
+                            end || MSISDN <- NewMSISDNs],
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid2, Transport2),
+    #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid5, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId, <<"access_level">> := 7} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId, <<"access_level">> := 3} = receive_packet(ConPid3, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId, <<"access_level">> := 7} = receive_packet(ConPid4, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId, <<"access_level">> := 3} = receive_packet(ConPid6, Transport1),
+    #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId, <<"access_level">> := 1} = receive_packet(ConPid7, Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+    send_packet(ConPid3, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+    send_packet(ConPid4, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+    send_packet(ConPid6, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+    send_packet(ConPid7, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+    timer:sleep(100),
+    tester:flush_messages(),
+    send_message(ConPid1, Transport1, ChatId, <<"Msg1">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg1">>, <<"chat_id">> := ChatId} = receive_packet(ConPid3, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg1">>, <<"chat_id">> := ChatId} = receive_packet(ConPid4, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg1">>, <<"chat_id">> := ChatId} = receive_packet(ConPid6, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg1">>, <<"chat_id">> := ChatId} = receive_packet(ConPid7, Transport1),
+    send_message(ConPid3, Transport1, ChatId, <<"Msg2">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg2">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg2">>, <<"chat_id">> := ChatId} = receive_packet(ConPid4, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg2">>, <<"chat_id">> := ChatId} = receive_packet(ConPid6, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg2">>, <<"chat_id">> := ChatId} = receive_packet(ConPid7, Transport1),
+    send_message(ConPid4, Transport1, ChatId, <<"Msg3">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg3">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg3">>, <<"chat_id">> := ChatId} = receive_packet(ConPid3, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg3">>, <<"chat_id">> := ChatId} = receive_packet(ConPid6, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg3">>, <<"chat_id">> := ChatId} = receive_packet(ConPid7, Transport1),
+    send_message(ConPid6, Transport1, ChatId, <<"Msg4">>),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg4">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg4">>, <<"chat_id">> := ChatId} = receive_packet(ConPid3, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg4">>, <<"chat_id">> := ChatId} = receive_packet(ConPid4, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Msg4">>, <<"chat_id">> := ChatId} = receive_packet(ConPid7, Transport1),
+    send_message(ConPid7, Transport1, ChatId, <<"Msg5">>),
+    {error, timeout} = receive_packet(ConPid1, Transport1),
+    {error, timeout} = receive_packet(ConPid3, Transport1),
+    {error, timeout} = receive_packet(ConPid4, Transport1),
+    {error, timeout} = receive_packet(ConPid6, Transport1),
     ok.
 
 %%--------------------------------------------------------------------
