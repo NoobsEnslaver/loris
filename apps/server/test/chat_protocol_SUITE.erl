@@ -136,6 +136,7 @@ groups() ->
                  ,room_join_to_chat_test
                  ,room_delete_test
                  ,room_add_del_subroom_test
+                 ,room_send_recursive_message_test
                  ]}
     ,{calls, [], [call_normal_answer_test
                  ,call_reject_call_test
@@ -1133,7 +1134,7 @@ room_delete_test(Config) ->
     ok.
 
 room_add_del_subroom_test(Config)->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
+    [#{transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     send_packet(ConPid2, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport2),
@@ -1252,6 +1253,59 @@ room_join_to_chat_test(Config) ->
     {error, timeout} = receive_packet(ConPid3, Transport1),
     {error, timeout} = receive_packet(ConPid4, Transport1),
     {error, timeout} = receive_packet(ConPid6, Transport1),
+    ok.
+
+room_send_recursive_message_test(Config) ->
+    [#{transport := Transport1}| _] = proplists:get_value(env, Config),
+    Room = #c2s_room_create{name= <<"My Room">>
+                           ,description= <<"My Own Room">>
+                           ,room_access= #{}
+                           ,chat_access= #{}
+                           ,tags= #{}},
+    [{_MSISDN1, ConPid1, RoomId1}
+    ,{_MSISDN2, ConPid2, RoomId2}
+    ,{_MSISDN3, ConPid3, RoomId3}
+    ,{_MSISDN4, ConPid4, RoomId4}
+    ,{_MSISDN5, ConPid5, RoomId5}
+    ,{_MSISDN6, ConPid6, RoomId6}
+    ,{_MSISDN7, ConPid7, RoomId7}] = [begin
+                                         users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                                         timer:sleep(100),
+                                         {ok, Token} = authorize(MSISDN),
+                                         {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
+                                         send_packet(ConPid, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
+                                         timer:sleep(50),
+                                         send_packet(ConPid, ?R2M(Room, c2s_room_create), Transport1),
+                                         #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId} = receive_packet(ConPid, Transport1),
+                                         timer:sleep(50),
+                                         send_packet(ConPid, ?R2M(#c2s_room_join_to_chat{room_id = RoomId}, c2s_room_join_to_chat), Transport1),
+                                         #{<<"msg_type">> := ?S2C_CHAT_INVATATION_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid, Transport1),
+                                         timer:sleep(50),
+                                         send_packet(ConPid, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
+                                         {MSISDN, ConPid, RoomId}
+                                     end || MSISDN <- lists:seq(100000, 100006)],
+    send_packet(ConPid1, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    send_packet(ConPid1, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId3}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    send_packet(ConPid2, ?R2M(#c2s_room_add_subroom{room_id = RoomId2, subroom_id = RoomId3}, c2s_room_add_subroom), Transport1), %test cyclic
+    timer:sleep(50),
+    send_packet(ConPid3, ?R2M(#c2s_room_add_subroom{room_id = RoomId3, subroom_id = RoomId4}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    send_packet(ConPid4, ?R2M(#c2s_room_add_subroom{room_id = RoomId4, subroom_id = RoomId5}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    send_packet(ConPid5, ?R2M(#c2s_room_add_subroom{room_id = RoomId5, subroom_id = RoomId6}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    send_packet(ConPid5, ?R2M(#c2s_room_add_subroom{room_id = RoomId5, subroom_id = RoomId7}, c2s_room_add_subroom), Transport1),
+    timer:sleep(50),
+    tester:flush_messages(),
+    send_packet(ConPid1, ?R2M(#c2s_room_send_recursive_message{room_id = RoomId1, msg = <<"Test">>}, c2s_room_send_recursive_message), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid2, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid3, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid4, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid5, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid6, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid7, Transport1),
     ok.
 
 %%--------------------------------------------------------------------

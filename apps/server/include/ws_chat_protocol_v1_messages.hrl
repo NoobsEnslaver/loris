@@ -44,6 +44,7 @@
 -define(C2S_USER_SUBSCRIBE_TYPE, 42).
 -define(C2S_USER_UNSUBSCRIBE_TYPE, 43).
 -define(C2S_USER_UPGRADE_TO_COMPANY_TYPE, 44).
+-define(C2S_ROOM_SEND_RECURSIVE_MESSAGE_TYPE, 45).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -106,6 +107,7 @@
 -record(c2s_room_join_to_chat, {msg_type = ?C2S_ROOM_JOIN_TO_CHAT_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_search, {msg_type = ?C2S_ROOM_SEARCH_TYPE, room_id :: non_neg_integer(), tags :: #room_tag{}, name :: binary()}).
 -record(c2s_room_get_my_rooms, {msg_type = ?C2S_ROOM_GET_MY_ROOMS}).
+-record(c2s_room_send_recursive_message, {msg_type = ?C2S_ROOM_SEND_RECURSIVE_MESSAGE_TYPE, msg :: binary(), room_id :: non_neg_integer()}).
 -record(c2s_call_offer, {msg_type = ?C2S_CALL_OFFER_TYPE, msisdn :: non_neg_integer(), sdp :: binary()}).
 -record(c2s_call_answer, {msg_type = ?C2S_CALL_ANSWER_TYPE, sdp :: binary()}).
 -record(c2s_call_ack, {msg_type = ?C2S_CALL_ACK_TYPE}).

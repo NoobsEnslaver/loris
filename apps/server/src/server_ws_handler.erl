@@ -154,6 +154,7 @@ websocket_info(Msg, #state{transport = T, user_state = US, protocol = Protocol} 
             common:end_measure(MetricName, TC1),
             {'ok', State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
+            ?HARDLOG('debug', "<< ~p", if is_tuple(RawResp)-> element(1, RawResp); 'true' -> RawResp end),
             common:end_measure(MetricName, TC1),
             TC2 = common:start_measure('ws_wrap_msg'),
             Resp = Protocol:wrap_msg(RawResp),

@@ -21,6 +21,7 @@
         ,get_chat/2
         ,search_by_name/1
         ,search_by_tags/1
+        ,send_msg_to_room/4
         ]).
 
 -spec new(non_neg_integer(), binary(), binary(), map(), map(), #room_tag{}) -> #room{} | 'false'.
@@ -126,6 +127,22 @@ get_chat(RoomId, MSISDN) ->
           end,
     mnesia:sync_dirty(Fun).
 
+-spec send_msg_to_room(non_neg_integer(), binary(), non_neg_integer(), boolean()) -> 'ok' | 'false'.
+send_msg_to_room(RoomId, Msg, From, IsRecursive)->
+    Fun = fun()->
+                  case mnesia:dirty_read('room', RoomId) of
+                      [#room{chat_id = 'undefined'}] when IsRecursive == 'false' ->
+                          'false';
+                      [#room{chat_id = ChatId}] when IsRecursive == 'false' ->
+                          chats:send_message(ChatId, Msg, From), ok;
+                      [#room{}] when IsRecursive == 'true' ->
+                          get_subrooms_chats(RoomId);
+                      _ ->
+                          'false'
+                  end
+          end,
+    mnesia:sync_dirty(Fun).
+
 %% TODO: optimize it
 -spec search_by_name(binary()) -> map().
 search_by_name(Name) when  byte_size(Name) > 2 ->
@@ -139,3 +156,23 @@ search_by_tags(Tag) ->
     Fun = fun()-> mnesia:dirty_match_object(Tag) end,
     Match = mnesia:sync_dirty(Fun),
     maps:from_list([{Id, Name} || #room_tag{room_id = Id, name = Name} <- Match]).
+
+
+%% --------------------------------------
+%% Internal functions
+%% --------------------------------------
+get_subrooms_chats(RoomId) ->
+    maps:values(get_subrooms_chats(RoomId, #{})).
+get_subrooms_chats(RoomId, RoomChatMap) ->
+    case mnesia:dirty_read('room', RoomId) of
+        [#room{chat_id = ChatId
+              ,subrooms = SubRooms}] when is_binary(ChatId) ->
+            lists:foldl(fun(R, Map)->
+                                case maps:is_key(R, Map) of
+                                    'true' -> Map;
+                                    'false'-> get_subrooms_chats(R, Map)
+                                end
+                        end, RoomChatMap#{RoomId => ChatId}, SubRooms);
+        _ ->
+            RoomChatMap
+    end.

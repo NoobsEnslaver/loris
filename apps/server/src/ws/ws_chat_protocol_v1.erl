@@ -172,6 +172,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_JOIN_TO_CHAT_TYPE, <<"room_id">> := Roo
     #c2s_room_join_to_chat{room_id = round(RoomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_MY_ROOMS}) ->
     #c2s_room_get_my_rooms{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_SEND_RECURSIVE_MESSAGE_TYPE, <<"msg">> := Msg, <<"room_id">> := RoomId}) ->
+    #c2s_room_send_recursive_message{msg = Msg, room_id = round(RoomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_ACCEPT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
     #c2s_chat_accept_invatation{chat_id = ChatId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_CHAT_REJECT_INVATATION_TYPE, <<"chat_id">> := ChatId}) ->
@@ -442,8 +444,8 @@ do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
                    case users:get(MSISDN) of
                        'false' ->
                            #s2c_error{code = 404};
-                       User ->
-                           #s2c_user_status{msisdn = MSISDN, status = 'offline', last_visit_timestamp = users:extract(User, last_visit_timestamp)}
+                       #user{last_visit_timestamp = LVTS} ->
+                           #s2c_user_status{msisdn = MSISDN, status = 'offline', last_visit_timestamp = LVTS}
                    end
            end,
     {Resp, _State};
@@ -662,6 +664,31 @@ do_action(#c2s_room_get_my_rooms{}, #user_state{msisdn = MSISDN} = State) ->
     User = users:get(MSISDN),
     Resp = #s2c_room_list{rooms = [RoomId || {RoomId, _} <- User#user.rooms]},
     {Resp, State};
+do_action(#c2s_room_send_recursive_message{msg = Msg, room_id = RoomId}, #user_state{msisdn = MSISDN} = State) ->
+    Resp = case rooms:get(RoomId) of
+               #room{owner_id = MSISDN} ->
+                   case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of
+                       ok -> ok;
+                       _ -> #s2c_error{code = 500}
+                   end;
+               #room{room_access = #{MSISDN := AL}} when ?MAY_ADMIN(AL) ->
+                   case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of
+                       ok -> ok;
+                       _ -> #s2c_error{code = 500}
+                   end;
+               #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{'default' := AL}} when ?MAY_ADMIN(AL) ->
+                   case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of
+                       ok -> ok;
+                       _ -> #s2c_error{code = 500}
+                   end;
+               #room{} ->
+                   #s2c_error{code = 403};
+               _ ->
+                   #s2c_error{code = 404}
+           end,
+    {Resp, State};
 do_action(#c2s_call_offer{}, #user_state{call = #call_info{}} = _State) ->      % call record defined, call in progress
     Resp = #s2c_call_bye{code = 491},                                           % Request Pending
     {Resp, _State};
@@ -857,8 +884,14 @@ do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = S
 do_action({notify, MSISDN, Status, _Pid}, _State) ->
     Resp = case Status of
                'offline' ->
-                   User = users:get(MSISDN),
-                   #s2c_user_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8'), last_visit_timestamp = users:extract(User, last_visit_timestamp)};
+                   case users:get(MSISDN) of
+                       #user{last_visit_timestamp = LVTS} when is_number(LVTS) ->
+                           #s2c_user_status{msisdn = MSISDN, status = <<"offline">>, last_visit_timestamp = LVTS};
+                       #user{} ->
+                           #s2c_user_status{msisdn = MSISDN, status = <<"offline">>};
+                       _ ->
+                           #s2c_user_status{msisdn = MSISDN, status = <<"not_exists">>}
+                   end;
                _ ->
                    #s2c_user_status{msisdn = MSISDN, status = erlang:atom_to_binary(Status, 'utf8')}
                end,
