@@ -148,7 +148,8 @@ function drawMeters(meters){
             opacity: 1
         }
     };
-    var data = [count, day, fifteen, five, mean, one];
+    var data = [// count,
+                day, fifteen, five, mean, one];
     var layout = {
         title: 'Meters',
         xaxis: {
@@ -233,7 +234,7 @@ function drawCpu(){
         }
     };
 
-    Plotly.newPlot('cpu', plot_data);
+    Plotly.newPlot('cpu', plot_data, layout);
 };
 
 function drawOnline(){
@@ -265,7 +266,7 @@ function drawOnline(){
         }
     };
 
-    Plotly.newPlot('online', plot_data);
+    Plotly.newPlot('online', plot_data, layout);
 };
                 </script>
         </body>
