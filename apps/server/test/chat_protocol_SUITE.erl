@@ -1259,8 +1259,8 @@ room_send_recursive_message_test(Config) ->
     [#{transport := Transport1}| _] = proplists:get_value(env, Config),
     Room = #c2s_room_create{name= <<"My Room">>
                            ,description= <<"My Own Room">>
-                           ,room_access= #{}
-                           ,chat_access= #{}
+                           ,room_access= #{'default' => 3}
+                           ,chat_access= #{'default' => 3, 100002 => 0}
                            ,tags= #{}},
     [{_MSISDN1, ConPid1, RoomId1}
     ,{_MSISDN2, ConPid2, RoomId2}
@@ -1306,6 +1306,11 @@ room_send_recursive_message_test(Config) ->
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid5, Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid6, Transport1),
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"msg_body">> := <<"Test">>} = receive_packet(ConPid7, Transport1),
+    send_packet(ConPid3, ?R2M(#c2s_room_send_recursive_message{room_id = RoomId3, msg = <<"Test2">>}, c2s_room_send_recursive_message), Transport1),
+    {error, timeout} = receive_packet(ConPid4, Transport1),
+    {error, timeout} = receive_packet(ConPid5, Transport1),
+    {error, timeout} = receive_packet(ConPid6, Transport1),
+    {error, timeout} = receive_packet(ConPid7, Transport1),
     ok.
 
 %%--------------------------------------------------------------------

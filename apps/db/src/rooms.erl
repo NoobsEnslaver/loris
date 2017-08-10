@@ -24,6 +24,10 @@
         ,send_msg_to_room/4
         ]).
 
+-define(MAY_ADMIN(AL), AL div 4 == 1).
+-define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
+-define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
+
 -spec new(non_neg_integer(), binary(), binary(), map(), map(), #room_tag{}) -> #room{} | 'false'.
 new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
     Id = mnesia:dirty_update_counter('index', 'room', 1),
@@ -136,7 +140,18 @@ send_msg_to_room(RoomId, Msg, From, IsRecursive)->
                       [#room{chat_id = ChatId}] when IsRecursive == 'false' ->
                           chats:send_message(ChatId, Msg, From), ok;
                       [#room{}] when IsRecursive == 'true' ->
-                          get_subrooms_chats(RoomId);
+                          RoomChatMap = get_subrooms_chats(RoomId),
+                          AllowedChats = maps:fold(fun(R, C, Acc)->
+                                                           case rooms:get(R) of
+                                                               #room{owner_id = From} -> [C | Acc];
+                                                               #room{chat_access = #{From := CA}} when ?MAY_WRITE(CA) -> [C | Acc];
+                                                               #room{chat_access = #{From := _}} -> Acc;
+                                                               #room{chat_access = #{'default' := CA}} when ?MAY_WRITE(CA) -> [C | Acc];
+                                                               _ -> Acc
+                                                           end
+                                                   end, [], RoomChatMap),
+                          [chats:send_message(ChatId, Msg, From) || ChatId <- AllowedChats],
+                          ok;
                       _ ->
                           'false'
                   end
@@ -162,7 +177,7 @@ search_by_tags(Tag) ->
 %% Internal functions
 %% --------------------------------------
 get_subrooms_chats(RoomId) ->
-    maps:values(get_subrooms_chats(RoomId, #{})).
+    get_subrooms_chats(RoomId, #{}).
 get_subrooms_chats(RoomId, RoomChatMap) ->
     case mnesia:dirty_read('room', RoomId) of
         [#room{chat_id = ChatId
