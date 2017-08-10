@@ -9,17 +9,21 @@
                 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
                 <meta charset="utf-8">
         </head>
-        <body>
-                <div id="tester" style="width:600px;height:250px;"></div>
-<div id="metrics"></div>
+        <body onload="onLoad()">
+<div id="metrics">
+     <div id="counters"></div>
+     <div id="meters"></div>
+     <div id="ram"></div>
+     <div id="cpu"></div>
+     <div id="online"></div>
+</div>
                 <script>
-var host = window.location.host;
-var metricsList;
+var host = window.location.origin;
 
 function getMetricsList(){
     var xhr = new XMLHttpRequest();
     var result;
-    xhr.open("GET", "https://" + host + "/v1/monitoring/list", false);
+    xhr.open("GET", host + "/v1/monitoring/list", false);
     xhr.onloadend = (e) => {result = JSON.parse(e.target.response);};
     xhr.send();
     return result;
@@ -28,66 +32,241 @@ function getMetricsList(){
 function getMetric(Name){
     var xhr = new XMLHttpRequest();
     var result;
-    xhr.open("GET", "https://" + host + "/v1/monitoring/" + Name, false);
+    xhr.open("GET", host + "/v1/monitoring/" + Name, false);
     xhr.onloadend = (e) => {result = JSON.parse(e.target.response);};
     xhr.send();
     return result;
 }
 
-
+function onLoad(){
     var MetricsDiv = document.getElementById('metrics');
     var metricsList = getMetricsList();
 
-    metricsList.forEach((metric)=>{
-        var div = document.createElement('div');
-        div.id = metric;
-        div.style = "width:600px;height:250px;";
-        var data = getMetric(metric);
+    var counters = metricsList.filter((name)=>{return name.endsWith("_counter");});
+    var meters= metricsList.filter((name)=>{return name.endsWith("_meter");});
 
-        switch(metric){
-            case "ram":
-            // {"1496015959586844":{"atom":809913,"atom_used":808562,"binary":224560,"code":21210229,"ets":1147304,"processes":10309960,"processes_used":10308688,"system":32117608,"total":42427568}}
-            var x=[];
-            var y = {};
-            var fields = ["atom", "atom_used", "binary", "code", "ets", "processes", "processes_used", "system", "total"];
-            fields.forEach((name)=>{y[name] = [];});
-            for (var timestamp in data) {
-                if (data.hasOwnProperty(timestamp)) {
-                    x.push(parseInt(timestamp));
-                    y.atom.push(parseInt(data[timestamp].atom));
-                    y.atom_used.push(parseInt(data[timestamp].atom_used));
-                    y.binary.push(parseInt(data[timestamp].binary));
-                    y.code.push(parseInt(data[timestamp].code));
-                    y.ets.push(parseInt(data[timestamp].ets));
-                    y.processes.push(parseInt(data[timestamp].processes));
-                    y.processes_used.push(parseInt(data[timestamp].processes_used));
-                    y.system.push(parseInt(data[timestamp].system));
-                    y.total.push(parseInt(data[timestamp].total));
-                }
-            };
+    drawCounters(counters);
+    drawMeters(meters);
+    drawRam();
+    drawCpu();
+    drawOnline();
 
-            fields.forEach((name)=>{
-                var tmp_div = document.createElement('div');
-                tmp_div.id = metric + "_" + name;
-                tmp_div.style = "width:600px;height:250px;";
-                var layout = {
-                    xaxis: {title: 'time'},
-                    yaxis: {title: 'usage'},
-                };
-                Plotly.plot(tmp_div, [{
-                    x: x,
-                    y: y[name]}], {
-                        title: name,
-                        xaxis: {title: 'time'},
-                        yaxis: {title: 'usage'}
-                    });
-                MetricsDiv.appendChild(tmp_div);
-            });
-            break;
+}
+
+function drawCounters(counters){
+    var trace1 = {
+        x: counters.map((C)=>{return C.substr(0, C.length - 8)}),
+        y: counters.map((C)=>{var Obj = getMetric(C); return Obj[C];}),
+        type: 'bar',
+        marker: {
+            color: 'rgb(80,200,200)'
         }
+    };
+
+    var data = [trace1];
+
+    var layout = {
+        title: 'Counters',
+        xaxis: {
+            tickangle: -90
+        }
+    };
+
+    Plotly.newPlot('counters', data, layout);
+};
+
+function drawMeters(meters){
+    var metersData = meters.reduce((Acc, M)=>{
+        var resp = getMetric(M);
+        Acc.count.push(resp.count);
+        Acc.day.push(resp.day);
+        Acc.fifteen.push(resp.fifteen);
+        Acc.five.push(resp.five);
+        Acc.mean.push(resp.mean);
+        Acc.one.push(resp.one);
+        return Acc;
+    }, {"count": [], "day": [], "fifteen": [], "five": [], "mean": [], "one": []});
+    var count, day, fifteen, five, mean, one;
+    var pretty_meters = meters.map((M)=>{return M.substr(0, M.length - 6)});
+    count = {
+        x: pretty_meters,
+        y: metersData.count,
+        type: 'bar',
+        name: 'count',
+        marker: {
+            color: 'rgb(0,200,200)',
+            opacity: 1
+        }
+    };
+    day = {
+        x: pretty_meters,
+        y: metersData.day,
+        type: 'bar',
+        name: 'day',
+        marker: {
+            color: 'rgb(40,160,200)',
+            opacity: 1
+        }
+    };
+    fifteen = {
+        x: pretty_meters,
+        y: metersData.fifteen,
+        type: 'bar',
+        name: 'fifteen',
+        marker: {
+            color: 'rgb(80,120,200)',
+            opacity: 1
+        }
+    };
+    five = {
+        x: pretty_meters,
+        y: metersData.five,
+        type: 'bar',
+        name: 'five',
+        marker: {
+            color: 'rgb(120,80,200)',
+            opacity: 1
+        }
+    };
+    mean = {
+        x: pretty_meters,
+        y: metersData.mean,
+        type: 'bar',
+        name: 'mean',
+        marker: {
+            color: 'rgb(160,40,200)',
+            opacity: 1
+        }
+    };
+    one = {
+        x: pretty_meters,
+        y: metersData.one,
+        type: 'bar',
+        name: 'one',
+        marker: {
+            color: 'rgb(200,0,200)',
+            opacity: 1
+        }
+    };
+    var data = [count, day, fifteen, five, mean, one];
+    var layout = {
+        title: 'Meters',
+        xaxis: {
+            tickangle: -90
+        },
+        barmode: 'group'
+    };
+
+    Plotly.newPlot('meters', data, layout);
+};
+
+function drawRam(){
+    var data = getMetric("ram");
+    var x = [], x_pretty = [], y = {};
+    var fields = ["atom", "atom_used", "binary", "code", "ets", "processes", "processes_used", "system", "total"];
+    fields.forEach((F)=>{y[F] = [];});
+
+    for (var timestamp in data) {
+        if (data.hasOwnProperty(timestamp)) {
+            x.push(parseInt(timestamp));
+        }
+    };
+    x.sort();
+    x.forEach((x)=>{
+        x_pretty.push((new Date(x)).toLocaleString());
+        y.atom.push(data[x.toString()].atom);
+        y.atom_used.push(data[x.toString()].atom_used);
+        y.binary.push(data[x.toString()].binary);
+        y.code.push(data[x.toString()].code);
+        y.ets.push(data[x.toString()].ets);
+        y.processes.push(data[x.toString()].processes);
+        y.processes_used.push(data[x.toString()].processes_used);
+        y.system.push(data[x.toString()].system);
+        y.total.push(data[x.toString()].total);
     });
 
+    var plots = fields.map((FieldName)=>{
+        return {
+            x: x_pretty,
+            y: y[FieldName],
+            type: 'scatter',
+            name: FieldName
+        };
+    });
 
+    var layout = {
+        title: 'Ram',
+        xaxis: {
+            tickangle: -90
+        }
+    };
+
+    Plotly.newPlot('ram', plots, layout);
+};
+
+function drawCpu(){
+    var data = getMetric("cpu");
+    var x = [], x_pretty = [], y = [];
+
+    for (var timestamp in data) {
+        if (data.hasOwnProperty(timestamp)) {
+            x.push(parseInt(timestamp));
+        }
+    };
+    x.sort();
+    x.forEach((x)=>{
+        x_pretty.push((new Date(x)).toLocaleString());
+        y.push(data[x.toString()]);
+    });
+    var plot_data = [
+        {
+            x: x_pretty,
+            y: y,
+            type: 'scatter'
+        }
+    ];
+
+    var layout = {
+        title: 'Cpu',
+        xaxis: {
+            tickangle: -90
+        }
+    };
+
+    Plotly.newPlot('cpu', plot_data);
+};
+
+function drawOnline(){
+    var data = getMetric("users_online");
+    var x = [], x_pretty = [], y = [];
+
+    for (var timestamp in data) {
+        if (data.hasOwnProperty(timestamp)) {
+            x.push(parseInt(timestamp));
+        }
+    };
+    x.sort();
+    x.forEach((x)=>{
+        x_pretty.push((new Date(x)).toLocaleString());
+        y.push(data[x.toString()]);
+    });
+    var plot_data = [
+        {
+            x: x_pretty,
+            y: y,
+            type: 'scatter'
+        }
+    ];
+
+    var layout = {
+        title: 'Users online',
+        xaxis: {
+            tickangle: -90
+        }
+    };
+
+    Plotly.newPlot('online', plot_data);
+};
                 </script>
         </body>
 </html>
