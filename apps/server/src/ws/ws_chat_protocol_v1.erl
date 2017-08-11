@@ -19,7 +19,7 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, token, muted_chats, msisdn, call, turn_server}).
+-record(user_state, {chats, token, muted_chats, msisdn, call, turn_server, storage}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
 -define(ROOM_TO_ROOM_INFO(R), begin
@@ -51,10 +51,15 @@ default_user_state(Token)->
                   end, User#user.chats),
     users:notify(UserMSISDN, 'online'),         %notify all subscribers
     pushes:delete(UserMSISDN),                  %delete all not sended pushes
+    Storage = case storage:get(UserMSISDN) of
+                  'false' -> #{};
+                  Val -> Val
+              end,
     #user_state{chats = User#user.chats
                ,msisdn = User#user.msisdn
                ,token = Session#session.token
-               ,muted_chats = User#user.muted_chats}.
+               ,muted_chats = User#user.muted_chats
+               ,storage = Storage}.
 
 %%%===================================================================
 %%% Parse users message
@@ -198,6 +203,16 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SUBSCRIBE_TYPE, <<"msisdn">> := MSISDNS
     #c2s_user_subscribe{msisdn = [round(M) || M <- MSISDNS]};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UNSUBSCRIBE_TYPE, <<"msisdn">> := MSISDNS}) ->
     #c2s_user_unsubscribe{msisdn = [round(M) || M <- MSISDNS]};
+unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_SET_TYPE, <<"key">> := Key, <<"value">> := Value}) ->
+    #c2s_storage_set{key = Key, value = Value};
+unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_GET_TYPE, <<"key">> := Key}) ->
+    #c2s_storage_get{key = Key};
+unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_DELETE_TYPE, <<"key">> := Key}) ->
+    #c2s_storage_delete{key = Key};
+unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_KEYS_TYPE}) ->
+    #c2s_storage_keys{};
+unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_CAPACITY_TYPE}) ->
+    #c2s_storage_capacity{};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -246,6 +261,9 @@ wrap_msg(Msg) when is_record(Msg, s2c_call_ack) -> ?R2M(Msg, s2c_call_ack);
 wrap_msg(Msg) when is_record(Msg, s2c_call_ice_candidate) -> ?R2M(Msg, s2c_call_ice_candidate);
 wrap_msg(Msg) when is_record(Msg, s2c_call_bye) -> ?R2M(Msg, s2c_call_bye);
 wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server);
+wrap_msg(Msg) when is_record(Msg, s2c_storage_keys) -> ?R2M(Msg, s2c_storage_keys);
+wrap_msg(Msg) when is_record(Msg, s2c_storage_capacity) -> ?R2M(Msg, s2c_storage_capacity);
+wrap_msg(Msg) when is_record(Msg, s2c_storage_get_result) -> ?R2M(Msg, s2c_storage_get_result);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -792,6 +810,33 @@ do_action(#c2s_user_subscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _S
 do_action(#c2s_user_unsubscribe{msisdn = Users}, #user_state{msisdn = MSISDN} = _State) ->
     [users:unsubscribe(U, MSISDN) || U <- Users],
     {ok, _State};
+do_action(#c2s_storage_set{key = Key, value = Value}, #user_state{storage = Storage} = State) ->
+    MaxCapacity = application:get_env('server', 'user_storage_capacity', 1024),
+    case maps:size(Storage) of
+        Mastadonic when Mastadonic >= MaxCapacity ->
+            {#s2c_error{code = 413}, State};
+        _ ->
+            {ok, State#user_state{storage = Storage#{Key => Value}}}
+    end;
+do_action(#c2s_storage_get{key = Key}, #user_state{storage = Storage} = _State) ->
+    Resp = case maps:get(Key, Storage, 'undefined') of
+               'undefined' ->
+                   #s2c_error{code = 404};
+               Value ->
+                   #s2c_storage_get_result{key = Key, value = Value}
+           end,
+    {Resp, _State};
+do_action(#c2s_storage_delete{key = Key}, #user_state{storage = Storage} = State) ->
+    {ok, State#user_state{storage = maps:remove(Key, Storage)}};
+do_action(#c2s_storage_keys{}, #user_state{storage = Storage} = _State) ->
+    Keys = maps:keys(Storage),
+    Resp = #s2c_storage_keys{keys = Keys},
+    {Resp, _State};
+do_action(#c2s_storage_capacity{}, #user_state{storage = Storage} = _State) ->
+    Capacity = maps:size(Storage),
+    Max = application:get_env('server', 'user_storage_capacity', 1024),
+    Resp = #s2c_storage_capacity{used = Capacity, max = Max},
+    {Resp, _State};
 do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};
@@ -903,11 +948,12 @@ do_action(_Msg, _State) ->
     Resp = #s2c_error{code = 501},
     {Resp, _State}.
 
-terminate(#user_state{msisdn = MSISDN} = _State) ->
+terminate(#user_state{msisdn = MSISDN, storage = Storage} = _State) ->
     users:update_last_visit_timestamp(MSISDN),
     users:notify(MSISDN, 'offline'),
     users:unsubscribe(MSISDN),
     users:delete_pid(MSISDN),
+    storage:set(MSISDN, Storage),
     ok.
 
 %%%===================================================================

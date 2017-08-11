@@ -45,6 +45,11 @@
 -define(C2S_USER_UNSUBSCRIBE_TYPE, 43).
 -define(C2S_USER_UPGRADE_TO_COMPANY_TYPE, 44).
 -define(C2S_ROOM_SEND_RECURSIVE_MESSAGE_TYPE, 45).
+-define(C2S_STORAGE_SET_TYPE, 46).
+-define(C2S_STORAGE_GET_TYPE, 47).
+-define(C2S_STORAGE_KEYS_TYPE, 48).
+-define(C2S_STORAGE_DELETE_TYPE, 49).
+-define(C2S_STORAGE_CAPACITY_TYPE, 50).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -72,6 +77,9 @@
 -define(S2C_CALL_ANSWER_TYPE, 123).
 -define(S2C_TURN_SERVER_TYPE, 124).
 -define(S2C_USER_INFO_BULK_TYPE, 125).
+-define(S2C_STORAGE_CAPACITY_TYPE, 126).
+-define(S2C_STORAGE_GET_RESULT_TYPE, 127).
+-define(S2C_STORAGE_KEYS_TYPE, 128).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -115,6 +123,11 @@
 -record(c2s_call_bye, {msg_type = ?C2S_CALL_BYE_TYPE, code :: non_neg_integer()}).
 -record(c2s_lock_turn_server, {msg_type = ?C2S_LOCK_TURN_SERVER_TYPE}).
 -record(c2s_device_register, {msg_type = ?C2S_DEVICE_REGISTER, push_token :: binary(), type :: non_neg_integer(), device_id :: binary()}). %type:: 0 - android, 1 - ios, 2 - ios_voip
+-record(c2s_storage_set, {msg_type = ?C2S_STORAGE_SET_TYPE, key :: any(), value :: any()}).
+-record(c2s_storage_get, {msg_type = ?C2S_STORAGE_GET_TYPE, key :: any()}).
+-record(c2s_storage_keys, {msg_type = ?C2S_STORAGE_KEYS_TYPE}).
+-record(c2s_storage_delete, {msg_type = ?C2S_STORAGE_DELETE_TYPE, key :: any()}).
+-record(c2s_storage_capacity, {msg_type = ?C2S_STORAGE_CAPACITY_TYPE}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -154,7 +167,12 @@
                            | #c2s_device_register{}
                            | #c2s_user_subscribe{}
                            | #c2s_user_unsubscribe{}
-                           | #c2s_user_upgrade_to_company{}.
+                           | #c2s_user_upgrade_to_company{}
+                           | #c2s_storage_set{}
+                           | #c2s_storage_get{}
+                           | #c2s_storage_delete{}
+                           | #c2s_storage_capacity{}
+                           | #c2s_storage_keys{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
@@ -182,6 +200,9 @@
 -record(s2c_call_ack, {msg_type = ?S2C_CALL_ACK_TYPE}).
 -record(s2c_call_ice_candidate, {msg_type = ?S2C_CALL_ICE_CANDIDATE_TYPE, candidate :: binary()}).
 -record(s2c_call_bye, {msg_type = ?S2C_CALL_BYE_TYPE, code :: non_neg_integer()}).
+-record(s2c_storage_keys, {msg_type = ?S2C_STORAGE_KEYS_TYPE, keys :: [any()]}).
+-record(s2c_storage_get_result, {msg_type = ?S2C_STORAGE_GET_RESULT_TYPE, key :: any(), value :: any()}).
+-record(s2c_storage_capacity, {msg_type = ?S2C_STORAGE_CAPACITY_TYPE, used :: non_neg_integer(), max :: non_neg_integer()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
@@ -204,7 +225,10 @@
                            | #s2c_call_ack{}
                            | #s2c_call_ice_candidate{}
                            | #s2c_call_bye{}
-                           | #s2c_turn_server{}.
+                           | #s2c_turn_server{}
+                           | #s2c_storage_keys{}
+                           | #s2c_storage_get_result{}
+                           | #s2c_storage_capacity{}.
 
 -type msg_type() :: server_msg_type()
                   | client_msg_type().

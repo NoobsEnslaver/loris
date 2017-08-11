@@ -81,4 +81,6 @@
                           ,tag21='false',tag22='false',tag23='false',tag24='false',tag25='false',tag26='false',tag27='false',tag28='false',tag29='false',tag30='false'
                           ,tag31='false',tag32='false', name :: binary()}).
 
+-record(storage, {key :: any()
+                 ,value :: any()}).
 -endif.

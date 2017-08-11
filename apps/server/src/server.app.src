@@ -57,6 +57,7 @@
         ,{'allow_password_authorization', 'false'}
         ,{'allow_sms_authorization', 'true'}
         ,{'register_with_sms', 'true'}
+        ,{'user_storage_capacity', 1024}
          ]},
   {modules, []},
 
