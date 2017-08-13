@@ -144,7 +144,8 @@ groups() ->
                  ,call_to_bad_msisdn_test
                  ,call_to_offline_test
                  ]}
-    ,{system, [], [system_logout_test]}].
+    ,{system, [], [%% system_logout_test,
+                  storage_test]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -159,7 +160,7 @@ all() ->
     ,{group, messages}
     ,{group, users}
     ,{group, rooms}
-    %% ,{group, system}
+    ,{group, system}
     ,{group, calls}
     ].
 
@@ -1458,6 +1459,53 @@ call_to_offline_test(Config) ->
                           ok
                   end, Env).
 
+storage_test(Config) ->
+    Env = proplists:get_value(env, Config),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid, user := #user{msisdn = MSISDN}})->
+                          {ok, StorageCapacity} = application:get_env('server', 'user_storage_capacity'),
+                          send_packet(ConPid, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := []} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_CAPACITY_TYPE, <<"used">> := 0, <<"max">> := StorageCapacity} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_set{key = <<"key1">>, value = <<"value1">>}, c2s_storage_set), Transport),
+                          timer:sleep(50),
+                          send_packet(ConPid, ?R2M(#c2s_storage_get{key = <<"key1">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_GET_RESULT_TYPE, <<"key">> := <<"key1">>,  <<"value">> := <<"value1">>} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_get{key = <<"key2">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_set{key = <<"key2">>, value = <<"value2">>}, c2s_storage_set), Transport),
+                          timer:sleep(50),
+                          send_packet(ConPid, ?R2M(#c2s_storage_get{key = <<"key2">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_GET_RESULT_TYPE, <<"key">> := <<"key2">>,  <<"value">> := <<"value2">>} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_set{key = <<"key1">>, value = <<"value3">>}, c2s_storage_set), Transport),
+                          timer:sleep(50),
+                          send_packet(ConPid, ?R2M(#c2s_storage_get{key = <<"key1">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_GET_RESULT_TYPE, <<"key">> := <<"key1">>,  <<"value">> := <<"value3">>} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := [<<"key1">>, <<"key2">>]} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_CAPACITY_TYPE, <<"used">> := 2, <<"max">> := StorageCapacity} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_delete{key = <<"key1">>}, c2s_storage_delete), Transport),
+                          timer:sleep(50),
+                          send_packet(ConPid, ?R2M(#c2s_storage_get{key = <<"key1">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := [<<"key2">>]} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_CAPACITY_TYPE, <<"used">> := 1, <<"max">> := StorageCapacity} = receive_packet(ConPid, Transport),
+                          gun:close(ConPid),
+                          timer:sleep(500),
+                          {ok, Token} = authorize(MSISDN),
+                          {ok, ConPid1} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
+                          send_packet(ConPid1, ?R2M(#c2s_storage_get{key = <<"key1">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport),
+                          send_packet(ConPid1, ?R2M(#c2s_storage_get{key = <<"key2">>}, c2s_storage_get), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_GET_RESULT_TYPE, <<"key">> := <<"key2">>,  <<"value">> := <<"value2">>} = receive_packet(ConPid1, Transport),
+                          send_packet(ConPid1, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := [<<"key2">>]} = receive_packet(ConPid1, Transport),
+                          send_packet(ConPid1, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
+                          #{<<"msg_type">> := ?S2C_STORAGE_CAPACITY_TYPE, <<"used">> := 1, <<"max">> := StorageCapacity} = receive_packet(ConPid1, Transport)
+                  end, Env).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
