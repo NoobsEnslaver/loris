@@ -19,7 +19,8 @@
         ,end_measure/2
         ,stringify/1
         ,get_limited_amount_from_query/2
-        ,remove/2]).
+        ,remove/2
+        ,intersection/2]).
 
 %%====================================================================
 %% API functions
@@ -116,6 +117,8 @@ remove(Value, [{_,_} | _] = Proplist)->
 remove(Value, Map) when is_map(Map) ->
     maps:from_list(remove(Value, maps:to_list(Map))).
 
+intersection(List1, List2) ->
+    [X || X <- List1, lists:member(X, List2)].
 %%====================================================================
 %% Internal functions
 %%====================================================================

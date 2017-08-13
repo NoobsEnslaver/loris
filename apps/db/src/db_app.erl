@@ -20,24 +20,33 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    DbCluster = [node() | application:get_env(?APP_NAME, nodes, [])],
-    IsNew = case mnesia:create_schema(DbCluster) of
-                {'error', {Node, {'already_exists', _Node}}} ->
-                    lager:info("skip creating schema, already exists on: ~p", [Node]),
-                    'old';
+    connect_to_nodes(),
+    case nodes() of
+        [] ->                                   %first node in cluster
+            case mnesia:create_schema([node()]) of
+                {'error', {_Node, {'already_exists', _Node}}} ->
+                    lager:info("skip creating schema, already exists"),
+                    mnesia:start();
                 {'error', Reason} ->
                     lager:info("can't create schema: ~p", [Reason]),
-                    'error';
+                    exit(Reason);
                 _Ok ->
-                    lager:info("schema successfully created on nodes ~p", [DbCluster]),
-                    'new'
-            end,
-    mnesia:start(),
-    case IsNew of
-        'new' ->
-            create_tables();
-        _ -> 'ok'
-    end,
+                    lager:info("schema successfully created"),
+                    mnesia:start(),
+                    create_tables(?DEFAULT_SCHEMA)
+            end;
+        _Nodes ->
+            mnesia:start(),
+            case mnesia:system_info('db_nodes') of
+                OnlyMe when OnlyMe == [node()] ->                     %we are not on mnesia cluster
+                    mnesia:change_config(extra_db_nodes, nodes()),
+                    mnesia:change_table_copy_type(schema, node(), disc_copies),
+                    TablesAndTypes = [{T, element(2, hd(mnesia:table_info(T, where_to_commit)))} || T <- mnesia:system_info(tables)],
+                    [mnesia:add_table_copy(Table, node(), Type) || {Table, Type} <- TablesAndTypes];    %TODO: not all replicas needed
+                _ ->                                                                                    %TODO: configure fragmented tables
+                    ok                          %cluster exists, we are last leave node
+            end
+        end,
     db_sup:start_link().
 
 %%--------------------------------------------------------------------
@@ -47,12 +56,19 @@ stop(_State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-create_tables()->
+create_tables(Tables)->
     lists:foreach(fun({Name, Opts}) ->
-                          lager:info("~nTry to create table '~p' with options: ~p", [Name, Opts]),
                           case mnesia:create_table(Name, Opts) of
-                              {'atomic', 'ok'} -> 'ok';
+                              {'atomic', 'ok'} ->
+                                  lager:info("Table '~p' successfuly created with options: ~p", [Name, Opts]);
+                              {'aborted', {'already_exists', Name1}} ->
+                                  lager:info("Table ~p already exists", [Name1]);
                               {'error', Reason} ->
                                   lager:info("error on create table ~p, reason: ~p~n", [Name, Reason]) %TODO
                           end
-                  end, ?DEFAULT_SCHEMA).
+                  end, Tables).
+
+connect_to_nodes() ->
+    Nodes = application:get_env('db', 'nodes', []),
+    [net_kernel:connect_node(Node) || Node <- Nodes],
+    ok.
