@@ -1,16 +1,14 @@
 %%%-------------------------------------------------------------------
 %%% @author Vorontsov Nikita <noobsenslaver@mail.ru>
-%%% @copyright (C) 2016
+%%% @copyright (C) 2017
 %%% @doc
-%%% db top level supervisor.
+%%% singleton top level supervisor.
 %%% @end
-%%% Created :  8 Dec 2016
+%%% Created :  15 Aug 2017
 %%%-------------------------------------------------------------------
 
--module(db_sup).
-
+-module(singleton_sup).
 -behaviour(supervisor).
--include("db.hrl").
 -include_lib("common/include/otp_definitions.hrl").
 
 %% API
@@ -25,13 +23,13 @@
 %% API functions
 %%====================================================================
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({global, ?SERVER}, ?MODULE, []).
 
 %%====================================================================
 %% Supervisor callbacks
 %%====================================================================
 init([]) ->
-    Procs = [?WORKER('metrics_grabber')],
+    Procs = [?WORKER('db_cleaner')],
     SupFlags = #{'strategy' => 'one_for_one'
                 ,'intensity'=> 5
                 ,'period'   => 10},

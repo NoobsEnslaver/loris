@@ -38,5 +38,10 @@
         ,{apns_topic,       "com.kimoff.egg"}
         ,{apns_collapse_id, undefined}
   ]},
-  {db, [{'files_dir', "/srv/files/{{node_name}}"}]}
+  {db, [{'files_dir', "/srv/files/{{node_name}}"}]},
+  {kernel, [
+           {distributed, [{singleton,5000, ['egg1@ne.local', 'egg2@ne.local']}]}
+          ,{sync_nodes_optional, ['egg2@ne.local']}
+          ,{sync_nodes_timeout, 60000}
+  ]}
 ].

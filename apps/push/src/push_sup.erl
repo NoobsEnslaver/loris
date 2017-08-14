@@ -30,7 +30,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    supervisor:start_link({global, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -53,15 +53,14 @@ init([]) ->
     SupFlags = #{strategy => 'one_for_one',
                  intensity => 1,
                  period => 5},
-    AChildParams = [{timeout,15000}             %15 sec
-                   ,{global, 'push_apple_server'}],
+    AChildParams = [{timeout,15000}],
     AChild = #{id => 'push_apple_server',
                start => {'push_apple_server', start_link, [AChildParams]},
                restart => 'permanent',
                shutdown => 5000,
                type => 'worker',
                modules => ['push_apple_server']},
-    {ok, {SupFlags, [AChild]}}.
+    {ok, {SupFlags, [AChild, ?WORKER('push_sender')]}}.
 
 %%%===================================================================
 %%% Internal functions

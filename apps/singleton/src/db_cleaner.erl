@@ -9,7 +9,7 @@
 -module(db_cleaner).
 
 -behaviour(gen_server).
--include("db.hrl").
+-include_lib("common/include/tables.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% API
@@ -57,14 +57,12 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    SessionsCleaningInterval = application:get_env('db', 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
-    SmsCleaningInterval = application:get_env('db', 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
-    LoudPushDelay = application:get_env('push', 'loud_push_delay', 60) * 1000,  %default: 1 min
+    SessionsCleaningInterval = application:get_env('singleton', 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
+    SmsCleaningInterval = application:get_env('singleton', 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
-    erlang:send_after(LoudPushDelay, self(), 'send_clean_pushes'),
     lager:info("db cleaner started"),
-    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval, push => LoudPushDelay}}.
+    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -115,11 +113,6 @@ handle_info('clean_sessions', #{session := CleaningInterval} = Map) ->
 handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     erlang:send_after(CleaningInterval, self(), 'clean_sms'),
     sms_cleaning(),
-    {'noreply', Map};
-handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
-    erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
-    ExpirationTime = common:timestamp() - PushInterval,
-    send_clean_pushes(ExpirationTime),
     {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
@@ -177,14 +170,3 @@ sms_cleaning() ->
                                                      mnesia:delete({sms, S})
                                              end, ExpiredSms)
                        end).
-
-send_clean_pushes(ExpirationTime)->
-    Pushes = pushes:pull_outdated(ExpirationTime),
-    lager:debug("start push cleaning: ~p pushes will be sended", [length(Pushes)]),
-    lists:foreach(fun(P)->
-                          MSISDN = pushes:extract(P, msisdn),
-                          ChatName = pushes:extract(P, chat_name),
-                          Msg = pushes:extract(P, last_msg),
-                          Badge = pushes:extract(P, count),
-                          push_app:notify_msg_loud(MSISDN, ChatName, Msg, Badge)
-                  end, Pushes).

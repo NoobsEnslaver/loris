@@ -1,0 +1,19 @@
+{application, singleton,
+ [{description, "Applicaton-wrapper for one-on-node services"},
+  {vsn, "0.1.0"},
+  {registered, [singleton_sup, db_cleaner]},
+  {mod, { singleton_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    db
+   ]},
+  {env,[{'sessions_cleaning_interval', 3600}      %1 hour
+       ,{'sms_cleaning_interval', 1800}           %30 min
+       ,{'sms_live_time',  60}]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

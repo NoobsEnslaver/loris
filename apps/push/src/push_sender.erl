@@ -1,15 +1,14 @@
 %%%-------------------------------------------------------------------
 %%% @author Vorontsov Nikita <noobsenslaver@mail.ru>
-%%% @copyright (C) 2016
+%%% @copyright (C) 2017
 %%% @doc
 %%%
 %%% @end
-%%% Created : 24 Dec 2016
+%%% Created : 15 Aug 2017
 %%%-------------------------------------------------------------------
--module(metrics_grabber).
+-module(push_sender).
 
 -behaviour(gen_server).
--include("db.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% API
@@ -24,7 +23,6 @@
         ,code_change/3]).
 
 -define(SERVER, ?MODULE).
--define(GET_METRICS_INTERVAL, 900000).     %15 min
 
 %%%===================================================================
 %%% API
@@ -56,18 +54,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    Metrics = [<<"cpu">>, <<"ram">>, <<"users_online">>],
-    lists:foreach(fun(Metric)->
-                          case folsom_metrics:metric_exists(Metric) of
-                              'true' -> ok;
-                              'false'-> folsom_metrics:new_histogram(Metric)
-                          end,
-                          erlang:send_after(?GET_METRICS_INTERVAL, self(), Metric)
-                  end, Metrics),
-    cpu_sup:start(),
-    cpu_sup:util(),
-    lager:info("metrics_grabber started"),
-    {'ok', #{}}.
+    LoudPushDelay = application:get_env('push', 'loud_push_delay', 60) * 1000,  %default: 1 min
+    erlang:send_after(LoudPushDelay, self(), 'send_clean_pushes'),
+    {'ok', #{push => LoudPushDelay}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -111,18 +100,11 @@ handle_cast(_Msg, _State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(<<"users_online">>, _State) ->
-    erlang:send_after(?GET_METRICS_INTERVAL, self(), <<"users_online">>),
-    folsom_metrics:notify(<<"users_online">>, {common:timestamp(), mnesia:table_info('pids', 'size')}),
-    {'noreply', _State};
-handle_info(<<"ram">>, _State) ->
-    erlang:send_after(?GET_METRICS_INTERVAL, self(), <<"ram">>),
-    get_ram_usage(),
-    {'noreply', _State};
-handle_info(<<"cpu">>, _State) ->
-    erlang:send_after(?GET_METRICS_INTERVAL, self(), <<"cpu">>),
-    get_cpu_utilization(),
-    {'noreply', _State};
+handle_info('send_clean_pushes', #{push := PushInterval} = Map) ->
+    erlang:send_after(PushInterval, self(), 'send_clean_pushes'),
+    ExpirationTime = common:timestamp() - PushInterval,
+    send_clean_pushes(ExpirationTime),
+    {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
     {'noreply', _State}.
@@ -156,10 +138,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-get_ram_usage() ->
-    RamInfo = folsom_vm_metrics:get_memory(),
-    folsom_metrics:notify(<<"ram">>, {common:timestamp(), RamInfo}).
-
-get_cpu_utilization() ->
-    CpuUtil = cpu_sup:util(),
-    folsom_metrics:notify(<<"cpu">>, {common:timestamp(), CpuUtil}).
+send_clean_pushes(ExpirationTime)->
+    Pushes = pushes:pull_outdated(ExpirationTime),
+    lager:debug("start push cleaning: ~p pushes will be sended", [length(Pushes)]),
+    lists:foreach(fun(P)->
+                          MSISDN = pushes:extract(P, msisdn),
+                          ChatName = pushes:extract(P, chat_name),
+                          Msg = pushes:extract(P, last_msg),
+                          Badge = pushes:extract(P, count),
+                          push_app:notify_msg_loud(MSISDN, ChatName, Msg, Badge)
+                  end, Pushes).

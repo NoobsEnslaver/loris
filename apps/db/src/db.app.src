@@ -11,11 +11,8 @@
     os_mon
    ]},
   {env,[
-        {'nodes', ['egg1@local.ru', 'egg2@local.ru', 'egg3@local.ru']}
-       ,{'sessions_cleaning_interval', 3600}      %1 hour
-       ,{'sms_cleaning_interval', 1800}           %30 min
-       ,{'sms_live_time',  60}
-       ,{'keep_files_in_db', 'false'}
+        {'keep_files_in_db', 'false'}
+       ,{'files_dir', "/srv/files"}
        ]},
   {modules, []},
 
