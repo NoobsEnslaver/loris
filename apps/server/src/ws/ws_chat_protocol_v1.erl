@@ -960,7 +960,7 @@ terminate(#user_state{msisdn = MSISDN, storage = Storage} = _State) ->
 %%% Module access params
 %%%===================================================================
 allowed_groups() ->
-    ['users', 'administrators'].
+    ['users', 'administrators', 'company'].
 
 access_level() ->
     10.

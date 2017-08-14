@@ -100,4 +100,4 @@ stream_file(Req, Buffer, MaxFileSize) ->
     end.
 
 allowed_groups(_Method) ->
-    ['users', 'administrators'].
+    ['users', 'administrators', 'company'].
