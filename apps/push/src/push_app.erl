@@ -34,7 +34,8 @@ notify_call(CalleeMSISDN, CallerMSISDN)->
     case AndroidDevices of
         [] -> ok;
         _ ->
-            AndroidMessage = [{<<"data">>, [{<<"msisdn">>, CallerMSISDN, <<"type">>, <<"call">>}]}
+            AndroidMessage = [{<<"data">>, [{<<"msisdn">>, CallerMSISDN}
+                                           ,{<<"type">>, <<"call">>}]}
                              ,{<<"time_to_live">>, 60}
                              ,{<<"priority">>, <<"high">>}],
             Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
