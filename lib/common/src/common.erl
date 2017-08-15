@@ -20,7 +20,9 @@
         ,stringify/1
         ,get_limited_amount_from_query/2
         ,remove/2
-        ,intersection/2]).
+        ,intersection/2
+        ,select_oldest_node/0
+        ,get_cluster_mnesia_state/0]).
 
 %%====================================================================
 %% API functions
@@ -119,6 +121,33 @@ remove(Value, Map) when is_map(Map) ->
 
 intersection(List1, List2) ->
     [X || X <- List1, lists:member(X, List2)].
+
+
+select_oldest_node() ->
+    element(1, lists:foldl(fun(Node2, {Node1, UpTime1})->
+                                   case rpc:call(Node2, erlang, statistics, [wall_clock], 5000) of
+                                       {UpTime2, _} when is_number(UpTime2) andalso UpTime2 > UpTime1 ->
+                                           {Node2, UpTime2};
+                                       _ ->
+                                           {Node1, UpTime1}
+                                   end
+                           end, {node(), element(1, statistics(wall_clock))}, nodes())).
+
+get_cluster_mnesia_state()->
+    lists:foldl(fun(Node, Acc)->
+                        case {rpc:call(Node, application, info, [], 5000), rpc:call(Node, mnesia, system_info, [db_nodes], 5000)} of
+                            {{badrpc, _Reason}, _} ->
+                                lager:debug("rpc error on 'get_cluster_mnesia_state': ~p", [_Reason]),
+                                Acc#{Node => error};
+                            {_, {badrpc, _Reason}} ->
+                                lager:debug("rpc error on 'get_cluster_mnesia_state': ~p", [_Reason]),
+                                Acc#{Node => error};
+                            {AppInfo, DbNodes} ->
+                                IsActive = proplists:is_defined(mnesia, proplists:get_value(running, AppInfo, [])),
+                                Acc#{Node => {IsActive, DbNodes}}
+                        end
+                end, #{}, [node() | nodes()]).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================

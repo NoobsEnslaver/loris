@@ -23,30 +23,62 @@ start(_StartType, _StartArgs) ->
     connect_to_nodes(),
     case nodes() of
         [] ->                                   %first node in cluster
-            case mnesia:create_schema([node()]) of
-                {'error', {_Node, {'already_exists', _Node}}} ->
-                    lager:info("skip creating schema, already exists"),
-                    mnesia:start();
-                {'error', Reason} ->
-                    lager:info("can't create schema: ~p", [Reason]),
-                    exit(Reason);
-                _Ok ->
-                    lager:info("schema successfully created"),
-                    mnesia:start(),
-                    create_tables(?DEFAULT_SCHEMA)
-            end;
-        _Nodes ->
+            lager:info("no nodes on cluster, trying to create schema"),
+            create_schema([node()]),
             mnesia:start(),
-            case mnesia:system_info('db_nodes') of
-                OnlyMe when OnlyMe == [node()] ->                     %we are not on mnesia cluster
-                    mnesia:change_config(extra_db_nodes, nodes()),
-                    mnesia:change_table_copy_type(schema, node(), disc_copies),
-                    TablesAndTypes = [{T, element(2, hd(mnesia:table_info(T, where_to_commit)))} || T <- mnesia:system_info(tables)],
-                    [mnesia:add_table_copy(Table, node(), Type) || {Table, Type} <- TablesAndTypes];    %TODO: not all replicas needed
-                _ ->                                                                                    %TODO: configure fragmented tables
-                    ok                          %cluster exists, we are last leave node
+            create_tables(?DEFAULT_SCHEMA);
+        _Nodes ->
+            case mnesia:system_info(db_nodes) of
+                [Me] when Me == node() ->
+                    lager:info("have no my own cluster, but cluster contains nodes - discovering biggest island"),
+                    ClusterState = common:get_cluster_mnesia_state(),
+                    {Node, ClusterSize} = maps:fold(fun(_Node, {false, _}, Acc) -> Acc;
+                                                       (Node1, {true, Nodes}, {Node2, Weight}) ->
+                                                            if length(Nodes) > Weight -> {Node1, length(Nodes)};
+                                                               true -> {Node2, Weight}
+                                                            end
+                                                    end, {false, -1}, ClusterState),
+                    case {Node, ClusterSize} of
+                        {_, ClusterSize} when ClusterSize < 2 ->                       %there is no cluster
+                            lager:info("bigest mnesia island on cluster size is ~w - no cluster, creating", [ClusterSize]),
+                            MasterNode = common:select_oldest_node(),
+                            lager:info("node ~p selected as master", [MasterNode]),
+                            case MasterNode of
+                                Me ->                   %init cluster
+                                    lager:info("master it's me - creating schema and tables"),
+                                    create_schema([node() | nodes()]),
+                                    rpc:multicall(mnesia, start, []),
+                                    timer:sleep(500),
+                                    create_tables(?DEFAULT_SCHEMA),
+                                    lager:info("schema and tables successfuly created");
+                                _ ->
+                                    lager:info("i'm slave, waiting for initialization"),
+                                    timer:sleep(3000),
+                                    mnesia:wait_for_tables(mnesia:system_info(tables), 60000)
+                            end;
+                        {Node, _} ->
+                            lager:info("a non-degenerate island was found on ~p, joining", [Node]),
+                            mnesia:start(),
+                            ClusterNodes = rpc:call(Node, mnesia, system_info, [db_nodes]),
+                            mnesia:change_config(extra_db_nodes, ClusterNodes),
+                            timer:sleep(1000),
+                            RemoteTables = mnesia:system_info(tables),
+                            mnesia:change_table_copy_type(schema, node(), disc_copies),
+                            timer:sleep(200),
+                            [begin
+                                 Holders = rpc:call(Node, mnesia, table_info, [Table, where_to_commit]), %problems with local version
+                                 Type = element(2, hd(Holders)),
+                                 lager:info("copying table ~p as ~p", [Table, Type]),
+                                 mnesia:add_table_copy(Table, node(), Type),
+                                 Table
+                             end || Table <- RemoteTables, Table /= schema],                    %TODO: not all replicas needed
+                            mnesia:wait_for_tables(RemoteTables, 60000)                         %TODO: configure fragmented tables
+                    end;
+                _ ->
+                    lager:info("have my own cluster, joining"),
+                    mnesia:start()
             end
-        end,
+    end,
     db_sup:start_link().
 
 %%--------------------------------------------------------------------
@@ -72,3 +104,14 @@ connect_to_nodes() ->
     Nodes = application:get_env('db', 'nodes', []),
     [net_kernel:connect_node(Node) || Node <- Nodes],
     ok.
+
+create_schema(Nodes)->
+    case mnesia:create_schema(Nodes) of
+        {'error', {_Node, {'already_exists', _Node}}} ->
+            lager:info("skip creating schema, already exists");
+        {'error', Reason} ->
+            lager:info("can't create schema: ~p", [Reason]),
+            exit(Reason);
+        _Ok ->
+            lager:info("schema successfully created")
+    end.
