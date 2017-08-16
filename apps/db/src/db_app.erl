@@ -13,14 +13,15 @@
 -include("db.hrl").
 
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2
+        ,stop/1
+        ,connect_to_nodes/0]).
 
 %%====================================================================
 %% API
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    connect_to_nodes(),
     case nodes() of
         [] ->                                   %first node in cluster
             lager:info("no nodes on cluster, trying to create schema"),
