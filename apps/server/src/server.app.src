@@ -58,6 +58,7 @@
         ,{'allow_sms_authorization', 'true'}
         ,{'register_with_sms', 'true'}
         ,{'user_storage_capacity', 1024}
+        ,{'acme_challenge', []}
          ]},
   {modules, []},
 
