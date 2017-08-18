@@ -40,8 +40,8 @@
   ]},
   {db, [{'files_dir', "/srv/files/{{node_name}}"}]},
   {kernel, [
-           {distributed, [{singleton,5000, ['egg1@ne.local', 'egg2@ne.local']}]}
-          ,{sync_nodes_optional, ['egg2@ne.local']}
+           {distributed, [{singleton,5000, ['egg@egg1.local.ru', 'egg@egg2.local.ru', 'egg@egg3.local.ru']}]}
+          ,{sync_nodes_optional, ['egg@egg1.local.ru', 'egg@egg3.local.ru']}
           ,{sync_nodes_timeout, 60000}
   ]}
 ].

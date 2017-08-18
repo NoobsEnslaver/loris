@@ -1,4 +1,4 @@
--sname {{node_name}}
+-name {{node_name}}
 
 -setcookie {{cookie}}
 

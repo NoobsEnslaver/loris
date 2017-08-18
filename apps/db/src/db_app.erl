@@ -25,9 +25,13 @@ start(_StartType, _StartArgs) ->
     case nodes() of
         [] ->                                   %first node in cluster
             lager:info("no nodes on cluster, trying to create schema"),
-            create_schema([node()]),
-            mnesia:start(),
-            create_tables(?DEFAULT_SCHEMA);
+            case create_schema([node()]) of
+                'already_exists' ->
+                    mnesia:start();
+                ok ->
+                    mnesia:start(),
+                    create_tables(?DEFAULT_SCHEMA)
+            end;
         _Nodes ->
             case mnesia:system_info(db_nodes) of
                 [Me] when Me == node() ->
@@ -47,6 +51,8 @@ start(_StartType, _StartArgs) ->
                             case MasterNode of
                                 Me ->                   %init cluster
                                     lager:info("master it's me - creating schema and tables"),
+                                    rpc:multicall(mnesia, stop, [[node() | nodes()]]),
+                                    mnesia:delete_schema([node() | nodes()]),
                                     create_schema([node() | nodes()]),
                                     rpc:multicall(mnesia, start, []),
                                     timer:sleep(500),
@@ -63,21 +69,17 @@ start(_StartType, _StartArgs) ->
                             ClusterNodes = rpc:call(Node, mnesia, system_info, [db_nodes]),
                             mnesia:change_config(extra_db_nodes, ClusterNodes),
                             timer:sleep(1000),
-                            RemoteTables = mnesia:system_info(tables),
                             mnesia:change_table_copy_type(schema, node(), disc_copies),
                             timer:sleep(200),
-                            [begin
-                                 Holders = rpc:call(Node, mnesia, table_info, [Table, where_to_commit]), %problems with local version
-                                 Type = element(2, hd(Holders)),
-                                 lager:info("copying table ~p as ~p", [Table, Type]),
-                                 mnesia:add_table_copy(Table, node(), Type),
-                                 Table
-                             end || Table <- RemoteTables, Table /= schema],                    %TODO: not all replicas needed
-                            mnesia:wait_for_tables(RemoteTables, 60000)                         %TODO: configure fragmented tables
+                            copy_remote_tables(Node)
                     end;
                 _ ->
                     lager:info("have my own cluster, joining"),
-                    mnesia:start()
+                    mnesia:start(),
+                    timer:sleep(1000),
+                    lager:info("comparing tables.."),
+                    ClusterNodes = mnesia:system_info(db_nodes),
+                    copy_remote_tables(hd(ClusterNodes))
             end
     end,
     db_sup:start_link().
@@ -109,10 +111,27 @@ connect_to_nodes() ->
 create_schema(Nodes)->
     case mnesia:create_schema(Nodes) of
         {'error', {_Node, {'already_exists', _Node}}} ->
-            lager:info("skip creating schema, already exists");
+            lager:info("skip creating schema, already exists"),
+            'already_exists';
         {'error', Reason} ->
             lager:info("can't create schema: ~p", [Reason]),
             exit(Reason);
         _Ok ->
-            lager:info("schema successfully created")
+            lager:info("schema successfully created"),
+            'ok'
     end.
+
+copy_remote_tables(Node)->
+    RemoteTables = mnesia:system_info(tables),
+    [begin
+         Holders = rpc:call(Node, mnesia, table_info, [Table, where_to_commit]), %problems with local version
+         case proplists:is_defined(node(), Holders) of %if we don't have local table copy
+             false ->
+                 Type = element(2, hd(Holders)),
+                 lager:info("copying table ~p as ~p", [Table, Type]),
+                 mnesia:add_table_copy(Table, node(), Type);
+             true ->
+                 ok
+         end
+     end || Table <- RemoteTables, Table /= schema],                    %TODO: not all replicas needed
+    mnesia:wait_for_tables(RemoteTables, 60000).                        %TODO: configure fragmented tables
