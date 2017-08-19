@@ -75,19 +75,19 @@ init([]) ->             %% TODO: increase init dropdown time
                                        'dev' -> {"api.development.push.apple.com", "feedback.sandbox.push.apple.com"};
                                        'prod'-> {"api.push.apple.com", "feedback.push.apple.com"}
                                    end,
-    ApplePushConfig = #{'name' => apple_push
+    ApplePushConfig = #{'name' => undefined
                        ,'apple_host' => PushServer
                        ,'apple_port' => 443
                        ,'type' => cert
                        ,'certfile' => PushCertFilePath
                        ,'keyfile' => PushKeyFilePath
                        ,'timeout' => 10000},
-    AppleVoipPushConfig = #{'name' => apple_voip_push
+    AppleVoipPushConfig = #{'name' => undefined
                            ,'apple_host' => PushServer
                            ,'apple_port' => 443
                            ,'type' => cert
                            ,'certfile' => VoipCertFilePath
-                           ,'keyfile' => VoipCertFilePath
+                           ,'keyfile' => VoipKeyFilePath
                            ,'timeout' => 10000},
     PushFeedbackConf = #{certfile => PushCertFilePath
                         ,keyfile => PushKeyFilePath
@@ -135,36 +135,36 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({call, #device{push_token = PushToken, id = DevId, msisdn = Owner}, CallerMSISDN}, _State) -> %incoming call
+handle_cast({call, #device{push_token = PushToken, id = DevId, msisdn = Owner}, CallerMSISDN}, #state{voip_server_pid = Pid} = _State) -> %incoming call
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"msisdn">> => erlang:integer_to_binary(CallerMSISDN)},
     Headers = #{'apns_priority' => <<"10">>},
-    case apns:push_notification(apple_voip_push, PushToken, Payload, Headers) of
+    case apns:push_notification(Pid, PushToken, Payload, Headers) of
         {400,_,_} -> device:delete(Owner, DevId);
         _ -> ok
     end,
     {noreply, _State};
-handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, 'undefined', 'undefined'}, _State) ->    %chat invatation
+handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, 'undefined', 'undefined'}, #state{push_server_pid = Pid} = _State) ->    %chat invatation
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}},
-    case apns:push_notification(apple_push, PushToken, Payload) of
+    case apns:push_notification(Pid, PushToken, Payload) of
         {400,_,_} -> device:delete(Owner, DevId);
         _ -> ok
     end,
     {noreply, _State};
-handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatId, MsgId}, _State) ->               %new chat msg
+handle_cast({msg, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatId, MsgId}, #state{push_server_pid = Pid} =_State) ->               %new chat msg
     Payload = #{<<"aps">> => #{<<"content-available">> => 1}
                ,<<"chat_id">> => ChatId
                ,<<"msg_id">> => MsgId},
-    case apns:push_notification(apple_push, PushToken, Payload) of
+    case apns:push_notification(Pid, PushToken, Payload) of
         {400,_,_} -> device:delete(Owner, DevId);
         _ -> ok
     end,
     {noreply, _State};
-handle_cast({msg_loud, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatName, Msg, Badge}, _State) ->   %loud push msg
-    Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => ChatName,
-                                                <<"body">> => Msg}}
-               ,<<"badge">> => Badge},     %% number of unread
-    case apns:push_notification(apple_push, PushToken, Payload) of
+handle_cast({msg_loud, #device{push_token = PushToken, id = DevId, msisdn = Owner}, ChatName, Msg, Badge}, #state{push_server_pid = Pid} = _State) ->   %loud push msg
+    Payload = #{<<"aps">> => #{<<"alert">> => #{<<"title">> => ChatName
+                                               ,<<"body">> => Msg}
+                              ,<<"badge">> => Badge}},
+    case apns:push_notification(Pid, PushToken, Payload) of
         {400,_,_} -> device:delete(Owner, DevId);
         _ -> ok
     end,
@@ -194,18 +194,20 @@ handle_info('get_push_feedback', #state{push_feedback_conf = PushFeedbackConf} =
     {_Pid, Ref} = erlang:spawn_monitor(Fun),
     {noreply, State#state{push_ref = Ref}};
 handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{voip_ref = Ref, get_feedback_interval = GetFeedbackInterval} = State) ->
+    lager:debug("apns feedback process down: ~p", [_Info]),
     erlang:send_after(GetFeedbackInterval, self(), 'get_voip_feedback'),
     {noreply, State#state{voip_ref = 'undefined'}};
 handle_info({'DOWN', Ref, _Type, _Pid, _Info}, #state{push_ref = Ref, get_feedback_interval = GetFeedbackInterval} = State) ->
+    lager:debug("apns feedback process down: ~p", [_Info]),
     erlang:send_after(GetFeedbackInterval, self(), 'get_push_feedback'),
     {noreply, State#state{push_ref = 'undefined'}};
 handle_info({'feedback', 'timeout'}, _State) ->
-    lager:info("Feedback: ~p~n", ['timeout']),
+    lager:debug("feedback timeout"),
     {noreply, _State};
 handle_info({'feedback', Feedback}, _State) when is_list(Feedback) ->
-    lager:info("Feedback: ~p~n", [Feedback]),
+    lager:debug("Feedback: ~p~n", [Feedback]),
     Resp = device:delete_devices_by_token([list_to_binary(Token) || {_Time, Token} <- Feedback]),
-    lager:info("feedback handle result: ~p", [Resp]),
+    lager:debug("feedback handle result: ~p", [Resp]),
     %% TODO: metrics
     {noreply, _State};
 handle_info({'timeout', _StreamId}, State) ->
