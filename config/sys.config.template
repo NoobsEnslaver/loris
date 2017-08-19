@@ -30,7 +30,7 @@
    ,{error_logger_mf_maxbytes, 1024}
    ,{error_logger_mf_maxfiles, 10}
   ]},
-  {mnesia, [{dir, "/home/ne/db"}]},
+  {mnesia, [{dir, "/srv/db/{{node_name}}"}]},
   {apns, [
          {apns_id,          undefined}
         ,{apns_expiration,  0}
