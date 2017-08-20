@@ -37,5 +37,6 @@
         ,{apns_priority,    10}
         ,{apns_topic,       "com.kimoff.egg"}
         ,{apns_collapse_id, undefined}
-  ]}
+  ]},
+  {db, [{'files_dir', "/srv/files/{{node_name}}"}]}
 ].
