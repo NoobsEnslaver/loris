@@ -393,12 +393,28 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
                'undefined' ->
                    #s2c_error{code = 404};
                AL when ?MAY_WRITE(AL) ->
-                   ChatUsers = chat_info:extract(chat_info:get(ChatId), 'users'),
-                   MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
-                   ChatName = chat_info:extract(chat_info:get(ChatId), 'name'),
-                   OfflineUsers = [U || U <- ChatUsers, not(is_pid(users:get_pid(U)))],
-                   push_app:notify_msg(OfflineUsers, ChatId, ChatName, MsgId, MsgBody),          %send silent push to offline users
-                   #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId};
+                   case chat_info:get(ChatId) of
+                       #chat_info{users = ChatUsers} when length(ChatUsers) == 2 ->     %p2p chat
+                           User = hd(ChatUsers -- [MSISDN]),
+                           #user{fname = FName, lname = LName} = users:get(MSISDN),
+                           ChatName = <<FName/binary, " ", LName/binary>>,              %my name
+                           MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
+                           case is_pid(users:get_pid(User)) of
+                               true ->
+                                   ok;
+                               false ->
+                                   push_app:notify_msg([User], ChatId, ChatName, MsgId, MsgBody)
+                           end,
+                           #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId};
+                       #chat_info{users = ChatUsers, name = ChatName} ->                %group chat
+                           #user{fname = FName} = users:get(MSISDN),
+                           MsgId = chats:send_message(ChatId, MsgBody, MSISDN),
+                           OfflineUsers = [U || U <- ChatUsers, not(is_pid(users:get_pid(U)))],
+                           push_app:notify_msg(OfflineUsers, ChatId, ChatName, MsgId, <<"@",FName/binary,": ",MsgBody/binary>>),          %send silent push to offline users
+                           #s2c_message_send_result{chat_id = ChatId, msg_id = MsgId};
+                       _->
+                           #s2c_error{code = 404}
+                   end;
                _ -> #s2c_error{code = 403}
            end,
     {Resp, State};
