@@ -319,7 +319,6 @@ chat_invite_accept_test(Config) ->
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
 
-
 chat_invite_accept_on_chat_creation_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
@@ -378,7 +377,6 @@ chat_invite_accept_on_chat_creation_test(Config) ->
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
 
-
 chat_invite_reject_on_chat_creation_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}
     ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
@@ -398,9 +396,6 @@ chat_invite_reject_on_chat_creation_test(Config) ->
     #{} = get_chats_list(ConPid2, Transport2),
     %% Reject invatation
     send_packet(ConPid2, ?R2M(#c2s_chat_reject_invatation{chat_id = ChatId}, c2s_chat_reject_invatation), Transport2),
-    timer:sleep(50),
-    %% User1 receive message in chat about User2 reject invatation
-    #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"@system:reject_invatation">>, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
     %% Get chat info as admin and user after accept invatation
     #{<<"msg_type">> := ?S2C_CHAT_INFO_TYPE
      ,<<"chat_id">> := ChatId
@@ -418,7 +413,6 @@ chat_invite_reject_on_chat_creation_test(Config) ->
     {error, timeout} = receive_packet(ConPid1, Transport1),
     {error, timeout} = receive_packet(ConPid2, Transport2),
     ok.
-
 
 chat_leave_test(Config) ->
     [#{user := User1, transport := Transport1, connection := ConPid1}

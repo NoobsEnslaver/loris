@@ -9,7 +9,7 @@
 -module(chat_info).
 -include("db.hrl").
 -compile({no_auto_import,[get/1]}).
--export([new/3
+-export([new/3, new/4
         ,get/1
         ,delete/1
         ,rename/2
@@ -19,10 +19,13 @@
         ]).
 
 new(ChatId, Name, OwnerId)->
+    new(ChatId, Name, OwnerId, 'undefined').
+new(ChatId, Name, OwnerId, RoomId)->
     Fun = fun() -> mnesia:write(#chat_info{chat_id = ChatId
                                           ,name = Name
                                           ,users = [OwnerId]
-                                          ,chat_owner = OwnerId})
+                                          ,chat_owner = OwnerId
+                                          ,on_room = RoomId})
           end,
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;
@@ -61,7 +64,7 @@ add_user(ChatId, MSISDN) ->
           end,
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;
-        _Error -> _Error
+        _Error -> 'false'
     end.
 
 remove_user(ChatId, MSISDN) ->
@@ -77,7 +80,7 @@ remove_user(ChatId, MSISDN) ->
           end,
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;
-        _Error -> _Error
+        _Error -> 'false'
     end.
 
 %%%-------------------------------------------------------------------

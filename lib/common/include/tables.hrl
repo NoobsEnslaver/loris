@@ -41,7 +41,8 @@
 -record(chat_info, {chat_id :: binary()
                    ,name :: binary()
                    ,users :: [non_neg_integer()]
-                   ,chat_owner :: non_neg_integer()}).
+                   ,chat_owner :: non_neg_integer()
+                   ,on_room :: non_neg_integer() | 'undefined'}).
 
 -record(index, {name :: binary()
                ,value :: non_neg_integer()}).

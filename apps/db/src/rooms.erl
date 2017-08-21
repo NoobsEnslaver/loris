@@ -32,7 +32,7 @@
 new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
     Id = mnesia:dirty_update_counter('index', 'room', 1),
     {ok, ChatId} = chats:new(),
-    chat_info:new(ChatId, Name, OwnerId),
+    chat_info:new(ChatId, Name, OwnerId, Id),
     Room = #room{id = Id
                 ,name = Name
                 ,description = Description

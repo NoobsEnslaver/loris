@@ -121,8 +121,8 @@ unsubscribe(TableId)->
     mnesia:unsubscribe({table, TableName, detailed}).
 
 invite_to_chat(ChatId, UserMSISDN, AL) ->
-    users:invite_to_chat(ChatId, UserMSISDN, AL),
     send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
+    users:invite_to_chat(ChatId, UserMSISDN, AL),
     case users:get_pid(UserMSISDN) of
         WsPid when is_pid(WsPid)->
             WsPid ! {chat_invatation, ChatId, AL};
@@ -131,43 +131,60 @@ invite_to_chat(ChatId, UserMSISDN, AL) ->
     end.
 
 accept_invatation(ChatId, MSISDN) ->
-    case users:accept_invatation(ChatId, MSISDN) of
-        'not_exists' -> 'not_exists';
-        AL when ?MAY_READ(AL) ->
-            chat_info:add_user(ChatId, MSISDN),
-            subscribe(ChatId),
-            send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
-            AL;
-        AL ->
-            chat_info:add_user(ChatId, MSISDN),
-            send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
-            AL
+    case chat_info:get(ChatId) of
+        'false' -> 'not_exists';
+        _ ->
+            case users:accept_invatation(ChatId, MSISDN) of
+                'not_exists' -> 'not_exists';
+                AL when ?MAY_READ(AL) ->
+                    chat_info:add_user(ChatId, MSISDN),
+                    subscribe(ChatId),
+                    send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+                    AL;
+                AL ->
+                    chat_info:add_user(ChatId, MSISDN),
+                    send_message(ChatId, <<"@system:accept_invatation">>, MSISDN),
+                    AL
+            end
     end.
 
 reject_invatation(ChatId, MSISDN) ->
-    case users:reject_invatatoin(ChatId, MSISDN) of
-        'not_exists' -> 'not_exists';
-        _Ok -> send_message(ChatId, <<"@system:reject_invatation">>, MSISDN)
-    end.
+    users:reject_invatatoin(ChatId, MSISDN).
 
 delete(ChatId, MSISDN) ->
-    TableInfo = chat_info:get(ChatId),
-    TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
-    notify_all_online_chat_users(ChatId, {chat_delete, ChatId, MSISDN}),
-    Users = chat_info:extract(TableInfo, users),
-    lists:foreach(fun(U)->
-                          users:leave_chat(ChatId, U)
-                  end, Users),
-    mnesia:delete_table(TableName),
-    chat_info:delete(ChatId),
-    ok.
+    case chat_info:get(ChatId) of
+        #chat_info{users = Users, on_room = RoomId} ->
+            TableName = erlang:binary_to_atom(<<"chat_", ChatId/binary>>, 'utf8'),
+            notify_all_online_chat_users(ChatId, {chat_delete, ChatId, MSISDN}),
+            lists:foreach(fun(U)->
+                                  users:leave_chat(ChatId, U)
+                          end, Users),
+            mnesia:delete_table(TableName),
+            chat_info:delete(ChatId),
+            case RoomId of
+                _ when is_integer(RoomId) ->
+                    case rooms:get(RoomId) of
+                        Room when is_record(Room, room) ->
+                            rooms:set(Room#room{chat_id = 'undefined'});
+                        _ -> ok
+                    end;
+                _ ->
+                   ok
+            end,
+            ok;
+        _ ->
+            'false'
+    end.
 
 leave_chat(ChatId, MSISDN) ->
-    send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
-    unsubscribe(ChatId),
-    users:leave_chat(ChatId, MSISDN),
-    chat_info:remove_user(ChatId, MSISDN),
-    ok.
+    case chat_info:remove_user(ChatId, MSISDN) of
+        ok ->
+            send_message(ChatId, <<"@system:leave_chat">>, MSISDN),
+            unsubscribe(ChatId),
+            users:leave_chat(ChatId, MSISDN);
+        _Error ->
+            _Error
+    end.
 
 typing(ChatId, MSISDN) ->
     notify_all_online_chat_users(ChatId, {chat_typing, ChatId, MSISDN}).
@@ -188,13 +205,16 @@ get_unique_chat_id()->
     end.
 
 notify_all_online_chat_users(ChatId, Msg)->
-    ChatInfo = chat_info:get(ChatId),
-    Users = chat_info:extract(ChatInfo, users),
-    lists:foreach(fun(U)->
-                          case users:get_pid(U) of
-                              WsPid when is_pid(WsPid)->
-                                  WsPid ! Msg;
-                              _ ->
-                                  'ok'
-                          end
-                  end, Users).
+    case chat_info:get(ChatId) of
+        #chat_info{users = Users} ->
+            lists:foreach(fun(U)->
+                                  case users:get_pid(U) of
+                                      WsPid when is_pid(WsPid)->
+                                          WsPid ! Msg;
+                                      _ ->
+                                          'ok'
+                                  end
+                          end, Users);
+        _ ->
+            'false'
+    end.
