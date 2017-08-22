@@ -1,0 +1,49 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>Multipart upload example</title>
+  </head>
+
+  <body>
+    <form method="post" enctype="multipart/form-data" action="https://backegg.ru:8080/v1/file">
+      <input type="file" name="inputfile"/>
+      <input type="submit"/>
+    </form>
+	<input type="button" value="Set token" id="set_token" onclick=setAction() /> 
+	<input type="text" id="token" value="" />
+  </body>
+	<script>
+	  function setAction(){
+	  var host = window.location.origin;
+		var Token = host + "/v1/session/" + document.getElementById("token").value + "/file";
+		document.getElementsByTagName("form")[0].action = Token;
+	}
+
+
+	var Date = new Date();
+	Date.setYear(2020);
+	
+	function setCookie(name, value, expires, path, domain, secure) {
+        var curCookie = name + "=" + escape(value) +
+                ((expires) ? "; expires=" + expires.toGMTString() : "") +
+                ((path) ? "; path=" + path : "") +
+                ((domain) ? "; domain=" + domain : "") +
+                ((secure) ? "; secure" : "");
+                document.cookie = curCookie
+	};
+
+	function getCookie(name) {
+ 	       var prefix = name + "="
+	        var cookieStartIndex = document.cookie.indexOf(prefix)
+	        if (cookieStartIndex == -1)
+	                return null
+	        var cookieEndIndex = document.cookie.indexOf(";", cookieStartIndex + prefix.length)
+	        if (cookieEndIndex == -1)
+	                cookieEndIndex = document.cookie.length
+	        return unescape(document.cookie.substring(cookieStartIndex + prefix.length, cookieEndIndex))
+	};
+
+	// setCookie("token", "qwe123", Date, "/", false, false);
+	setAction();
+	</script>
+</html>

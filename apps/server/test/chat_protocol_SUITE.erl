@@ -16,7 +16,10 @@
 -import(tester,[connect_to_ws/2
                ,authorize/1
                ,send_packet/3
-               ,receive_packet/2]).
+               ,receive_packet/2
+               ,get_chats_list/2
+               ,get_chat_info/3
+               ,send_message/4]).
 
 %%--------------------------------------------------------------------
 %% @spec suite() -> Info
@@ -105,45 +108,45 @@ end_per_testcase(_TestCase, Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-    [{chats, [], [chat_get_list_test
-                 ,chat_get_info_unexists_chat_test
-                 ,chat_create_test
-                 ,chat_create_p2p_test
-                 ,chat_create_and_get_info_test
-                 ,chat_invite_accept_test
-                 ,chat_invite_accept_on_chat_creation_test
-                 ,chat_invite_reject_on_chat_creation_test
-                 ,chat_leave_test
-                 ,chat_delete_test
-                 ,chat_typing_mute_unmute_test
-                 ]}
-    ,{messages, [], [message_send_test
-                    ,message_send_p2p_test
-                    ,message_get_list_test
-                    ,message_update_test
-                    ,message_update_status_test
-                    ]}
-    ,{users, [], [user_get_info_test
-                 ,user_get_info_bulk_test
-                 ,user_get_status_test
-                 ,user_subscribe_unsubscribe_test
-                 ,user_set_info_test
-                 ,user_search_test
-                 ]}
-    ,{rooms, [], [room_create_test
-                 ,room_get_info_test
-                 ,room_set_info_test
-                 ,room_join_to_chat_test
-                 ,room_delete_test
-                 ,room_add_del_subroom_test
-                 ,room_send_recursive_message_test
-                 ]}
-    ,{calls, [], [call_normal_answer_test
-                 ,call_reject_call_test
-                 ,call_to_busy_test
-                 ,call_to_bad_msisdn_test
-                 ,call_to_offline_test
-                 ]}
+    [{chats, [parallel, shuffle], [chat_get_list_test
+                                  ,chat_get_info_unexists_chat_test
+                                  ,chat_create_test
+                                  ,chat_create_p2p_test
+                                  ,chat_create_and_get_info_test
+                                  ,chat_invite_accept_test
+                                  ,chat_invite_accept_on_chat_creation_test
+                                  ,chat_invite_reject_on_chat_creation_test
+                                  ,chat_leave_test
+                                  ,chat_delete_test
+                                  ,chat_typing_mute_unmute_test
+                                  ]}
+    ,{messages, [parallel, shuffle], [message_send_test
+                                     ,message_send_p2p_test
+                                     ,message_get_list_test
+                                     ,message_update_test
+                                     ,message_update_status_test
+                                     ]}
+    ,{users, [parallel, shuffle], [user_get_info_test
+                                  ,user_get_info_bulk_test
+                                  ,user_get_status_test
+                                  ,user_subscribe_unsubscribe_test
+                                  ,user_set_info_test
+                                  ,user_search_test
+                                  ]}
+    ,{rooms, [parallel, shuffle], [room_create_test
+                                  ,room_get_info_test
+                                  ,room_set_info_test
+                                  ,room_join_to_chat_test
+                                  ,room_delete_test
+                                  ,room_add_del_subroom_test
+                                  ,room_send_recursive_message_test
+                                  ]}
+    ,{calls, [parallel, shuffle], [call_normal_answer_test
+                                  ,call_reject_call_test
+                                  ,call_to_busy_test
+                                  ,call_to_bad_msisdn_test
+                                  ,call_to_offline_test
+                                  ]}
     ,{system, [], [%% system_logout_test,
                   storage_test]}].
 
@@ -213,9 +216,8 @@ chat_create_test(Config) ->
 
 chat_create_and_get_info_test(Config) ->
     Env = proplists:get_value(env, Config),
-    lists:foreach(fun(#{user := User, transport := Transport, connection := ConPid})->
+    lists:foreach(fun(#{msisdn := MSISDN, transport := Transport, connection := ConPid})->
                           ChatName = <<"test_chat">>,
-                          MSISDN = users:extract(User, msisdn),
                           send_packet(ConPid, ?R2M(#c2s_chat_create{name = ChatName, users = []}, c2s_chat_create), Transport),
                           timer:sleep(50),
                           #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid, Transport),
@@ -233,10 +235,8 @@ chat_create_and_get_info_test(Config) ->
                   end, Env).
 
 chat_create_p2p_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = <<"test_chat">>, users = [MSISDN2], is_p2p = true}, c2s_chat_create), Transport1),
     timer:sleep(50),
     #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid1, Transport1),
@@ -258,11 +258,9 @@ chat_create_p2p_test(Config) ->
     ok.
 
 chat_invite_accept_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = []}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -320,11 +318,9 @@ chat_invite_accept_test(Config) ->
     ok.
 
 chat_invite_accept_on_chat_creation_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -378,11 +374,9 @@ chat_invite_accept_on_chat_creation_test(Config) ->
     ok.
 
 chat_invite_reject_on_chat_creation_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -415,11 +409,9 @@ chat_invite_reject_on_chat_creation_test(Config) ->
     ok.
 
 chat_leave_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -476,11 +468,9 @@ chat_leave_test(Config) ->
     ok.
 
 chat_delete_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -535,11 +525,9 @@ chat_delete_test(Config) ->
 %%      MESSAGE
 %%--------------------------------------------------------------------
 message_send_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -566,11 +554,9 @@ message_send_test(Config) ->
     ok.
 
 message_send_p2p_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2], is_p2p = 'true'}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -594,11 +580,9 @@ message_send_p2p_test(Config) ->
     ok.
 
 message_get_list_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid2, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN1]}, c2s_chat_create), Transport2),
     #{<<"msg_type">> := ?S2C_CHAT_CREATE_RESULT_TYPE, <<"chat_id">> := ChatId} = receive_packet(ConPid2, Transport2),
@@ -662,11 +646,9 @@ message_get_list_test(Config) ->
     ok.
 
 chat_typing_mute_unmute_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -703,11 +685,9 @@ chat_typing_mute_unmute_test(Config) ->
     ok.
 
 message_update_status_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -750,11 +730,9 @@ message_update_status_test(Config) ->
     ok.
 
 message_update_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     ChatName = <<"test_chat">>,
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
     %% Crete chat, receive chat_id, invite User2
     send_packet(ConPid1, ?R2M(#c2s_chat_create{name = ChatName, users = [MSISDN2]}, c2s_chat_create), Transport1),
     timer:sleep(50),
@@ -804,12 +782,11 @@ user_get_status_test(Config)->
     Env = proplists:get_value(env, Config),
     lists:foreach(fun(#{transport := Transport, connection := ConPid})->
                           %% Register new user
-                          MSISDN = rand:uniform(89999999) + 1000000,
-                          _User = users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          MSISDN = rand:uniform(89999999999) + 1000000000,
                           timer:sleep(50),
                           %% Get new user status
                           send_packet(ConPid, ?R2M(#c2s_user_get_status{user_msisdn = MSISDN}, c2s_user_get_status), Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
+                          #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid, Transport),
                           {ok, Token} = authorize(MSISDN),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
                           timer:sleep(50),
@@ -826,16 +803,12 @@ user_get_status_test(Config)->
 user_subscribe_unsubscribe_test(Config) ->
     Env = proplists:get_value(env, Config),
     lists:foreach(fun(#{transport := Transport, connection := ConPid})->
-                          %% Register new user
-                          MSISDN1 = rand:uniform(89999999) + 1000000,
-                          _User1 = users:new(MSISDN1, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                          MSISDN2 = rand:uniform(89999999) + 1000000,
-                          _User2 = users:new(MSISDN2, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                          timer:sleep(50),
+                          MSISDN1 = rand:uniform(89999999999) + 1000000000,
+                          MSISDN2 = rand:uniform(89999999999) + 1000000000,
                           %% subscribe
                           send_packet(ConPid, ?R2M(#c2s_user_subscribe{msisdn = [MSISDN1, MSISDN2]}, c2s_user_subscribe), Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
-                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN2, <<"status">> := <<"offline">>} = receive_packet(ConPid, Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"not_exists">>} = receive_packet(ConPid, Transport),
+                          #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN2, <<"status">> := <<"not_exists">>} = receive_packet(ConPid, Transport),
                           {ok, Token1} = authorize(MSISDN1),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token1) ++ "/ws/v1/chat", Transport),
                           #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE, <<"msisdn">> := MSISDN1, <<"status">> := <<"online">>} = receive_packet(ConPid, Transport),
@@ -851,36 +824,20 @@ user_subscribe_unsubscribe_test(Config) ->
                           timer:sleep(1000),
                           gun:close(ConPid3),
                           gun:close(ConPid4),
-                          timer:sleep(2000),
                           {error, timeout} = receive_packet(ConPid, Transport)
                   end, Env).
 
 user_get_info_test(Config) ->
     Env = proplists:get_value(env, Config),
-    lists:foreach(fun(#{transport := Transport, connection := ConPid, user := User})->
-                          FName = users:extract(User, fname),
-                          LName = users:extract(User, lname),
-                          Age = users:extract(User, age),
-                          IsMale = users:extract(User, is_male),
-                          MSISDN = users:extract(User, msisdn),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid, msisdn := MSISDN, fname := FName, lname := LName, age := Age, is_male := IsMale})->
                           send_packet(ConPid, ?R2M(#c2s_user_get_info{user_msisdn = MSISDN}, c2s_user_get_info), Transport),
                           #{<<"msg_type">> := ?S2C_USER_INFO_TYPE, <<"user_msisdn">> := MSISDN, <<"fname">> := FName , <<"lname">> := LName, <<"age">> := Age, <<"is_male">> := IsMale} = receive_packet(ConPid, Transport)
                   end, Env),
     ok.
 
 user_get_info_bulk_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
-    FName1 = users:extract(User1, fname),
-    FName2 = users:extract(User2, fname),
-    LName1 = users:extract(User1, lname),
-    LName2 = users:extract(User2, lname),
-    Age1 = users:extract(User1, age),
-    Age2 = users:extract(User2, age),
-    IsMale1 = users:extract(User1, is_male),
-    IsMale2 = users:extract(User2, is_male),
+    [#{msisdn := MSISDN1, fname := FName1, lname := LName1, age := Age1, is_male := IsMale1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, fname := FName2, lname := LName2, age := Age2, is_male := IsMale2} | _] = proplists:get_value(env, Config),
     %% Get info about both users
     send_packet(ConPid1, ?R2M(#c2s_user_get_info_bulk{msisdns = [MSISDN1, MSISDN2]}, c2s_user_get_info_bulk), Transport1),
     #{<<"msg_type">> := ?S2C_USER_INFO_BULK_TYPE, <<"users">> := Users} = receive_packet(ConPid1, Transport1),
@@ -890,8 +847,7 @@ user_get_info_bulk_test(Config) ->
 
 user_set_info_test(Config) ->
     Env = proplists:get_value(env, Config),
-    lists:foreach(fun(#{transport := Transport, connection := ConPid, user := User})->
-                          MSISDN = users:extract(User, msisdn),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid, msisdn := MSISDN})->
                           send_packet(ConPid, ?R2M(#c2s_user_set_info{fname = <<"Joe">>, lname = <<"Armstrong">>, is_male = 'true', age = 70}, c2s_user_set_info), Transport),
                           send_packet(ConPid, ?R2M(#c2s_user_get_info{user_msisdn = MSISDN}, c2s_user_get_info), Transport),
                           #{<<"msg_type">> := ?S2C_USER_INFO_TYPE, <<"user_msisdn">> := MSISDN, <<"fname">> := <<"Joe">> , <<"lname">> := <<"Armstrong">>, <<"age">> := 70, <<"is_male">> := 'true'} = receive_packet(ConPid, Transport)
@@ -899,21 +855,23 @@ user_set_info_test(Config) ->
     ok.
 
 user_search_test(Config) ->
-    [#{user := User1, transport := Transport, connection := ConPid}
-    ,#{user := User2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
-    send_packet(ConPid, ?R2M(#c2s_user_search{fname = <<"Nik">>, lname = <<>>}, c2s_user_search), Transport),
-    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users1} = receive_packet(ConPid, Transport),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    RandomFName = crypto:strong_rand_bytes(16),
+    RandomLName = crypto:strong_rand_bytes(16),
+    send_packet(ConPid1, ?R2M(#c2s_user_set_info{fname = RandomFName, lname = RandomLName, is_male = 'true', age = 70}, c2s_user_set_info), Transport1),
+    send_packet(ConPid2, ?R2M(#c2s_user_set_info{fname = RandomFName, lname = RandomLName, is_male = 'true', age = 70}, c2s_user_set_info), Transport2),
+    send_packet(ConPid1, ?R2M(#c2s_user_search{fname = binary:part(RandomFName, 0, 3), lname = <<>>}, c2s_user_search), Transport1),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users1} = receive_packet(ConPid1, Transport1),
     'true' = lists:member(MSISDN1, Users1) and lists:member(MSISDN2, Users1),
-    send_packet(ConPid, ?R2M(#c2s_user_search{fname = <<>>, lname = <<"Voron">>}, c2s_user_search), Transport),
-    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users2} = receive_packet(ConPid, Transport),
+    send_packet(ConPid1, ?R2M(#c2s_user_search{fname = <<>>, lname = binary:part(RandomLName, 0, 4)}, c2s_user_search), Transport1),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users2} = receive_packet(ConPid1, Transport1),
     'true' = lists:member(MSISDN1, Users2) and lists:member(MSISDN2, Users2),
-    send_packet(ConPid,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => <<"Vor">>, <<"fname">> => <<"Nik">>}, Transport),
-    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users3} = receive_packet(ConPid, Transport),
+    send_packet(ConPid1,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => binary:part(RandomLName, 0, 3), <<"fname">> => binary:part(RandomFName, 0, 3)}, Transport1),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := Users3} = receive_packet(ConPid1, Transport1),
     'true' = lists:member(MSISDN1, Users3) and lists:member(MSISDN2, Users3),
-    send_packet(ConPid,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => <<"V">>, <<"fname">> => <<"N">>}, Transport),
-    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := []} = receive_packet(ConPid, Transport),
+    send_packet(ConPid1,#{<<"msg_type">> => ?C2S_USER_SEARCH_TYPE, <<"lname">> => binary:part(RandomLName,0,1), <<"fname">> => binary:part(RandomFName,0,1)}, Transport1),
+    #{<<"msg_type">> := ?S2C_USER_SEARCH_RESULT_TYPE, <<"users">> := []} = receive_packet(ConPid1, Transport1),
     ok.
 
 %%--------------------------------------------------------------------
@@ -922,8 +880,6 @@ user_search_test(Config) ->
 room_create_test(Config) ->
     [#{transport := Transport1, connection := ConPid1}
     ,#{transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    %% MSISDN1 = users:extract(User1, msisdn),
-    %% MSISDN2 = users:extract(User2, msisdn),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     timer:sleep(100),
     Room = #c2s_room_create{name = <<"My Room">>, description = <<"My Own Room">>, room_access = #{}, chat_access = #{}, tags = #{<<"tag1">> => 'true'}},
@@ -935,11 +891,10 @@ room_create_test(Config) ->
 
 room_get_info_test(Config) ->
     [#{transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     timer:sleep(100),
-    MSISDN2 = users:extract(User2, msisdn),
-    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6] = [MSISDN || MSISDN <- lists:seq(100000, 100003)],
+    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6] = [MSISDN || MSISDN <- lists:seq(MSISDN2 + 1, MSISDN2 + 4)],
     RoomAccess = #{MSISDN2 => 0, MSISDN3 => 7, <<"default">> => 1},
     ChatAccess = #{MSISDN4 => 7, MSISDN5 => 0, <<"default">> => 3},
     Room = #c2s_room_create{name= <<"My Room">>
@@ -955,8 +910,6 @@ room_get_info_test(Config) ->
     ,{MSISDN4, ConPid4}
     ,{MSISDN5, ConPid5}
     ,{MSISDN6, ConPid6}] = [begin
-                                users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                                timer:sleep(100),
                                 {ok, Token} = authorize(MSISDN),
                                 {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
                                 send_packet(ConPid, ?R2M(#c2s_room_get_info{room_id = RoomId}, c2s_room_get_info), Transport1),
@@ -988,11 +941,10 @@ room_get_info_test(Config) ->
 
 room_set_info_test(Config) ->
     [#{transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     timer:sleep(100),
-    MSISDN2 = users:extract(User2, msisdn),
-    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6] = [MSISDN || MSISDN <- lists:seq(100000, 100003)],
+    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6] = [MSISDN || MSISDN <- lists:seq(MSISDN2 + 1, MSISDN2 + 4)],
     RoomAccess = #{MSISDN2 => 0, MSISDN3 => 7, <<"default">> => 1},
     ChatAccess = #{MSISDN4 => 7, MSISDN5 => 0, <<"default">> => 3},
     Room = #c2s_room_create{name= <<"My Room">>
@@ -1007,8 +959,6 @@ room_set_info_test(Config) ->
     ,{MSISDN4, ConPid4}
     ,{MSISDN5, ConPid5}
     ,{MSISDN6, ConPid6}] = [begin
-                                users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                                timer:sleep(100),
                                 {ok, Token} = authorize(MSISDN),
                                 {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
                                 {MSISDN, ConPid}
@@ -1105,10 +1055,9 @@ room_set_info_test(Config) ->
 
 room_delete_test(Config) ->
     [#{transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     timer:sleep(100),
-    MSISDN2 = users:extract(User2, msisdn),
     RoomAccess = #{MSISDN2 => 7, <<"default">> => 1},
     ChatAccess = #{MSISDN2 => 7, <<"default">> => 3},
     Room = #c2s_room_create{name= <<"My Room">>
@@ -1120,7 +1069,7 @@ room_delete_test(Config) ->
     #{<<"msg_type">> := ?S2C_ROOM_CREATE_RESULT_TYPE, <<"room_id">> := RoomId} = receive_packet(ConPid1, Transport1),
     send_packet(ConPid2, ?R2M(#c2s_room_delete{room_id = RoomId}, c2s_room_delete), Transport2),
     #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid2, Transport2),
-    send_packet(ConPid2, ?R2M(#c2s_room_delete{room_id = 123}, c2s_room_delete), Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_room_delete{room_id = 123123123}, c2s_room_delete), Transport2),
     #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid2, Transport2),
     send_packet(ConPid1, ?R2M(#c2s_room_delete{room_id = RoomId}, c2s_room_delete), Transport1),
     timer:sleep(100),
@@ -1130,11 +1079,10 @@ room_delete_test(Config) ->
 
 room_add_del_subroom_test(Config)->
     [#{transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     send_packet(ConPid2, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport2),
     timer:sleep(100),
-    MSISDN2 = users:extract(User2, msisdn),
     Room = #c2s_room_create{name= <<"Room1">>
                            ,description= <<"">>
                            ,room_access= #{}
@@ -1181,11 +1129,10 @@ room_add_del_subroom_test(Config)->
 
 room_join_to_chat_test(Config) ->
     [#{transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     send_packet(ConPid1, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
     timer:sleep(100),
-    MSISDN2 = users:extract(User2, msisdn),
-    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6, MSISDN7] = [MSISDN || MSISDN <- lists:seq(100000, 100004)],
+    NewMSISDNs = [MSISDN3, MSISDN4, MSISDN5, MSISDN6, MSISDN7] = [MSISDN || MSISDN <- lists:seq(MSISDN2 + 1, MSISDN2 + 5)],
     RoomAccess = #{MSISDN2 => 0, MSISDN3 => 7, <<"default">> => 1},
     ChatAccess = #{MSISDN4 => 7, MSISDN5 => 0, MSISDN7 => 1, <<"default">> => 3},
     Room = #c2s_room_create{name= <<"My Room">>
@@ -1202,8 +1149,6 @@ room_join_to_chat_test(Config) ->
     ,{MSISDN5, ConPid5}
     ,{MSISDN6, ConPid6}
     ,{MSISDN7, ConPid7}] = [begin
-                                users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                                timer:sleep(100),
                                 {ok, Token} = authorize(MSISDN),
                                 {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
                                 send_packet(ConPid, ?R2M(#c2s_room_join_to_chat{room_id = RoomId}, c2s_room_join_to_chat), Transport1),
@@ -1252,11 +1197,14 @@ room_join_to_chat_test(Config) ->
 
 room_send_recursive_message_test(Config) ->
     [#{transport := Transport1}| _] = proplists:get_value(env, Config),
+    Base = rand:uniform(89999999999) + 10000000000,
+    Banned = Base + 2,
     Room = #c2s_room_create{name= <<"My Room">>
                            ,description= <<"My Own Room">>
                            ,room_access= #{'default' => 3}
-                           ,chat_access= #{'default' => 3, 100002 => 0}
+                           ,chat_access= #{'default' => 3, Banned => 0}
                            ,tags= #{}},
+
     [{_MSISDN1, ConPid1, RoomId1}
     ,{_MSISDN2, ConPid2, RoomId2}
     ,{_MSISDN3, ConPid3, RoomId3}
@@ -1264,8 +1212,6 @@ room_send_recursive_message_test(Config) ->
     ,{_MSISDN5, ConPid5, RoomId5}
     ,{_MSISDN6, ConPid6, RoomId6}
     ,{_MSISDN7, ConPid7, RoomId7}] = [begin
-                                         users:new(MSISDN, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
-                                         timer:sleep(100),
                                          {ok, Token} = authorize(MSISDN),
                                          {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport1),
                                          send_packet(ConPid, ?R2M(#c2s_user_upgrade_to_company{}, c2s_user_upgrade_to_company), Transport1),
@@ -1278,7 +1224,7 @@ room_send_recursive_message_test(Config) ->
                                          timer:sleep(50),
                                          send_packet(ConPid, ?R2M(#c2s_chat_accept_invatation{chat_id = ChatId}, c2s_chat_accept_invatation), Transport1),
                                          {MSISDN, ConPid, RoomId}
-                                     end || MSISDN <- lists:seq(100000, 100006)],
+                                     end || MSISDN <- lists:seq(Base, Base + 6)],
     send_packet(ConPid1, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId2}, c2s_room_add_subroom), Transport1),
     timer:sleep(50),
     send_packet(ConPid1, ?R2M(#c2s_room_add_subroom{room_id = RoomId1, subroom_id = RoomId3}, c2s_room_add_subroom), Transport1),
@@ -1312,10 +1258,8 @@ room_send_recursive_message_test(Config) ->
 %%      CALLS
 %%--------------------------------------------------------------------
 call_normal_answer_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     %% User1 and User2 locks turn servers
     send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
     send_packet(ConPid2, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport2),
@@ -1344,10 +1288,8 @@ call_normal_answer_test(Config) ->
     ok.
 
 call_reject_call_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
     %% User1 and User2 locks turn servers
     send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
     send_packet(ConPid2, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport2),
@@ -1372,13 +1314,10 @@ call_reject_call_test(Config) ->
     ok.
 
 call_to_busy_test(Config) ->
-    [#{user := User1, transport := Transport1, connection := ConPid1}
-    ,#{user := User2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    MSISDN1 = users:extract(User1, msisdn),
-    MSISDN2 = users:extract(User2, msisdn),
-    MSISDN3 = rand:uniform(89999999) + 1000000,
+    [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
+    ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
+    MSISDN3 = MSISDN2 + 1,
     Transport3 = Transport1,
-    _User = users:new(MSISDN3, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
     timer:sleep(50),
     {ok, Token} = authorize(MSISDN3),
     {ok, ConPid3} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport3),
@@ -1415,7 +1354,7 @@ call_to_busy_test(Config) ->
 call_to_bad_msisdn_test(Config) ->
     [#{transport := Transport1, connection := ConPid1} | _] = proplists:get_value(env, Config),
     %% User1 try to call to unexisting MSISDN
-    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = 123, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = 0, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
     #{<<"msg_type">> := ?S2C_CALL_BYE_TYPE, <<"code">> := 404} = receive_packet(ConPid1, Transport1),
     timer:sleep(100),
     {error, timeout} = receive_packet(ConPid1, Transport1),
@@ -1423,17 +1362,15 @@ call_to_bad_msisdn_test(Config) ->
 
 call_to_offline_test(Config) ->
     Env = proplists:get_value(env, Config),
-    lists:foreach(fun(#{transport := Transport1, connection := ConPid1, user := User1})->
-                          MSISDN1 = users:extract(User1, msisdn),
-                          MSISDN2 = rand:uniform(89999999) + 1000000,
+    lists:foreach(fun(#{transport := Transport1, connection := ConPid1, msisdn := MSISDN1})->
+                          MSISDN2 = MSISDN1 + 1,
                           Transport2 = Transport1,
-                          _User = users:new(MSISDN2, <<"121">>, <<"Nikita">>, <<"Vorontsov">>, 25, 'true', 'administrators', 0),
+                          {ok, Token} = authorize(MSISDN2),
                           timer:sleep(50),
                           send_packet(ConPid1, ?R2M(#c2s_lock_turn_server{}, c2s_lock_turn_server), Transport1),
                           #{<<"msg_type">> := ?S2C_TURN_SERVER_TYPE} = receive_packet(ConPid1, Transport1),
                           send_packet(ConPid1, ?R2M(#c2s_call_offer{msisdn = MSISDN2, sdp = <<"sdp1">>}, c2s_call_offer), Transport1),
                           #{<<"msg_type">> := ?S2C_CALL_ACK_TYPE} = receive_packet(ConPid1, Transport1),
-                          {ok, Token} = authorize(MSISDN2),
                           {ok, ConPid2} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport2),
                           timer:sleep(50),
                           #{<<"msg_type">> := ?S2C_USER_STATUS_TYPE,<<"msisdn">> := MSISDN2, <<"status">> := <<"online">>} = receive_packet(ConPid1, Transport1),
@@ -1455,7 +1392,7 @@ call_to_offline_test(Config) ->
 
 storage_test(Config) ->
     Env = proplists:get_value(env, Config),
-    lists:foreach(fun(#{transport := Transport, connection := ConPid, user := #user{msisdn = MSISDN}})->
+    lists:foreach(fun(#{transport := Transport, connection := ConPid, msisdn := MSISDN})->
                           {ok, StorageCapacity} = application:get_env('server', 'user_storage_capacity'),
                           send_packet(ConPid, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
                           #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := []} = receive_packet(ConPid, Transport),
@@ -1505,35 +1442,14 @@ storage_test(Config) ->
 %%%===================================================================
 init()->
     lists:map(fun(Transport)->
-                      MSISDN = rand:uniform(89999999) + 1000000,
+                      MSISDN = rand:uniform(89999999999) + 1000000000,
                       {ok, Token} = authorize(MSISDN),
-                      User = users:set_info(MSISDN, [{group, administrators}, {age, 25}, {fname, <<"Nikita">>}, {lname, <<"Vorontsov">>}, {is_male, true}]),
                       {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
-                      #{user => User, token => Token, connection => ConPid, transport => Transport}
+                      #{group => users, msisdn => MSISDN, fname => <<"Nikita">>, lname => <<"Vorontsov">>, is_male => true, age => 25, token => Token, connection => ConPid, transport => Transport}
               end, ?SUPPORTED_TRANSPORT).
 
 deinit([])->
     ok;
-deinit([#{user := User, token := Token, connection := ConPid} | Tail])->
+deinit([#{connection := ConPid} | Tail])->
     ok = tester:disconnect(ConPid),
-    ok = sessions:delete(Token),
-    ok = users:delete(User),
     deinit(Tail).
-
-get_chats_list(ConnPid, Transport) ->
-    send_packet(ConnPid, ?R2M(#c2s_chat_get_list{}, c2s_chat_get_list), Transport),
-    #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := Chats} = receive_packet(ConnPid, Transport),
-    Chats.
-
-get_chat_info(ConnPid, Transport, ChatId) ->
-    send_packet(ConnPid, ?R2M(#c2s_chat_get_info{chat_id = ChatId}, c2s_chat_get_info), Transport),
-    timer:sleep(50),
-    receive_packet(ConnPid, Transport).
-
-send_message(ConnPid, Transport, ChatId, MsgBody) ->
-    send_packet(ConnPid, ?R2M(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, c2s_message_send), Transport),
-    timer:sleep(50),
-    case receive_packet(ConnPid, Transport) of
-        #{<<"msg_type">> := ?S2C_MESSAGE_SEND_RESULT_TYPE, <<"msg_id">> := MsgId, <<"chat_id">> := ChatId} -> {MsgId, ChatId};
-        Else -> Else
-    end.

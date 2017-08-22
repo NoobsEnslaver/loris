@@ -1,0 +1,41 @@
+<html>
+        <head>
+                <meta charset="utf-8">
+        </head>
+        <body>
+                <table border="1" width="100%" height="100%">
+                        <tr height="45%">
+                                <td colspan="3">
+                                        <textarea style="width: 100%; height: 100%" id="req" cols="40" rows="5">{"msg_type": 18}</textarea>
+                                </td>
+                        </tr>
+                        <tr height="10%">
+                                <td width="20%">
+                                        <button id="send">Отправить</button>
+                                        <select id="transport">
+                                                <option value="msgpack">MsgPack</option>
+                                                <option value="text">Plain text</option>
+                                        </select>
+
+                                        <button id="clear">Очистить</button>
+                                </td>
+                                <td width="60%">
+                                        <label id="error"></lablel>
+                                        <br />
+                                        Server url: <input size=50 id="url" value="ws://localhost:8080/ws/" />
+                                </td>
+                                <td width="20%">
+                                        <button id="reconnect">Reconnect</button>
+                                        <label id="status"></lablel>
+                                </td>
+                        </tr>
+                        <tr height="45%">
+                                <td colspan="3">
+                                        <textarea style="width: 100%; height: 100%" id="resp" cols="40" rows="5"></textarea>
+                                </td>
+                        </tr>
+                </table>
+                <script src="https://rawgit.com/kawanet/msgpack-lite/master/dist/msgpack.min.js"></script>
+                <script src="easy_test.js"></script>
+        </body>
+</html>

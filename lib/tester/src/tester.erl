@@ -1,12 +1,22 @@
 -module(tester).
 
 -include_lib("common/include/transport_lib.hrl").
+-include("apps/server/include/ws_chat_protocol_v1_messages.hrl").
 
--define(SERVER_ADDRESS, "127.0.0.1").
--define(SERVER_PORT, 8080).
+-define(DEFAULT_SERVER_ADDRESS, case os:getenv("TEST_SERVER_ADDRESS") of %export TEST_SERVER_ADDRESS="egg3.local.ru" for example
+                                    'false'-> "127.0.0.1";
+                                    Server -> Server
+                                end).
+-define(DEFAULT_SERVER_PORT, case os:getenv("TEST_SERVER_PORT") of
+                                 'false'-> proplists:get_value(port, application:get_env(server, tcp_params, [{port, 8080}]));
+                                 Port   -> erlang:list_to_integer(Port)
+                             end).
+-define(DEFAULT_MASTER_PIN, case os:getenv("TEST_MASTER_PIN") of
+                                'false'-> 6666;
+                                Pin   -> erlang:list_to_integer(Pin)
+                            end).
 
 %% -define(DBG, true).
-
 -ifdef(DBG).
 -define(CONN_OPTS, #{trace => true}).
 -else.
@@ -15,30 +25,38 @@
 %%====================================================================
 %% API functions
 %%====================================================================
--export([connect_to_ws/2
+-export([connect_to_ws/2, connect_to_ws/4
         ,send_packet/3
         ,receive_packet/2
         ,disconnect/1
-        ,authorize/1
+        ,authorize/1, authorize/4
         ,flush_messages/0
-        ,flush_messages_dbg/0]).
+        ,flush_messages_dbg/0
+        ,get_chats_list/2
+        ,get_chat_info/3
+        ,send_message/4]).
 
--spec authorize(binary()) -> binary().
+-spec authorize(non_neg_integer()) -> binary().
+-spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer()) -> binary().
 authorize(MSISDN) ->
-    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT, ?CONN_OPTS),
+    authorize(MSISDN, ?DEFAULT_SERVER_ADDRESS, ?DEFAULT_SERVER_PORT, ?DEFAULT_MASTER_PIN).
+authorize(MSISDN, ServerAddress, ServerPort, MasterPin) ->
+    {ok, ConnPid} = gun:open(ServerAddress, ServerPort, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
             Body1 = transport_lib:encode(#{<<"msisdn">> => MSISDN}, ?JSON),
             StreamRef1 = gun:post(ConnPid, "/v1/sms", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body1),
-            Resp1 = gun:await(ConnPid, StreamRef1),
-            ct:pal("Sms send resp: ~p~n", [Resp1]),
-            Body = transport_lib:encode(#{<<"msisdn">> => MSISDN, <<"sms_code">> => 6666}, ?JSON),
+            gun:await(ConnPid, StreamRef1),
+            Body = transport_lib:encode(#{<<"msisdn">> => MSISDN
+                                         ,<<"sms_code">> => MasterPin
+                                         ,<<"fname">> => <<"Nikita">>
+                                         ,<<"lname">> => <<"Vorontsov">>
+                                         ,<<"is_male">> => 'true'
+                                         ,<<"age">> => 25}, ?JSON),
             StreamRef2 = gun:post(ConnPid, "/v3/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
             Result = case gun:await_body(ConnPid, StreamRef2) of
                          {error, _} = Error ->
-                             Resp2 = gun:await(ConnPid, StreamRef2),
-                             ct:pal("Auth send resp: ~p~n", [Resp2]),
-                             flush_messages_dbg(),
+                             flush_messages(),
                              Error;
                          Resp ->
                              Resp
@@ -46,13 +64,16 @@ authorize(MSISDN) ->
             gun:close(ConnPid),
             Result;
         _Error ->
+            lager:info("Error open connectoin to ~p: ~p", [{ServerAddress, ServerPort}, _Error]),
             gun:close(ConnPid),
             _Error
     end.
 
 -spec connect_to_ws(string(), string()) -> {ok, pid()}.
 connect_to_ws(Address, Transport) ->            %Address = Tail of the address, "/ws/v1/chat"
-    {ok, ConnPid} = gun:open(?SERVER_ADDRESS, ?SERVER_PORT, ?CONN_OPTS),
+    connect_to_ws(?DEFAULT_SERVER_ADDRESS, ?DEFAULT_SERVER_PORT, Address, Transport).
+connect_to_ws(ServerAddress, ServerPort, Address, Transport) ->
+    {ok, ConnPid} = gun:open(ServerAddress, ServerPort, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
             gun:ws_upgrade(ConnPid, Address, [{<<"sec-websocket-protocol">>, Transport}]),
@@ -106,6 +127,25 @@ flush_messages_dbg() ->
             flush_messages_dbg()
     after 500 -> ok
     end.
+
+get_chats_list(ConnPid, Transport) ->
+    send_packet(ConnPid, ?R2M(#c2s_chat_get_list{}, c2s_chat_get_list), Transport),
+    #{<<"msg_type">> := ?S2C_CHAT_LIST_TYPE, <<"chats">> := Chats} = receive_packet(ConnPid, Transport),
+    Chats.
+
+get_chat_info(ConnPid, Transport, ChatId) ->
+    send_packet(ConnPid, ?R2M(#c2s_chat_get_info{chat_id = ChatId}, c2s_chat_get_info), Transport),
+    timer:sleep(50),
+    receive_packet(ConnPid, Transport).
+
+send_message(ConnPid, Transport, ChatId, MsgBody) ->
+    send_packet(ConnPid, ?R2M(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, c2s_message_send), Transport),
+    timer:sleep(50),
+    case receive_packet(ConnPid, Transport) of
+        #{<<"msg_type">> := ?S2C_MESSAGE_SEND_RESULT_TYPE, <<"msg_id">> := MsgId, <<"chat_id">> := ChatId} -> {MsgId, ChatId};
+        Else -> Else
+    end.
+
 
 %%====================================================================
 %% Internal functions
