@@ -121,13 +121,19 @@ unsubscribe(TableId)->
     mnesia:unsubscribe({table, TableName, detailed}).
 
 invite_to_chat(ChatId, UserMSISDN, AL) ->
-    send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
-    users:invite_to_chat(ChatId, UserMSISDN, AL),
-    case users:get_pid(UserMSISDN) of
-        WsPid when is_pid(WsPid)->
-            WsPid ! {chat_invatation, ChatId, AL};
+    case users:invite_to_chat(ChatId, UserMSISDN, AL) of
+        'ok' ->
+            send_message(ChatId, <<"@system:invite_to_chat">>, UserMSISDN),
+            case users:get_pid(UserMSISDN) of
+                WsPid when is_pid(WsPid)->
+                    WsPid ! {chat_invatation, ChatId, AL}, 'ok';
+                _ ->
+                    'ok'
+            end;
+        'exists' ->
+            'exists';
         _ ->
-            'ok'
+            'false'
     end.
 
 accept_invatation(ChatId, MSISDN) ->

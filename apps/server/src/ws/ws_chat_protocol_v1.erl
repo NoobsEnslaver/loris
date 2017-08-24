@@ -19,7 +19,7 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, token, muted_chats, msisdn, call, turn_server, storage}).
+-record(user_state, {chats, muted_chats, msisdn, call, turn_server, storage}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
 -define(ROOM_TO_ROOM_INFO(R), begin
@@ -37,27 +37,24 @@
 -define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
 -define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
 
-default_user_state(Token)->
-    Session = sessions:get(Token),
-    UserMSISDN = Session#session.owner_id,
-    User = users:get(UserMSISDN),
+default_user_state(MSISDN)->
+    User = users:get(MSISDN),
     ChatInvatations = User#user.chats_invatations,
-    lists:foreach(fun({ChatId, AL})->
-                          self() ! {chat_invatation, ChatId, AL}
-                  end, ChatInvatations),
-    lists:foreach(fun({C, AL}) when ?MAY_READ(AL) ->
-                          chats:subscribe(C);
-                     (_) -> ok
-                  end, User#user.chats),
-    users:notify(UserMSISDN, 'online'),         %notify all subscribers
-    pushes:delete(UserMSISDN),                  %delete all not sended pushes
-    Storage = case storage:get(UserMSISDN) of
+    maps:map(fun(ChatId, AL)->
+                     self() ! {chat_invatation, ChatId, AL}
+             end, ChatInvatations),
+    maps:map(fun(C, AL) when ?MAY_READ(AL) ->
+                     chats:subscribe(C);
+                (_,_) -> ok
+             end, User#user.chats),
+    users:notify(MSISDN, 'online'),         %notify all subscribers
+    pushes:delete(MSISDN),                  %delete all not sended pushes
+    Storage = case storage:get(MSISDN) of
                   'false' -> #{};
                   Val -> Val
               end,
     #user_state{chats = User#user.chats
-               ,msisdn = User#user.msisdn
-               ,token = Session#session.token
+               ,msisdn = MSISDN
                ,muted_chats = User#user.muted_chats
                ,storage = Storage}.
 
@@ -271,7 +268,7 @@ wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 %%%===================================================================
 -spec do_action(client_msg_type(), #user_state{}) -> {'ok', #user_state{}} | {Msg :: server_msg_type(), #user_state{}}.
 do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
-    ChatsList = [{ChatId, chat_info:extract(chat_info:get(ChatId), name)} || {ChatId, _} <- Chats],
+    ChatsList = [{ChatId, chat_info:extract(chat_info:get(ChatId), name)} || ChatId <- maps:keys(Chats)],
     Resp = #s2c_chat_list{chats = maps:from_list(ChatsList)},
     {Resp, State};
 do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{muted_chats = MC} = State) ->
@@ -302,7 +299,7 @@ do_action(#c2s_chat_create{users = UsersMap, name = ChatName, is_p2p = 'true'}, 
                 Pid when is_pid(Pid) -> Pid ! {chat_p2p_invatation, ChatId};
                 _ -> ok
             end,
-            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = [{ChatId, 7} | OldChats]}};
+            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = OldChats#{ChatId => 7}}};
         {already_exists, ChatId} ->
             {#s2c_chat_create_result{chat_id = ChatId}, State};
         _ -> {#s2c_error{code = 500}, State}
@@ -317,32 +314,32 @@ do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn =
             maps:fold(fun(U,AL,_)->
                               chats:invite_to_chat(ChatId, U, AL), ok
                       end, ok, Users),
-            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = [{ChatId, 7} | OldChats]}};
+            {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = OldChats#{ChatId => 7}}};
         _ ->
             {#s2c_error{code = 500}, State}
     end;
 do_action(#c2s_chat_leave{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
-    case proplists:get_value(ChatId, OldChats) of
+    case maps:take(ChatId, OldChats) of
+        'error' ->
+            {#s2c_error{code = 404}, State};
+        {_AL, NewChats} ->
+            chats:leave_chat(ChatId, MSISDN),
+            {ok, State#user_state{chats = NewChats}}
+    end;
+do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
+    case maps:get(ChatId, Chats, 'undefined') of
+        AL when ?MAY_ADMIN(AL) ->
+            chats:delete(ChatId, MSISDN),
+            {ok, State#user_state{chats = maps:remove(ChatId, Chats)}};
         'undefined' ->
             {#s2c_error{code = 404}, State};
         _ ->
-            chats:leave_chat(ChatId, MSISDN),
-            {ok, State#user_state{chats = proplists:delete(ChatId, OldChats)}}
+            {#s2c_error{code = 403}, State}
     end;
-do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
-               AL when ?MAY_ADMIN(AL) ->
-                   chats:delete(ChatId, MSISDN);
-               'undefined' ->
-                   #s2c_error{code = 404};
-               _ ->
-                   #s2c_error{code = 403}
-           end,
-    {Resp, State};
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     case chats:accept_invatation(ChatId, MSISDN) of
         'not_exists' -> {#s2c_error{code = 404}, State};
-        AL -> {ok, State#user_state{chats = [{ChatId, AL} | OldChats]}}
+        AL -> {ok, State#user_state{chats = OldChats#{ChatId => AL}}}
     end;
 do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN} = State) ->
     Resp = case chats:reject_invatation(ChatId, MSISDN) of
@@ -351,7 +348,7 @@ do_action(#c2s_chat_reject_invatation{chat_id = ChatId}, #user_state{msisdn = MS
            end,
     {Resp, State};
 do_action(#c2s_chat_invite_user{chat_id = ChatId, user_msisdn = MSISDN, access_level = AL}, #user_state{chats = Chats} = State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
                MyAL when is_number(AL) andalso ?MAY_ADMIN(MyAL) ->
                    chats:invite_to_chat(ChatId, MSISDN, AL),
                    ok;
@@ -381,15 +378,15 @@ do_action(#c2s_chat_unmute{chat_id = ChatId}, #user_state{msisdn = MSISDN, muted
                        State
                end,
     {ok, NewState};
-do_action(#c2s_chat_typing{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
-               'undefined' -> ok;
-               AL when ?MAY_WRITE(AL) -> chats:typing(ChatId, MSISDN), ok;
-               _ -> #s2c_error{code = 403}
-           end,
-    {Resp, State};
+do_action(#c2s_chat_typing{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = Chats} = _State) ->
+    case Chats of
+        #{ChatId := AL} when ?MAY_WRITE(AL) ->
+            chats:typing(ChatId, MSISDN);
+        _ -> ok
+    end,
+    {ok, _State};
 do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{msisdn = MSISDN, chats = Chats} = State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
                'undefined' ->
                    #s2c_error{code = 404};
                AL when ?MAY_WRITE(AL) ->
@@ -419,7 +416,7 @@ do_action(#c2s_message_send{chat_id = ChatId, msg_body = MsgBody}, #user_state{m
            end,
     {Resp, State};
 do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count, direction = Direction}, #user_state{chats = Chats} = _State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
                'undefined' ->
                    #s2c_error{code = 403};
                AL when ?MAY_READ(AL) ->
@@ -429,7 +426,7 @@ do_action(#c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count,
            end,
     {Resp, _State};
 do_action(#c2s_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBody}, #user_state{chats = Chats, msisdn = MSISDN} = _State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
                'undefined'->
                    #s2c_error{code = 404};
                AL when ?MAY_WRITE(AL) ->
@@ -441,7 +438,7 @@ do_action(#c2s_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBo
            end,
     {Resp, _State};
 do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #user_state{chats = Chats} = _State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
                'undefined' ->
                    #s2c_error{code = 404};
                AL when ?MAY_WRITE(AL) ->
@@ -452,9 +449,9 @@ do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #use
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
-do_action(#c2s_user_upgrade_to_company{}, #user_state{msisdn = MSISDN, token = Token} = _State) ->
+do_action(#c2s_user_upgrade_to_company{}, #user_state{msisdn = MSISDN} = _State) ->
     users:set_info(MSISDN, [{'group', 'company'}]),
-    Session = sessions:get(Token),
+    Session = sessions:get_by_owner_id(MSISDN),
     sessions:set(Session#session{'group' = 'company'}),
     {ok, _State};
 do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
@@ -652,8 +649,8 @@ do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
     Resp = #s2c_room_search_result{rooms = Intersection},
     {Resp, _State};
-do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN,token=Token}=State) ->
-    Resp = case sessions:get(Token) of
+do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
+    Resp = case sessions:get_by_owner_id(MSISDN) of
                #session{group = 'company'} ->
                    case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
                        'false'-> #s2c_error{code = 500};
@@ -695,8 +692,8 @@ do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN}
            end,
     {Resp, _State};
 do_action(#c2s_room_get_my_rooms{}, #user_state{msisdn = MSISDN} = State) ->
-    User = users:get(MSISDN),
-    Resp = #s2c_room_list{rooms = [RoomId || {RoomId, _} <- User#user.rooms]},
+    #user{rooms = Rooms} = users:get(MSISDN),
+    Resp = #s2c_room_list{rooms = maps:keys(Rooms)},
     {Resp, State};
 do_action(#c2s_room_send_recursive_message{msg = Msg, room_id = RoomId}, #user_state{msisdn = MSISDN} = State) ->
     Resp = case rooms:get(RoomId) of
@@ -888,13 +885,14 @@ do_action({'DOWN', Ref, _Type, Pid, _ErrorReason}, #user_state{call = #call_info
 do_action({chat_typing, _ChatId, MSISDN}, #user_state{msisdn = MSISDN} = State) -> %you self typing, ignore
     {ok, State};
 do_action({chat_typing, ChatId, MSISDN}, #user_state{muted_chats = MC, chats = Chats} = State) ->
-    Resp = case proplists:get_value(ChatId, Chats) of
+    Resp = case maps:get(ChatId, Chats, 'undefined') of
+               'undefined' -> 'ok';
                AL when ?MAY_READ(AL) ->
                    case lists:member(ChatId, MC) of
                        'true' -> ok;
                        'false'-> #s2c_chat_typing{chat_id = ChatId, user_msisdn = MSISDN}
                    end;
-               _ -> ok
+               _ -> 'ok'
            end,
     {Resp, State};
 do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyMSISDN} = State) ->
@@ -905,11 +903,11 @@ do_action({chat_delete, ChatId, MSISDN}, #user_state{chats = Chats, msisdn = MyM
                'false'->
                    #s2c_message{chat_id = ChatId, msg_body = <<"@system:delete_chat">>, status = 'pending', msg_id = common:timestamp(), from = MSISDN}
            end,
-    {Resp, State#user_state{chats = proplists:delete(ChatId, Chats)}};
+    {Resp, State#user_state{chats = maps:remove(ChatId, Chats)}};
 do_action({chat_p2p_invatation, ChatId}, #user_state{chats = OldChats} = State) ->
     chats:subscribe(ChatId),
     Resp = #s2c_chat_create_result{chat_id = ChatId},
-    {Resp, State#user_state{chats = [{ChatId, 7} | OldChats]}};
+    {Resp, State#user_state{chats = OldChats#{ChatId => 7}}};
 do_action({chat_invatation, ChatId, AL}, _State) ->
     Resp = #s2c_chat_invatation{chat_id = ChatId, access_level = AL},
     {Resp, _State};

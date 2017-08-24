@@ -108,13 +108,13 @@ get(MSISDN)->
         _ -> 'false'
     end.
 
-invite_to_chat(ChatId, MSISDN, AccessGroup) ->
+invite_to_chat(ChatId, MSISDN, AL) ->
     Fun = fun()->
                   [User] = mnesia:read('user', MSISDN),
                   CI = User#user.chats_invatations,
-                  case proplists:get_value(ChatId, CI) of
-                      'undefined' ->
-                          mnesia:write(User#user{chats_invatations = [{ChatId, AccessGroup} | CI]});
+                  case maps:is_key(ChatId, CI) of
+                      'false' ->
+                          mnesia:write(User#user{chats_invatations = CI#{ChatId => AL}});
                       _ ->
                           'exists'
                   end
@@ -129,13 +129,13 @@ accept_invatation(ChatId, MSISDN) ->
                   [User] = mnesia:read('user', MSISDN),
                   CI = User#user.chats_invatations,
                   Chats = User#user.chats,
-                  case proplists:get_value(ChatId, CI) of
-                      'undefined' ->
+                  case maps:take(ChatId, CI) of
+                      'error' ->
                           'not_exists';
-                      AccessGroup ->
-                          mnesia:write(User#user{chats_invatations = proplists:delete(ChatId, CI)
-                                                ,chats = [{ChatId, AccessGroup} | Chats]}),
-                          AccessGroup
+                      {AL, NewCI} ->
+                          mnesia:write(User#user{chats_invatations = NewCI
+                                                ,chats = Chats#{ChatId => AL}}),
+                          AL
                   end
           end,
     case mnesia:transaction(Fun) of
@@ -147,11 +147,11 @@ reject_invatatoin(ChatId, MSISDN) ->
     Fun = fun()->
                   [User] = mnesia:read('user', MSISDN),
                   CI = User#user.chats_invatations,
-                  case proplists:get_value(ChatId, CI) of
-                      'undefined' ->
+                  case maps:take(ChatId, CI) of
+                      'error' ->
                           'not_exists';
-                      _AccessGroup ->
-                          mnesia:write(User#user{chats_invatations = proplists:delete(ChatId, CI)})
+                      {_AccessGroup, NewCI} ->
+                          mnesia:write(User#user{chats_invatations = NewCI})
                   end
           end,
     case mnesia:transaction(Fun) of
@@ -163,7 +163,8 @@ leave_chat(ChatId, MSISDN)->
     Fun = fun()->
                   [User] = mnesia:read('user', MSISDN),
                   Chats = User#user.chats,
-                  mnesia:write(User#user{chats = proplists:delete(ChatId, Chats)})
+                  MC = User#user.muted_chats,
+                  mnesia:write(User#user{chats = maps:remove(ChatId, Chats), muted_chats = MC -- [ChatId]})
           end,
     case mnesia:transaction(Fun) of
         {atomic, Res} -> Res;
@@ -191,17 +192,11 @@ mute_chat(MSISDN, ChatId) ->
     Fun = fun()->
                   [User] = mnesia:read('user', MSISDN),
                   MC = User#user.muted_chats,
-                  Chats = User#user.chats,
-                  case proplists:get_value(ChatId, Chats) of
-                      'undefined' ->
-                          'not_exists';
-                      _AccessGroup ->
-                          case lists:member(ChatId, MC) of
-                              'true' ->
-                                  'ok';
-                              'false'->
-                                  mnesia:write(User#user{muted_chats = [ChatId | MC]})
-                          end
+                  case lists:member(ChatId, MC) of
+                      'true' ->
+                          'ok';
+                      'false'->
+                          mnesia:write(User#user{muted_chats = [ChatId | MC]})
                   end
           end,
     case mnesia:transaction(Fun) of
@@ -215,7 +210,7 @@ unmute_chat(MSISDN, ChatId) ->
                   MC = User#user.muted_chats,
                   case lists:member(ChatId, MC) of
                       'true' ->
-                          mnesia:write(User#user{muted_chats = proplists:delete(ChatId, MC)});
+                          mnesia:write(User#user{muted_chats = MC -- [ChatId]});
                       'false'->
                           'ok'
                   end

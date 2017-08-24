@@ -101,13 +101,19 @@ terminate(_Reason, _Req, #state{protocol = Module, user_state = UserState} = _St
 -spec websocket_init(#state{}) -> call_result(#state{}).
 websocket_init(#state{token = Token, protocol = Module} = State) ->
     TC = common:start_measure('server_ws_handler_ws_init'),
-    MSISDN = sessions:extract(sessions:get(Token), owner_id),
-    Md = proplists:delete(msisdn, lager:md()),
-    lager:md([{msisdn, MSISDN}] ++ Md),
-    users:set_pid(MSISDN, self()),
-    US = Module:default_user_state(Token),                    %инициализируем начальный стейт протокола
+    Resp = case sessions:get(Token) of
+               'false' ->
+                   {'stop', State};
+               Session ->
+                   MSISDN = sessions:extract(Session, owner_id),
+                   Md = proplists:delete(msisdn, lager:md()),
+                   lager:md([{msisdn, MSISDN}] ++ Md),
+                   users:set_pid(MSISDN, self()),
+                   US = Module:default_user_state(MSISDN),                  %инициализируем начальный стейт протокола
+                   {'ok', State#state{user_state = US}, 'hibernate'}        %TODO: research hibernation effect to CPU & RAM
+           end,
     common:end_measure('server_ws_handler_ws_init', TC),
-    {'ok', State#state{user_state = US}, 'hibernate'}.        %TODO: research hibernation effect to CPU & RAM
+    Resp.
 
 -spec websocket_handle(cow_ws:frame(), #state{}) -> call_result(#state{}).
 websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protocol = Protocol} = State) when DataType == 'binary' orelse DataType == 'text' ->

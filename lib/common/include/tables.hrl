@@ -20,9 +20,9 @@
               ,age :: non_neg_integer()
               ,created :: non_neg_integer()
               ,access_level :: non_neg_integer() | 'infinity'
-              ,chats_invatations = [] :: [{binary(), 0..7}]
-              ,chats = [] :: [{binary(), 0..7}]
-              ,rooms = [] :: [{non_neg_integer(), 0..7}]
+              ,chats_invatations = #{} :: #{binary() => 0..7}
+              ,chats = #{} :: #{binary() => 0..7}
+              ,rooms = #{} :: #{non_neg_integer() => 0..7}
               ,is_male :: boolean()
               ,muted_chats = [] :: [binary()]
               ,last_visit_timestamp :: non_neg_integer()}).

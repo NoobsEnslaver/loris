@@ -45,8 +45,8 @@ new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
                   mnesia:write(Room),
                   mnesia:write(Tags#room_tag{room_id = Id, name = Name}),
                   User = users:get(OwnerId),
-                  RoomList = User#user.rooms,
-                  users:set_info(OwnerId, [{rooms, [{Id, 7} | RoomList]}]),
+                  RoomsMap = User#user.rooms,
+                  users:set_info(OwnerId, [{rooms, RoomsMap#{Id => 7}}]),
                   Id
           end,
     case mnesia:transaction(Fun) of
@@ -63,6 +63,9 @@ delete(Id) ->
                        ,owner_id = OwnerId} = get(Id),
                   mnesia:delete({'room', Id}),
                   mnesia:delete({'room_tag', Id}),
+                  User = users:get(OwnerId),
+                  RoomsMap = User#user.rooms,
+                  users:set_info(OwnerId, [{rooms, maps:remove(Id, RoomsMap)}]),
                   {ChatId, OwnerId}
           end,
     case mnesia:transaction(Fun) of
