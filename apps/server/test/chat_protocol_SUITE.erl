@@ -37,7 +37,7 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    [application:ensure_all_started(App) || App <- [db, server, common, tester]],
+    [application:ensure_all_started(App) || App <- [common, tester]],
     Config.
 
 %%--------------------------------------------------------------------
@@ -857,8 +857,8 @@ user_set_info_test(Config) ->
 user_search_test(Config) ->
     [#{msisdn := MSISDN1, transport := Transport1, connection := ConPid1}
     ,#{msisdn := MSISDN2, transport := Transport2, connection := ConPid2} | _] = proplists:get_value(env, Config),
-    RandomFName = crypto:strong_rand_bytes(16),
-    RandomLName = crypto:strong_rand_bytes(16),
+    RandomFName = common:bin2hex(crypto:strong_rand_bytes(16)),
+    RandomLName = common:bin2hex(crypto:strong_rand_bytes(16)),
     send_packet(ConPid1, ?R2M(#c2s_user_set_info{fname = RandomFName, lname = RandomLName, is_male = 'true', age = 70}, c2s_user_set_info), Transport1),
     send_packet(ConPid2, ?R2M(#c2s_user_set_info{fname = RandomFName, lname = RandomLName, is_male = 'true', age = 70}, c2s_user_set_info), Transport2),
     send_packet(ConPid1, ?R2M(#c2s_user_search{fname = binary:part(RandomFName, 0, 3), lname = <<>>}, c2s_user_search), Transport1),
@@ -1393,7 +1393,7 @@ call_to_offline_test(Config) ->
 storage_test(Config) ->
     Env = proplists:get_value(env, Config),
     lists:foreach(fun(#{transport := Transport, connection := ConPid, msisdn := MSISDN})->
-                          {ok, StorageCapacity} = application:get_env('server', 'user_storage_capacity'),
+                          StorageCapacity = 1024,
                           send_packet(ConPid, ?R2M(#c2s_storage_keys{}, c2s_storage_keys), Transport),
                           #{<<"msg_type">> := ?S2C_STORAGE_KEYS_TYPE, <<"keys">> := []} = receive_packet(ConPid, Transport),
                           send_packet(ConPid, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
