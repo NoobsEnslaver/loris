@@ -15,13 +15,32 @@
         ,notify_msg/5
         ,notify_msg_loud/4]).
 
+-ifdef(TEST).
+-define(MAYBE_START, begin
+                         meck:new(fcm, [unstick, passthrough]),
+                         meck:expect(fcm, start, fun(_,_) -> ok end),
+                         meck:expect(fcm, sync_push, fun(_,_,_) -> [] end),
+
+                         meck:new(apns, [unstick, passthrough]),
+                         meck:expect(apns, connect, fun(_) -> {ok, self()} end),
+                         meck:expect(apns, push_notification, fun(_,_,_) -> {200, ok, ok} end),
+                         meck:expect(apns, push_notification, fun(_,_,_,_) -> {200, ok, ok} end),
+                         meck:expect(apns, get_feedback, fun(_) -> ok end),
+                         push_sup:start_link()
+                     end).
+-else.
+-define(MAYBE_START, begin
+                         {ok, FcmApiKey} = application:get_env('push', 'fcm_api_key'),
+                         fcm:start('push_android_server', FcmApiKey),
+                         push_sup:start_link()
+                     end).
+-endif.
+
 %%====================================================================
 %% API
 %%====================================================================
 start(_StartType, _StartArgs) ->
-    {ok, FcmApiKey} = application:get_env('push', 'fcm_api_key'),
-    fcm:start('push_android_server', FcmApiKey),
-    push_sup:start_link().
+    ?MAYBE_START.
 
 stop(_State) ->
     fcm:stop('push_android_server'),

@@ -47,7 +47,7 @@
                             ,realm => <<"backegg.ru">>
                             ,credential => <<"RtJrPsuBkf489z6p">>
                             ,credential_type => <<"password">>}]}
-        ,{'enable_tls', false}
+        ,{'enable_tls', true}
         ,{'static_dir', "/srv/static"}
         ,{'max_file_size', 134217728}                %128 MB
         ,{'sessions_live_time', 2592000}             %30 days
