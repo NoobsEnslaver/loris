@@ -44,7 +44,7 @@ loginButton.addEventListener("click", function (event) {
 
         connection.onopen = function () {
             console.log("Connected");
-	    send({msg_type: 39});
+            send({msg_type: 39});
         };
 
         connection.onmessage = function (message) {
@@ -54,20 +54,20 @@ loginButton.addEventListener("click", function (event) {
                 switch(data.msg_type) {
                 case 119:
                     var their_turn = {
-		        "iceServers": [{
-		            url: 'turn:' + data.turn_server.adress + ':' + data.turn_server.port,
-		            username: data.turn_server.username + "@" + data.turn_server.realm,
-		            credential: data.turn_server.credential,
-		            credentialType: data.turn_server.credential_type
-		        }]
-		    };
-		    send({msg_type: 35});
-		    if(window.confirm("Receive call from " + data.msisdn + " ?")){
-			onOffer(data.msisdn, {type: "offer", sdp: data.sdp}, their_turn);
-		    } else{
-			hangUpButton.click();
-		    }
-		    
+                        "iceServers": [{
+                            url: 'turn:' + data.turn_server.adress + ':' + data.turn_server.port,
+                            username: data.turn_server.username,
+                            credential: data.turn_server.credential,
+                            credentialType: data.turn_server.credential_type
+                        }]
+                    };
+                    send({msg_type: 35});
+                    if(window.confirm("Receive call from " + data.msisdn + " ?")){
+                        onOffer(data.msisdn, {type: "offer", sdp: data.sdp}, their_turn);
+                    } else{
+                        hangUpButton.click();
+                    }
+
                     break;
                 case 120:
                         onAck();
@@ -82,15 +82,15 @@ loginButton.addEventListener("click", function (event) {
                         onAnswer({type: "answer", sdp: data.sdp});
                         break;
                 case 124:
-		    my_turn = {
-		        "iceServers": [{
-		            url: 'turn:' + data.adress + ':' + data.port,
-		            username: data.username + "@" + data.realm,
-		            credential: data.credential,
-		            credentialType: data.credential_type
-		        }]
-		    };
-		    break;
+                    my_turn = {
+                        "iceServers": [{
+                            url: 'turn:' + data.adress + ':' + data.port,
+                            username: data.username,
+                            credential: data.credential,
+                            credentialType: data.credential_type
+                        }]
+                    };
+                    break;
                 default:
                         console.log("unexpected msg: ", data);
                         break;

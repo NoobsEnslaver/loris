@@ -34,7 +34,8 @@
         ,flush_messages_dbg/0
         ,get_chats_list/2
         ,get_chat_info/3
-        ,send_message/4]).
+        ,send_message/4
+        ,receive_packets_until/3]).
 
 -spec authorize(non_neg_integer()) -> binary().
 -spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer()) -> binary().
@@ -144,6 +145,18 @@ send_message(ConnPid, Transport, ChatId, MsgBody) ->
     case receive_packet(ConnPid, Transport) of
         #{<<"msg_type">> := ?S2C_MESSAGE_SEND_RESULT_TYPE, <<"msg_id">> := MsgId, <<"chat_id">> := ChatId} -> {MsgId, ChatId};
         Else -> Else
+    end.
+
+receive_packets_until(ConnPid, Transport, Predicate) when is_function(Predicate) ->
+    receive_packets_until(ConnPid, Transport, Predicate, []).
+receive_packets_until(ConnPid, Transport, Predicate, Acc) ->
+    case receive_packet(ConnPid, Transport) of
+        {error, _} -> Acc;
+        Answer ->
+            case Predicate(Answer) of
+                true -> [Answer | Acc];
+                _ -> receive_packets_until(ConnPid, Transport, Predicate, [Answer | Acc])
+            end
     end.
 
 
