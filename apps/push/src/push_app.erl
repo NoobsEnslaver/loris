@@ -36,7 +36,7 @@ notify_call(CalleeMSISDN, CallerMSISDN)->
         _ ->
             AndroidMessage = [{<<"data">>, [{<<"msisdn">>, CallerMSISDN}
                                            ,{<<"type">>, <<"call">>}]}
-                             ,{<<"time_to_live">>, 60}
+                             ,{<<"time_to_live">>, 10}
                              ,{<<"priority">>, <<"high">>}],
             Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
             BadTokens = [T || {T, Result} <- Resp, Result == <<"NotRegistered">> orelse Result == <<"InvalidRegistration">>],
@@ -56,7 +56,7 @@ notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
         _ ->
             AndroidMessage = [{<<"notification">>, [{<<"body">>, MsgBody}
                                                    ,{<<"title">>, ChatName}]}
-                             ,{<<"time_to_live">>,3600}
+                             ,{<<"time_to_live">>, 60}
                              ,{<<"collapse_key">>, list_to_binary(pid_to_list(self()))}],
             Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
             BadTokens = [T || {T, Result} <- Resp, Result == <<"NotRegistered">> orelse Result == <<"InvalidRegistration">>],

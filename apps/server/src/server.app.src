@@ -41,7 +41,7 @@
                                      "ECDHE-RSA-AES128-SHA","DHE-DSS-AES128-SHA","ECDH-ECDSA-AES128-SHA",
                                      "ECDH-RSA-AES128-SHA","AES128-SHA"]}
                        ]}
-        ,{'turn_servers', [#{adress => <<"95.172.148.130">>
+        ,{'turn_servers', [#{adress => <<"95.172.148.46">>
                             ,port => 3478
                             ,username => <<"turn1">>
                             ,realm => <<"backegg.ru">>
