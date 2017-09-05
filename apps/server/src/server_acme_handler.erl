@@ -17,9 +17,8 @@
 -spec init(cowboy_req:req(), map()) -> {'ok', cowboy_req:req(), []}.
 init(Req, _Opts) ->
     Key = cowboy_req:binding('acme_key', Req, <<"">>),
-    KeyVal = application:get_env('server', 'acme_challenge', []),
-    Resp = case proplists:get_value(Key, KeyVal) of
-               'undefined' ->
+    Resp = case acme:get(Key) of
+               'false' ->
                    cowboy_req:reply(404, #{<<"content-type">> => <<"text/html">>}, <<"">>, Req);
                Val ->
                    cowboy_req:reply(200, #{<<"content-type">> => <<"text/html">>}, Val, Req)

@@ -42,10 +42,22 @@
                                      "ECDH-RSA-AES128-SHA","AES128-SHA"]}
                        ]}
         ,{'turn_servers', [#{adress => <<"95.172.148.46">>
-                            ,port => 3478
-                            ,username => <<"turn1">>
-                            ,realm => <<"backegg.ru">>
+                            ,port => 5349
+                            ,username => <<"turn">>
+                            ,realm => <<"node1.backegg.ru">>
                             ,credential => <<"RtJrPsuBkf489z6p">>
+                            ,credential_type => <<"password">>}
+                          ,#{adress => <<"95.172.148.242">>
+                            ,port => 5349
+                            ,username => <<"turn">>
+                            ,realm => <<"node2.backegg.ru">>
+                            ,credential => <<"IHeTAIlcKFLrjlD0">>
+                            ,credential_type => <<"password">>}
+                          ,#{adress => <<"95.172.148.243">>
+                            ,port => 5349
+                            ,username => <<"turn">>
+                            ,realm => <<"node3.backegg.ru">>
+                            ,credential => <<"SLMeBZUgdOYWiklW">>
                             ,credential_type => <<"password">>}]}
         ,{'enable_tls', true}
         ,{'static_dir', "/srv/static"}
@@ -58,7 +70,6 @@
         ,{'allow_sms_authorization', 'true'}
         ,{'register_with_sms', 'true'}
         ,{'user_storage_capacity', 1024}
-        ,{'acme_challenge', []}
          ]},
   {modules, []},
 
