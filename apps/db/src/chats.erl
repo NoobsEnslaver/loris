@@ -197,7 +197,10 @@ typing(ChatId, MSISDN) ->
 
 get_last_msg_id(TableId) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
-    mnesia:sync_dirty(fun()-> mnesia:dirty_last(TableName) end).
+    case mnesia:sync_dirty(fun()-> mnesia:dirty_last(TableName) end) of
+        Num when is_number(Num) -> Num;
+        _ -> 0
+    end.
 
 %%%===================================================================
 %%% internal functions
