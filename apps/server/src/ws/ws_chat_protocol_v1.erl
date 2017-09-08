@@ -772,7 +772,7 @@ do_action(#c2s_call_bye{}, State) ->
 do_action(#c2s_lock_turn_server{}, State) ->
     case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'turn_servers') of
         {ok, TURNs} when is_list(TURNs) andalso length(TURNs) > 1 ->
-            Index = crypto:rand_uniform(length(TURNs)),
+            Index = rand:uniform(length(TURNs)),
             #{adress := Adress
              ,port := Port
              ,username := UserName

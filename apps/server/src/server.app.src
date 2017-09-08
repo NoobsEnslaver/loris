@@ -19,9 +19,9 @@
                         ,{'buffer', 32768}
                         ,{'max_connections', 65536}
                         ,{'num_acceptors', 100}]}
-        ,{'tls_params',[{'certfile', "ssl/backegg.ru/cert1.pem"}
-                       ,{'cacertfile', "ssl/backegg.ru/fullchain1.pem"}
-                       ,{'keyfile', "ssl/backegg.ru/privkey1.pem"}
+        ,{'tls_params',[{'certfile', "/etc/egg/cert.pem"}
+                       ,{'cacertfile', "/etc/egg/fullchain.pem"}
+                       ,{'keyfile', "/etc/egg/privkey.pem"}
                        ,{'dhfile', "ssl/dhparam.pem"}
                        ,{'versions', ['tlsv1.2', 'tlsv1.1', 'tlsv1']} %Since the POODLE  attack, SSLv3 has mostly been deprecated
                        ,{'secure_renegotiate', 'true'} %By enabling secure renegotiation, you drop support for the insecure renegotiation, prone to MitM attacks.
@@ -41,19 +41,19 @@
                                      "ECDHE-RSA-AES128-SHA","DHE-DSS-AES128-SHA","ECDH-ECDSA-AES128-SHA",
                                      "ECDH-RSA-AES128-SHA","AES128-SHA"]}
                        ]}
-        ,{'turn_servers', [#{adress => <<"95.172.148.46">>
+        ,{'turn_servers', [#{adress => <<"node1.backegg.ru">>
                             ,port => 5349
                             ,username => <<"turn">>
                             ,realm => <<"node1.backegg.ru">>
                             ,credential => <<"RtJrPsuBkf489z6p">>
                             ,credential_type => <<"password">>}
-                          ,#{adress => <<"95.172.148.242">>
+                          ,#{adress => <<"node2.backegg.ru">>
                             ,port => 5349
                             ,username => <<"turn">>
                             ,realm => <<"node2.backegg.ru">>
                             ,credential => <<"IHeTAIlcKFLrjlD0">>
                             ,credential_type => <<"password">>}
-                          ,#{adress => <<"95.172.148.243">>
+                          ,#{adress => <<"node3.backegg.ru">>
                             ,port => 5349
                             ,username => <<"turn">>
                             ,realm => <<"node3.backegg.ru">>

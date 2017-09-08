@@ -60,16 +60,9 @@ get_tcp_opts('true') ->
     PrivDir = code:priv_dir(server) ++ "/",
     {ok, TlsOpts} = application:get_env('server', 'tls_params'),
     {ok, TcpOpts} = application:get_env('server', 'tcp_params'),
-    CertFilePath = PrivDir ++ proplists:get_value('certfile', TlsOpts),
-    CaCertFilePath = PrivDir ++ proplists:get_value('cacertfile', TlsOpts),
-    KeyFilePath = PrivDir ++ proplists:get_value('keyfile', TlsOpts),
     DhFilePath = PrivDir ++ proplists:get_value('dhfile', TlsOpts),
-    TlsOpts1 = proplists:delete('certfile', proplists:delete('cacertfile', proplists:delete('keyfile', proplists:delete('dhfile', TlsOpts)))),
-    CertOpts = [{'certfile', CertFilePath}
-               ,{'cacertfile', CaCertFilePath}
-               ,{'keyfile', KeyFilePath}
-               ,{'dhfile', DhFilePath}
-               ],
+    TlsOpts1 = proplists:delete('dhfile', TlsOpts),
+    CertOpts = [{'dhfile', DhFilePath}],
     TlsOpts1 ++ TcpOpts ++ CertOpts;
 get_tcp_opts('false') ->
     {ok, TcpOpts} = application:get_env('server', 'tcp_params'),

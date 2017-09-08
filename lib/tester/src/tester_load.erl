@@ -179,7 +179,7 @@ user_behaviour_1(#{msisdn := MSISDN} = Args)->
     timer:sleep(20000),                         %waiting for others
     user_behaviour_1(Args#{token => Token, con_pid => ConPid, transport := Transport}, rand:uniform(1000)).
 user_behaviour_1(#{friends := FriendsList, msg_intensity := MsgIntensity, con_pid := ConPid, transport := Transport} = Args, _BehaviourNum) ->
-    MSISDN2 = lists:nth(rand:uniform(length(FriendsList) - 1) + 1, FriendsList),
+    MSISDN2 = lists:nth(rand:uniform(length(FriendsList)), FriendsList),
     R = crypto:strong_rand_bytes(8),
     ChatCreateCommand = ?R2M(#c2s_chat_create{name = <<"test_chat">>, users = [MSISDN2], is_p2p = true}, c2s_chat_create),
     tester:send_packet(ConPid, ChatCreateCommand#{<<"ref">> => R}, Transport),
