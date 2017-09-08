@@ -12,7 +12,7 @@
    ]},
   {env,[
         {'keep_files_in_db', 'false'}
-       ,{'files_dir', "/srv/files"}
+       ,{'files_dir', "/srv/files/egg"}
        ]},
   {modules, []},
 

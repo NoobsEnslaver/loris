@@ -11,18 +11,14 @@
 -compile({no_auto_import,[get/1]}).
 -export([extract/2
         ,get/1
-        ,save/4, save/5
+        ,save/4
         ,delete/1
         ,get_list/0
         ,get_list_by_owner_id/1
         ]).
 
--spec save(binary(), binary(), binary(), non_neg_integer()) -> binary().
--spec save(binary(), binary(), binary(), non_neg_integer(), non_neg_integer()) -> binary().
-save(Name, Type, Data, OwnerId) ->
-    AccessLevel = users:extract(users:get(OwnerId), 'access_level'),
-    save(Name, Type, Data, OwnerId, AccessLevel).
-save(Name, Type, Data, OwnerId, AccessLevel)->
+-spec save(binary(), binary(), binary(), binary()) -> binary().
+save(Name, Type, Data, OwnerId)->
     Hash = common:bin2hex(crypto:hash('md5', Data)),
     case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'keep_files_in_db', 'false') of
         'true' ->
@@ -34,8 +30,7 @@ save(Name, Type, Data, OwnerId, AccessLevel)->
                                             ,content_type = Type
                                             ,data=Data
                                             ,owner_id = OwnerId
-                                            ,size = byte_size(Data)
-                                            ,access_level = AccessLevel})
+                                            ,size = byte_size(Data)})
                   end,
             mnesia:transaction(Fun),
             Id;
@@ -51,12 +46,12 @@ save(Name, Type, Data, OwnerId, AccessLevel)->
                                                     ,content_type = Type
                                                     ,data= <<>>
                                                     ,owner_id = OwnerId
-                                                    ,size = byte_size(Data)
-                                                    ,access_level = AccessLevel})
+                                                    ,size = byte_size(Data)})
                           end,
                     mnesia:transaction(Fun),
                     Id;
                 _Error ->
+                    lager:error("File upload error: ~p", [_Error]),
                     'false'
             end
         end.
@@ -99,28 +94,28 @@ get(FileId)->
 
 -spec get_list() -> [#file{}].
 get_list()->
-    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', access_level = '$6', data='_', id = '$7'},
-    Result = ['$1', '$2', '$3', '$4', '$5', '$6', '$7'],
+    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', data='_', id = '$6'},
+    Result = ['$1', '$2', '$3', '$4', '$5', '$6'],
     Fun = fun() ->
                   mnesia:select('file',[{MatchHead, [], [Result]}])
           end,
     case mnesia:transaction(Fun) of
         {'atomic', Files} ->
-            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, access_level = AL, data = <<>>, id = Id} || [H, CT, N, OID, S, AL, Id] <- Files];
+            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, data = <<>>, id = Id} || [H, CT, N, OID, S, Id] <- Files];
         _ -> 'false'
     end.
 
 -spec get_list_by_owner_id(binary()) -> [#file{}].
 get_list_by_owner_id(Id)->
-    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', access_level = '$6', data='_', id = '$7'},
+    MatchHead = #file{hash = '$1', content_type = '$2', name = '$3', owner_id = '$4', size = '$5', data='_', id = '$6'},
     Guard = {'==', Id, '$4'},
-    Result = ['$1', '$2', '$3', '$4', '$5', '$6', '$7'],
+    Result = ['$1', '$2', '$3', '$4', '$5', '$6'],
     Fun = fun() ->
                   mnesia:select('file',[{MatchHead, [Guard], [Result]}])
           end,
     case mnesia:transaction(Fun) of
         {'atomic', Files} ->
-            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, access_level = AL, data = <<>>, id = FileId} || [H, CT, N, OID, S, AL, FileId] <- Files];
+            [#file{hash = H, content_type = CT, name = N, owner_id = OID, size = S, data = <<>>, id = FileId} || [H, CT, N, OID, S, FileId] <- Files];
         _ -> 'false'
     end.
 
@@ -134,5 +129,4 @@ extract(#file{content_type = ContentType}, 'content_type')-> ContentType;
 extract(#file{name = Name}, 'name')-> Name;
 extract(#file{data = Data}, 'data')-> Data;
 extract(#file{owner_id = OwnerId}, 'owner_id')-> OwnerId;
-extract(#file{access_level = AccessLevel}, 'access_level')-> AccessLevel;
 extract(#file{size = Size}, 'size')-> Size.

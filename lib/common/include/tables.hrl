@@ -9,8 +9,7 @@
               ,name :: binary()
               ,data :: binary()
               ,owner_id :: non_neg_integer()
-              ,size :: non_neg_integer()
-              ,access_level :: non_neg_integer() | 'infinity'}).
+              ,size :: non_neg_integer()}).
 
 -record(user, {msisdn :: non_neg_integer()
               ,group :: access_group()
