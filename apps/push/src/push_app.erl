@@ -74,7 +74,8 @@ notify_msg(MSISDNs, ChatId, ChatName, MsgId, MsgBody)->
         [] -> ok;
         _ ->
             AndroidMessage = [{<<"notification">>, [{<<"body">>, MsgBody}
-                                                   ,{<<"title">>, ChatName}]}
+                                                   ,{<<"title">>, ChatName}
+                                                   ,{<<"sound">>, <<"default">>}]}
                              ,{<<"time_to_live">>, 60}
                              ,{<<"collapse_key">>, list_to_binary(pid_to_list(self()))}],
             Resp = fcm:sync_push(push_android_server, [D#device.push_token || D <- AndroidDevices], AndroidMessage),
