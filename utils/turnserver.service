@@ -1,0 +1,12 @@
+[Unit]
+After=NetworkManager-wait-online.service
+Description=Turn server
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/turnserver -o -c /etc/turnserver.conf
+ExecStop=/usr/bin/killall turnserver
+User=user1
+
+[Install]
+WantedBy=multi-user.target

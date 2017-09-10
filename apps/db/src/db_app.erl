@@ -22,6 +22,7 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
+    timer:sleep(1000),
     case nodes() of
         [] ->                                   %first node in cluster
             lager:info("no nodes on cluster, trying to create schema"),
@@ -38,11 +39,12 @@ start(_StartType, _StartArgs) ->
                     lager:info("have no my own cluster, but cluster contains nodes - discovering biggest island"),
                     ClusterState = common:get_cluster_mnesia_state(),
                     {Node, ClusterSize} = maps:fold(fun(_Node, {false, _}, Acc) -> Acc;
+                                                       (_Node, error, Acc) -> Acc;
                                                        (Node1, {true, Nodes}, {Node2, Weight}) ->
                                                             if length(Nodes) > Weight -> {Node1, length(Nodes)};
                                                                true -> {Node2, Weight}
                                                             end
-                                                    end, {false, -1}, ClusterState),
+                                                    end, {node(), 1}, ClusterState),
                     case {Node, ClusterSize} of
                         {_, ClusterSize} when ClusterSize < 2 ->                       %there is no cluster
                             lager:info("bigest mnesia island on cluster size is ~w - no cluster, creating", [ClusterSize]),
