@@ -7,59 +7,17 @@
    [kernel,
     stdlib,
     inets,
-    ssl,
     cowboy,
     msgpack,
     common,
     db,
-    folsom,
-    push
+    folsom
    ]},
-  {env, [{'tcp_params', [{'port', 8080}
+  {env, [{'tcp_params', [{'port', 80}
                         ,{'buffer', 32768}
                         ,{'max_connections', 65536}
                         ,{'num_acceptors', 100}]}
-        ,{'tls_params',[{'certfile', "/etc/egg/cert.pem"}
-                       ,{'cacertfile', "/etc/egg/fullchain.pem"}
-                       ,{'keyfile', "/etc/egg/privkey.pem"}
-                       ,{'dhfile', "ssl/dhparam.pem"}
-                       ,{'versions', ['tlsv1.2', 'tlsv1.1', 'tlsv1']} %Since the POODLE  attack, SSLv3 has mostly been deprecated
-                       ,{'secure_renegotiate', 'true'} %By enabling secure renegotiation, you drop support for the insecure renegotiation, prone to MitM attacks.
-                       ,{'reuse_sessions', 'true'}     %A performance optimization setting
-                       ,{'honor_cipher_order', 'true'}
-                       ,{'ciphers', ["ECDHE-ECDSA-AES256-GCM-SHA384","ECDHE-RSA-AES256-GCM-SHA384",
-                                     "ECDHE-ECDSA-AES256-SHA384","ECDHE-RSA-AES256-SHA384", "ECDHE-ECDSA-DES-CBC3-SHA",
-                                     "ECDH-ECDSA-AES256-GCM-SHA384","ECDH-RSA-AES256-GCM-SHA384","ECDH-ECDSA-AES256-SHA384",
-                                     "ECDH-RSA-AES256-SHA384","DHE-DSS-AES256-GCM-SHA384","DHE-DSS-AES256-SHA256",
-                                     "AES256-GCM-SHA384","AES256-SHA256","ECDHE-ECDSA-AES128-GCM-SHA256",
-                                     "ECDHE-RSA-AES128-GCM-SHA256","ECDHE-ECDSA-AES128-SHA256","ECDHE-RSA-AES128-SHA256",
-                                     "ECDH-ECDSA-AES128-GCM-SHA256","ECDH-RSA-AES128-GCM-SHA256","ECDH-ECDSA-AES128-SHA256",
-                                     "ECDH-RSA-AES128-SHA256","DHE-DSS-AES128-GCM-SHA256","DHE-DSS-AES128-SHA256",
-                                     "AES128-GCM-SHA256","AES128-SHA256","ECDHE-ECDSA-AES256-SHA",
-                                     "ECDHE-RSA-AES256-SHA","DHE-DSS-AES256-SHA","ECDH-ECDSA-AES256-SHA",
-                                     "ECDH-RSA-AES256-SHA","AES256-SHA","ECDHE-ECDSA-AES128-SHA",
-                                     "ECDHE-RSA-AES128-SHA","DHE-DSS-AES128-SHA","ECDH-ECDSA-AES128-SHA",
-                                     "ECDH-RSA-AES128-SHA","AES128-SHA"]}
-                       ]}
-        ,{'turn_servers', [#{adress => <<"node1.backegg.ru">>
-                            ,port => 5349
-                            ,username => <<"turn">>
-                            ,realm => <<"node1.backegg.ru">>
-                            ,credential => <<"RtJrPsuBkf489z6p">>
-                            ,credential_type => <<"password">>}
-                          ,#{adress => <<"node2.backegg.ru">>
-                            ,port => 5349
-                            ,username => <<"turn">>
-                            ,realm => <<"node2.backegg.ru">>
-                            ,credential => <<"IHeTAIlcKFLrjlD0">>
-                            ,credential_type => <<"password">>}
-                          ,#{adress => <<"node3.backegg.ru">>
-                            ,port => 5349
-                            ,username => <<"turn">>
-                            ,realm => <<"node3.backegg.ru">>
-                            ,credential => <<"SLMeBZUgdOYWiklW">>
-                            ,credential_type => <<"password">>}]}
-        ,{'enable_tls', true}
+        ,{'enable_tls', false}
         ,{'static_dir', "/srv/static"}
         ,{'max_file_size', 8388608}                  %8 MB
         ,{'sessions_live_time', 2592000}             %30 days
