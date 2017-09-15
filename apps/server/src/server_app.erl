@@ -33,7 +33,6 @@ start(_Type, _Args) ->
     Dispatch = cowboy_router:compile(
                  [{'_',
                     [{"/", 'cowboy_static', {file, StaticDir ++"/index.html"}} %TODO: redirect to '/static'
-                    ,{"/.well-known/acme-challenge/[:acme_key]", 'server_acme_handler', []}
                     ,{"/static", 'cowboy_static', {file, StaticDir ++"/index.html"}}
                     ,{"/static/[...]", 'cowboy_static', {'dir', StaticDir}}
                     ,{"/session/[:token]/ws/[:version]/[:protocol]", server_ws_handler, []}
