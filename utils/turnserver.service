@@ -6,7 +6,7 @@ Description=Turn server
 Type=forking
 ExecStart=/usr/bin/turnserver -o -c /etc/turnserver.conf
 ExecStop=/usr/bin/killall turnserver
-User=user1
+User=turnserver
 
 [Install]
 WantedBy=multi-user.target
