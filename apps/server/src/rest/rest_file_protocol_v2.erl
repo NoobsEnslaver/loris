@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  27 Dec 2016
 %%%-------------------------------------------------------------------
--module(rest_file_protocol_v1).
+-module(rest_file_protocol_v2).
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 -export([handle/4
@@ -35,18 +35,17 @@ handle(<<"POST">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session
                        end,
             {Req1, NewState, _Args}
     end;
-handle(<<"GET">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session}} = State, [FileId | _Args]) ->
+handle(<<"GET">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session}} = State, [FileId | [Secret | _Args]]) ->
     UserId = sessions:extract(Session, 'owner_id'),
-    User = users:get(UserId),
-    UserAccessLevel = users:extract(User, 'access_level'),
     NewState = case files:get(common:to_integer(FileId)) of
                    'false' ->
                        State#q_state{code = 404};
                    File ->
                        FileOwnerId = files:extract(File, 'owner_id'),
-                       FileAccessLevel = files:extract(File, 'access_level'),
+                       FileSecret = files:extract(File, 'hash'),
                        FileName = files:extract(File, 'name'),
-                       case FileAccessLevel =< UserAccessLevel orelse FileOwnerId == UserId of
+                       HSecret = list_to_binary(string:to_upper(binary_to_list(Secret))),
+                       case HSecret == FileSecret orelse FileOwnerId == UserId of
                            'true' ->
                                NewHeaders = H#{<<"content-type">> => files:extract(File, 'content_type')
                                               ,<<"content-disposition">> => <<"attachment; filename=\"", FileName/binary, "\"">>},

@@ -22,14 +22,14 @@ change_files_storage_type('db') ->
     case application:get_env('db', 'keep_files_in_db', 'false') of
         'true' -> 'already';
         'false'->
-            ;
+            ok;
         _BadType -> {'error', io_lib:format("Bad current db:keep_files_in_db storage type ~p",[_BadType])}
     end;
 change_files_storage_type('file') ->
     case application:get_env('db', 'keep_files_in_db', 'false') of
         'false'-> 'already';
         'true' ->
-            ;
+            ok;
         _BadType -> {'error', io_lib:format("Bad current db:keep_files_in_db storage type ~p",[_BadType])}
     end.
 
