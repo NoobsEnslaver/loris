@@ -31,7 +31,9 @@ handle(<<"POST">>, Req, #q_state{headers = H, tmp_state = #{'session' := Session
                                State#q_state{code = 500};
                            InDBId ->
                                lager:debug("File ~s saved with Id: ~p~n", [Name, InDBId]),
-                               State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = erlang:integer_to_binary(InDBId)}
+                               Hash = common:bin2hex(crypto:hash('md5', Data)),
+                               RespBody = transport_lib:encode(#{<<"id">> => InDBId, <<"secret">> => Hash}, ?JSON),
+                               State#q_state{code = 201, headers = H#{<<"content-type">> => <<"text/html">>}, body = RespBody}
                        end,
             {Req1, NewState, _Args}
     end;
