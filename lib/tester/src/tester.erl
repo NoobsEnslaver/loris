@@ -12,7 +12,7 @@
                                  Port   -> erlang:list_to_integer(Port)
                              end).
 -define(DEFAULT_MASTER_PIN, case os:getenv("TEST_MASTER_PIN") of
-                                'false'-> 6666;
+                                'false'-> 1234;
                                 Pin   -> erlang:list_to_integer(Pin)
                             end).
 

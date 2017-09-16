@@ -13,7 +13,7 @@
 
 -define(TEST, true).                            %For no sms
 -ifdef(TEST).
--define(CODE, 6666).
+-define(CODE, 1234).
 -else.
 -define(CODE, rand:uniform(8999) + 1000).
 -endif.
