@@ -56,13 +56,9 @@ stop(_) ->
 %% Internal functions
 %%====================================================================
 get_tcp_opts('true') ->
-    PrivDir = code:priv_dir(server) ++ "/",
     {ok, TlsOpts} = application:get_env('server', 'tls_params'),
     {ok, TcpOpts} = application:get_env('server', 'tcp_params'),
-    DhFilePath = PrivDir ++ proplists:get_value('dhfile', TlsOpts),
-    TlsOpts1 = proplists:delete('dhfile', TlsOpts),
-    CertOpts = [{'dhfile', DhFilePath}],
-    TlsOpts1 ++ TcpOpts ++ CertOpts;
+    TlsOpts ++ TcpOpts;
 get_tcp_opts('false') ->
     {ok, TcpOpts} = application:get_env('server', 'tcp_params'),
     TcpOpts.

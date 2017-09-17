@@ -22,7 +22,7 @@
         ,{'tls_params',[{'certfile', "/etc/egg/cert.pem"}
                        ,{'cacertfile', "/etc/egg/fullchain.pem"}
                        ,{'keyfile', "/etc/egg/privkey.pem"}
-                       ,{'dhfile', "ssl/dhparam.pem"}
+                       ,{'dhfile', "/etc/egg/dhparam.pem"}
                        ,{'versions', ['tlsv1.2', 'tlsv1.1', 'tlsv1']} %Since the POODLE  attack, SSLv3 has mostly been deprecated
                        ,{'secure_renegotiate', 'true'} %By enabling secure renegotiation, you drop support for the insecure renegotiation, prone to MitM attacks.
                        ,{'reuse_sessions', 'true'}     %A performance optimization setting
