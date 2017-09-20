@@ -167,13 +167,15 @@ search_by_name(Name) when  byte_size(Name) > 2 ->
     Q = qlc:q([{R#room.id, R#room.name} || R <- mnesia:table('room'), binary:match(R#room.name, Name) /= 'nomatch']),
     Fun = common:get_limited_amount_from_query(Q, 20),
     maps:from_list(mnesia:sync_dirty(Fun));
-search_by_name(_) -> [].
+search_by_name(_) -> #{}.
 
 -spec search_by_tags(#room_tag{}) -> map().
-search_by_tags(Tag) ->
+search_by_tags(Tag) when is_record(Tag, 'room_tag') ->
     Fun = fun()-> mnesia:dirty_match_object(Tag) end,
     Match = mnesia:sync_dirty(Fun),
-    maps:from_list([{Id, Name} || #room_tag{room_id = Id, name = Name} <- Match]).
+    maps:from_list([{Id, Name} || #room_tag{room_id = Id, name = Name} <- Match]);
+search_by_tags(_) -> #{}.
+
 
 
 %% --------------------------------------
