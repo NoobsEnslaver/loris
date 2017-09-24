@@ -84,6 +84,8 @@
 -record(storage, {key :: any()
                  ,value :: any()}).
 
--record(acme, {key :: binary()
-              ,value :: binary()}).
+-record(resources, {name :: binary()
+                   ,group :: binary()
+                   ,value :: any()}).
+
 -endif.

@@ -21,6 +21,7 @@
                         ,?GET_FIELDS(room, [{disc_copies, [node() | nodes()]}, {index, [#room.owner_id]}])
                         ,?GET_FIELDS(room_tag, [{disc_copies, [node() | nodes()]}, {index, tl(record_info(fields, room_tag))}])
                         ,?GET_FIELDS(storage, [{disc_copies, [node() | nodes()]}])
+                        ,?GET_FIELDS(resources, [{disc_copies, [node() | nodes()]}, {index, [#resources.group]}])
                         ]).
 
 -endif.
