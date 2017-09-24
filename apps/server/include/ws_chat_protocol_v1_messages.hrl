@@ -50,6 +50,9 @@
 -define(C2S_STORAGE_KEYS_TYPE, 48).
 -define(C2S_STORAGE_DELETE_TYPE, 49).
 -define(C2S_STORAGE_CAPACITY_TYPE, 50).
+-define(C2S_RESOURCE_GET_TYPE, 51).
+-define(C2S_RESOURCE_SET_TYPE, 52).
+-define(C2S_RESOURCE_DELETE_TYPE, 53).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -80,6 +83,8 @@
 -define(S2C_STORAGE_CAPACITY_TYPE, 126).
 -define(S2C_STORAGE_GET_RESULT_TYPE, 127).
 -define(S2C_STORAGE_KEYS_TYPE, 128).
+-define(S2C_RESOURCE_TYPE, 129).
+-define(S2C_RESOURCE_LIST_TYPE, 130).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -128,6 +133,9 @@
 -record(c2s_storage_keys, {msg_type = ?C2S_STORAGE_KEYS_TYPE}).
 -record(c2s_storage_delete, {msg_type = ?C2S_STORAGE_DELETE_TYPE, key :: any()}).
 -record(c2s_storage_capacity, {msg_type = ?C2S_STORAGE_CAPACITY_TYPE}).
+-record(c2s_resource_get, {msg_type = ?C2S_RESOURCE_GET_TYPE, name :: binary(), group :: binary()}).
+-record(c2s_resource_set, {msg_type = ?C2S_RESOURCE_SET_TYPE, name :: binary(), group :: binary(), value :: any()}).
+-record(c2s_resource_delete, {msg_type = ?C2S_RESOURCE_DELETE_TYPE, name :: binary()}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -172,7 +180,10 @@
                            | #c2s_storage_get{}
                            | #c2s_storage_delete{}
                            | #c2s_storage_capacity{}
-                           | #c2s_storage_keys{}.
+                           | #c2s_storage_keys{}
+                           | #c2s_resource_get{}
+                           | #c2s_resource_set{}
+                           | #c2s_resource_delete{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
@@ -203,6 +214,8 @@
 -record(s2c_storage_keys, {msg_type = ?S2C_STORAGE_KEYS_TYPE, keys :: [any()]}).
 -record(s2c_storage_get_result, {msg_type = ?S2C_STORAGE_GET_RESULT_TYPE, key :: any(), value :: any()}).
 -record(s2c_storage_capacity, {msg_type = ?S2C_STORAGE_CAPACITY_TYPE, used :: non_neg_integer(), max :: non_neg_integer()}).
+-record(s2c_resource, {msg_type = ?S2C_RESOURCE_TYPE, name :: binary(), value :: any()}).
+-record(s2c_resource_list, {msg_type = ?S2C_RESOURCE_LIST_TYPE, group :: binary(), names :: [binary()]}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}

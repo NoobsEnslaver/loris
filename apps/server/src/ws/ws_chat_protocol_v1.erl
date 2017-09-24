@@ -210,6 +210,14 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_KEYS_TYPE}) ->
     #c2s_storage_keys{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_STORAGE_CAPACITY_TYPE}) ->
     #c2s_storage_capacity{};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_RESOURCE_GET_TYPE}) ->
+    Name = maps:get(<<"name">>, Msg, 'undefined'),
+    Group = maps:get(<<"group">>, Msg, 'undefined'),
+    #c2s_resource_get{name = Name, group = Group};
+unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_SET_TYPE, <<"name">> := Name, <<"group">> := Group, <<"value">> := Value}) ->
+    #c2s_resource_set{name = Name, group = Group, value = Value};
+unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_DELETE_TYPE, <<"name">> := Name}) ->
+    #c2s_resource_delete{name = Name};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -261,6 +269,8 @@ wrap_msg(Msg) when is_record(Msg, s2c_turn_server) -> ?R2M(Msg, s2c_turn_server)
 wrap_msg(Msg) when is_record(Msg, s2c_storage_keys) -> ?R2M(Msg, s2c_storage_keys);
 wrap_msg(Msg) when is_record(Msg, s2c_storage_capacity) -> ?R2M(Msg, s2c_storage_capacity);
 wrap_msg(Msg) when is_record(Msg, s2c_storage_get_result) -> ?R2M(Msg, s2c_storage_get_result);
+wrap_msg(Msg) when is_record(Msg, s2c_resource) -> ?R2M(Msg, s2c_resource);
+wrap_msg(Msg) when is_record(Msg, s2c_resource_list) -> ?R2M(Msg, s2c_resource_list);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -850,6 +860,42 @@ do_action(#c2s_storage_capacity{}, #user_state{storage = Storage} = _State) ->
     Max = application:get_env('server', 'user_storage_capacity', 1024),
     Resp = #s2c_storage_capacity{used = Capacity, max = Max},
     {Resp, _State};
+do_action(#c2s_resource_get{name = Name, group = Group}, _State) ->
+    Resp = if is_binary(Name) ->
+                   case resources:get(Name) of
+                       'false'-> #s2c_error{code = 404};
+                       Value  -> #s2c_resource{name = Name, value = Value}
+                   end;
+              'true' ->
+                   if is_binary(Group) ->
+                           #s2c_resource_list{group = Group, names = resources:list(Group)};
+                      'true' ->
+                           #s2c_resource_list{group = 'undefined', names = resources:list()}
+                   end
+           end,
+    {Resp, _State};
+do_action(#c2s_resource_set{name = Name, group = Group, value = Value}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case sessions:get_by_owner_id(MSISDN) of
+               #session{group = 'administrators'} ->
+                   case resources:set(Group, Name, Value) of
+                       'false'-> #s2c_error{code = 500};
+                       'ok' -> 'ok'
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_resource_delete{name = Name}, #user_state{msisdn = MSISDN} = _State) ->
+    Resp = case sessions:get_by_owner_id(MSISDN) of
+               #session{group = 'administrators'} ->
+                   case resources:delete(Name) of
+                       'false'-> #s2c_error{code = 500};
+                       'ok' -> 'ok'
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
 do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};
@@ -928,7 +974,7 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, status = 
     {Resp, _State};
 do_action({mnesia_table_event, {write, _Table, #message{from = From}, _OldRecList, _ActivityId}}, #user_state{msisdn = From} = _State) -> %it's my own update - ignore
     {ok, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = NewBody, from = From}, [#message{msg_body = OldBody}], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) when OldBody /= NewBody-> %msg_body update
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = NewBody}, [#message{msg_body = OldBody}], _ActivityId}}, _State) when OldBody /= NewBody-> %msg_body update
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = NewBody},
     {Resp, _State};
