@@ -13,7 +13,7 @@
         ,new_p2p/2
         ,send_message/3
         ,update_message/4
-        ,update_message_status/2
+        ,update_message_status/3
         ,get_messages_by_id/4
         ,subscribe/1
         ,unsubscribe/1
@@ -78,12 +78,12 @@ update_message(TableId, MsgId, MsgBody, MSISDN) ->
           end,
     mnesia:sync_dirty(Fun).
 
-update_message_status(TableId, MsgIdList) ->
+update_message_status(TableId, MsgIdList, MSISDN) ->
     TableName = erlang:binary_to_atom(<<"chat_", TableId/binary>>, 'utf8'),
     Fun = fun()->                               %TODO: optimize it with custom lock and dirty operations
                   lists:foreach(fun(MsgId)->
                                         case mnesia:dirty_read(TableName, MsgId) of
-                                            [#message{status = OldStatus}] = [OldMsg] ->
+                                            [#message{status = OldStatus, from = From}] = [OldMsg] when MSISDN /= From -> %u can't mark as read yourself msg
                                                 case OldStatus of
                                                     'delivered' ->
                                                         mnesia:dirty_write(TableName, OldMsg#message{status = 'read'}),

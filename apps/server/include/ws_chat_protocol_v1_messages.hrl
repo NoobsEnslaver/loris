@@ -181,9 +181,9 @@
 -record(s2c_error, {msg_type = ?S2C_ERROR_TYPE, code :: non_neg_integer()}).
 -record(s2c_chat_invatation, {msg_type = ?S2C_CHAT_INVATATION_TYPE, chat_id :: binary(), access_level :: 0..7}).
 -record(s2c_chat_typing, {msg_type = ?S2C_CHAT_TYPING_TYPE, chat_id :: binary(), user_msisdn :: non_neg_integer()}).
--record(s2c_message, {msg_type = ?S2C_MESSAGE_TYPE, chat_id :: binary(), msg_body :: binary(), timestamp :: non_neg_integer(), status :: 'pending' | 'delivered' | 'read', msg_id :: non_neg_integer(), from :: non_neg_integer()}).
+-record(s2c_message, {msg_type = ?S2C_MESSAGE_TYPE, chat_id :: binary(), msg_body :: binary(), status :: 'pending' | 'delivered' | 'read', msg_id :: non_neg_integer(), from :: non_neg_integer()}).
 -record(s2c_message_update, {msg_type = ?S2C_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), msg_body :: binary()}).
--record(s2c_message_update_status, {msg_type = ?S2C_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id}).
+-record(s2c_message_update_status, {msg_type = ?S2C_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), status :: 'pending' | 'delivered' | 'read'}).
 -record(s2c_message_list, {msg_type = ?S2C_MESSAGE_LIST_TYPE, chat_id :: binary(), messages :: [#s2c_message{}]}).
 -record(s2c_user_info, {msg_type = ?S2C_USER_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
 -record(s2c_user_info_bulk, {msg_type = ?S2C_USER_INFO_BULK_TYPE, users :: [#s2c_user_info{}]}).

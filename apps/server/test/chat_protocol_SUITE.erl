@@ -701,17 +701,12 @@ message_update_status_test(Config) ->
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN1, <<"msg_body">> := <<"Hello Joe?">>, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1, <<"status">> := <<"pending">>} = receive_packet(ConPid2, Transport2),
     {MsgId2, ChatId} = send_message(ConPid2, Transport2, ChatId, <<"Hello Mike!">>),
     #{<<"msg_type">> := ?S2C_MESSAGE_TYPE, <<"from">> := MSISDN2, <<"msg_body">> := <<"Hello Mike!">>, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId2, <<"status">> := <<"pending">>} = receive_packet(ConPid1, Transport1),
-    %% User1 update msg1 and msg2 statuses
-    send_packet(ConPid1, ?R2M(#c2s_message_update_status{chat_id = ChatId, msg_id = [MsgId1, MsgId2]}, c2s_message_update_status), Transport1),
-    %% Both users receive messages about msg1 and msg2 update status, order not defined
-    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId3} = receive_packet(ConPid1, Transport1),
-    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId4} = receive_packet(ConPid1, Transport1),
-    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId5} = receive_packet(ConPid2, Transport2),
-    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId6} = receive_packet(ConPid2, Transport2),
-    true = (MsgId3 == MsgId1) or (MsgId3 == MsgId2),
-    true = (MsgId4 == MsgId1) or (MsgId4 == MsgId2),
-    true = (MsgId5 == MsgId1) or (MsgId5 == MsgId2),
-    true = (MsgId6 == MsgId1) or (MsgId6 == MsgId2),
+    send_packet(ConPid1, ?R2M(#c2s_message_update_status{chat_id = ChatId, msg_id = [MsgId2]}, c2s_message_update_status), Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId2} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId2} = receive_packet(ConPid2, Transport2),
+    send_packet(ConPid2, ?R2M(#c2s_message_update_status{chat_id = ChatId, msg_id = [MsgId1]}, c2s_message_update_status), Transport2),
+    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid1, Transport1),
+    #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1} = receive_packet(ConPid2, Transport2),
     %% no other messages
     {error, timeout} = receive_packet(ConPid1, Transport1),
     {error, timeout} = receive_packet(ConPid2, Transport2),
@@ -750,6 +745,7 @@ message_update_test(Config) ->
     send_packet(ConPid1, ?R2M(#c2s_message_update{chat_id = ChatId, msg_body = <<"Hello world!">>, msg_id = MsgId1}, c2s_message_update), Transport1),
     %% User2 receive message about it
     #{<<"msg_type">> := ?S2C_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgId1, <<"msg_body">> := <<"Hello world!">>} = receive_packet(ConPid2, Transport2),
+    {error, timeout} = receive_packet(ConPid1, Transport2), %user1 don't
     %% get messages list
     send_packet(ConPid2, ?R2M(#c2s_message_get_list{chat_id = ChatId, msg_id = 0, count = 30, direction = down}, c2s_message_get_list), Transport2),
     #{<<"msg_type">> := ?S2C_MESSAGE_LIST_TYPE
@@ -758,7 +754,7 @@ message_update_test(Config) ->
                         ,#{<<"from">> := MSISDN1, <<"msg_id">> := MsgId1, <<"msg_body">> := <<"Hello world!">>}
                         ,#{<<"from">> := MSISDN2, <<"msg_id">> := MsgId2, <<"msg_body">> := <<"Hello Mike!">>}]} = receive_packet(ConPid2, Transport2),
     %% User1 try to update msg2
-    send_packet(ConPid1, ?R2M(#c2s_message_update{chat_id = ChatId, msg_body = <<"Hello world!">>, msg_id = MsgId2}, c2s_message_update), Transport1),
+    send_packet(ConPid1, ?R2M(#c2s_message_update{chat_id = ChatId, msg_body = <<"Hello world2!">>, msg_id = MsgId2}, c2s_message_update), Transport1),
     %% User1 receive error
     #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 403} = receive_packet(ConPid1, Transport1),
     %% User2 receive nothing

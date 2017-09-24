@@ -437,12 +437,12 @@ do_action(#c2s_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBo
                _ -> #s2c_error{code = 403}
            end,
     {Resp, _State};
-do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #user_state{chats = Chats} = _State) ->
+do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #user_state{chats = Chats, msisdn = MSISDN} = _State) ->
     Resp = case maps:get(ChatId, Chats, 'undefined') of
                'undefined' ->
                    #s2c_error{code = 404};
                AL when ?MAY_WRITE(AL) ->
-                   chats:update_message_status(ChatId, MsgIdList),
+                   chats:update_message_status(ChatId, MsgIdList, MSISDN),
                    ok;
                _ -> #s2c_error{code = 403}
            end,
@@ -922,19 +922,18 @@ do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body 
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
     Resp = #s2c_message{chat_id = ChatId, msg_body = MsgBody, status = Status, msg_id = MsgId, from = From},
     {Resp, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, status = Status, msg_body = MsgBody, from = From}, [#message{msg_id = MsgId, status = Status}], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) -> %if msg statuses are equal, that's msg_body update
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, status = NewStatus}, [#message{msg_id = MsgId, status = OldStatus}], _ActivityId}}, _State) when NewStatus /= OldStatus -> %msg status update
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
-    Resp = case MSISDN == From of
-               'true' ->
-                   ok;
-               'false'->
-                   #s2c_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = MsgBody}
-           end,
+    Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId, status = NewStatus},
     {Resp, _State};
-do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId}, [#message{msg_id = MsgId}], _ActivityId}}, _State) -> %else, that's msg_status update
+do_action({mnesia_table_event, {write, _Table, #message{from = From}, _OldRecList, _ActivityId}}, #user_state{msisdn = From} = _State) -> %it's my own update - ignore
+    {ok, _State};
+do_action({mnesia_table_event, {write, Table, #message{msg_id = MsgId, msg_body = NewBody, from = From}, [#message{msg_body = OldBody}], _ActivityId}}, #user_state{msisdn = MSISDN} = _State) when OldBody /= NewBody-> %msg_body update
     <<"chat_", ChatId/binary>> = erlang:atom_to_binary(Table, 'utf8'),
-    Resp = #s2c_message_update_status{chat_id = ChatId, msg_id = MsgId},
+    Resp = #s2c_message_update{chat_id = ChatId, msg_id = MsgId, msg_body = NewBody},
     {Resp, _State};
+do_action({mnesia_table_event, _}, _State) -> %redundant status update or bodies same, ignore
+    {ok, _State};
 do_action({notify, MSISDN, 'online', Pid}, #user_state{call = #call_info{sdp = SdpOffer, msisdn = MSISDN}, msisdn = MyMSISDN, turn_server = TurnServer} = State) when is_pid(Pid) andalso SdpOffer /= 'undefined' andalso TurnServer /= 'undefined'->
     Ref = monitor(process, Pid),
     Pid ! {call_offer, MyMSISDN, SdpOffer, self(), TurnServer},
