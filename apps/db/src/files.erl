@@ -17,7 +17,7 @@
         ,get_list_by_owner_id/1
         ]).
 
--spec save(binary(), binary(), binary(), binary()) -> binary().
+-spec save(binary(), binary(), binary(), binary()) -> non_neg_integer().
 save(Name, Type, Data, OwnerId)->
     Hash = common:bin2hex(crypto:hash('md5', Data)),
     case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'keep_files_in_db', 'false') of

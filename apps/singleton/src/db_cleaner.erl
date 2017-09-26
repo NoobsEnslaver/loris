@@ -11,6 +11,7 @@
 -behaviour(gen_server).
 -include_lib("common/include/tables.hrl").
 -include_lib("stdlib/include/qlc.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %% API
 -export([start_link/0
@@ -59,10 +60,12 @@ start_link() ->
 init([]) ->
     SessionsCleaningInterval = application:get_env('singleton', 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
     SmsCleaningInterval = application:get_env('singleton', 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
+    ResourcesUpdateInterval = application:get_env('singleton', 'resources_update_interval', 900) * 1000,  %default: 15 min
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
+    erlang:send_after(ResourcesUpdateInterval, self(), 'update_resources'),
     lager:info("db cleaner started"),
-    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval}}.
+    {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval, resources_update_interval => ResourcesUpdateInterval}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -106,6 +109,10 @@ handle_cast(_Msg, _State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_info('update_resources', #{resources_update_interval := ResourcesUpdateInterval} = Map) ->
+    erlang:send_after(ResourcesUpdateInterval, self(), 'update_resources'),
+    update_resources(),
+    {'noreply', Map};
 handle_info('clean_sessions', #{session := CleaningInterval} = Map) ->
     erlang:send_after(CleaningInterval, self(), 'clean_sessions'),
     sessions_cleaning(),
@@ -170,3 +177,83 @@ sms_cleaning() ->
                                                      mnesia:delete({sms, S})
                                              end, ExpiredSms)
                        end).
+
+update_resources()->
+    ResourcesPath = case application:get_env('singleton', 'resources_path', 'priv') of
+                        'priv' -> code:priv_dir('singleton') ++ "/resources/";
+                        Path -> Path            %TODO: if no / in the end - add
+                    end,
+    update_specific_resources(),
+    {ok, RootFileList} = file:list_dir(ResourcesPath),
+    lists:foreach(fun(File)->
+                          case file:read_file_info(ResourcesPath ++ File) of
+                              {ok, #file_info{type = directory}} ->     %directory
+                                  {ok, DirFileList} = file:list_dir(ResourcesPath ++ File),
+                                  lists:foreach(fun(SubDirFile)->
+                                                        case file:read_file_info(ResourcesPath ++ File ++ "/" ++ SubDirFile) of
+                                                            {ok, #file_info{type = directory}} ->
+                                                                ok;
+                                                            {ok, #file_info{}} ->
+                                                                maybe_update_resource(erlang:list_to_binary(File), erlang:list_to_binary(SubDirFile), ResourcesPath ++ File ++ "/");
+                                                            _Else ->
+                                                                ok
+                                                        end
+                                                end, DirFileList);
+                              {ok, _} ->                                %file
+                                  maybe_update_resource(<<"common">>, erlang:list_to_binary(File), ResourcesPath);
+                              _ ->                                         %read_file_info error, ignore
+                                  ok
+                          end
+                  end, RootFileList).
+
+update_specific_resources() ->
+    SpecificResourcesSpec = application:get_env('singleton', 'specific_resources', []),
+    lists:foreach(fun({Group, Name, {M,F,A}})->
+                          Value = erlang:apply(M,F,A),
+                          resources:set(Group, Name, Value);
+                     ({Group, Name, Value}) ->
+                          resources:set(Group, Name, Value)
+                  end, SpecificResourcesSpec).
+
+-spec get_file_type(binary()) -> binary().
+get_file_type(FileName) ->
+    case binary:split(FileName, <<".">>) of
+        [_, <<"jpg">> = X] -> <<"image/", X/binary>>;
+        [_, <<"jpeg">> = X] -> <<"image/", X/binary>>;
+        [_, <<"png">> = X] -> <<"image/", X/binary>>;
+        [_, <<"gif">> = X] -> <<"image/", X/binary>>;
+        [_, <<"bmp">> = X] -> <<"image/", X/binary>>;
+        [_, <<"avi">> = X] -> <<"video/", X/binary>>;
+        [_, <<"mkv">> = X] -> <<"video/", X/binary>>;
+        [_, <<"flv">> = X] -> <<"video/", X/binary>>;
+        [_, <<"mp4">> = X] -> <<"video/", X/binary>>;
+        [_, <<"3gp">> = X] -> <<"video/", X/binary>>;
+        [_, <<"wav">> = X] -> <<"audio/", X/binary>>;
+        [_, <<"mp3">>] -> <<"audio/mpeg">>;
+        [_, <<"flac">> = X] -> <<"audio/", X/binary>>;
+        _ -> <<"application/x-www-form-urlencoded">>
+    end.
+
+maybe_update_resource(Group, FileName, Cwd) ->
+    {'ok', Data} = file:read_file(Cwd ++ erlang:binary_to_list(FileName)),
+    DataHash = common:bin2hex(crypto:hash('md5', Data)),
+    case resources:get(FileName) of
+        'false' -> %resource not loaded
+            case files:save(FileName, get_file_type(FileName), Data, 0) of
+                'false'  -> ok;
+                NewFileId->
+                    resources:set(Group, FileName, #{file_id => NewFileId, secret => DataHash})
+            end;
+        #{secret := DataHash} -> %resource loaded, actual version, ignore
+            ok;
+        #{file_id := FileId} -> %resource loaded, need update
+            files:delete(FileId),
+            resources:delete(FileName),
+            case files:save(FileName, get_file_type(FileName), Data, 0) of
+                'false'  -> ok;
+                NewFileId->
+                    resources:set(Group, FileName, #{file_id => NewFileId, secret => DataHash})
+            end;
+        _ ->      %undefined resource format, ignore (maybe rewrite?)
+            ok
+    end.

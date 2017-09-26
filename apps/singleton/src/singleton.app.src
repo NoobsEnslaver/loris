@@ -1,7 +1,7 @@
 {application, singleton,
  [{description, "Applicaton-wrapper for one-on-node services"},
   {vsn, "0.1.0"},
-  {registered, [singleton_sup, db_cleaner]},
+  {registered, []},
   {mod, { singleton_app, []}},
   {applications,
    [kernel,
@@ -10,7 +10,13 @@
    ]},
   {env,[{'sessions_cleaning_interval', 3600}      %1 hour
        ,{'sms_cleaning_interval', 1800}           %30 min
-       ,{'sms_live_time',  60}]},
+       ,{'sms_live_time',  60}
+       ,{'resources_update_interval', 60}        %15 min
+       ,{'resources_path', 'priv'}                %atom 'priv' or full path as string
+       ,{'specific_resources', [                  %tupele/3, {Group, Name, Value} or {Group, Name, {M,F,A}}, where func must return int,bin,list,atom or map
+                                {<<"system">>, <<"live_nodes">>, {erlang, nodes, []}}
+                               ]}
+       ]},
   {modules, []},
 
   {maintainers, []},
