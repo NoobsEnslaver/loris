@@ -38,9 +38,10 @@
         ,receive_packets_until/3]).
 
 -spec authorize(non_neg_integer()) -> binary().
--spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer()) -> binary().
 authorize(MSISDN) ->
     authorize(MSISDN, ?DEFAULT_SERVER_ADDRESS, ?DEFAULT_SERVER_PORT, ?DEFAULT_MASTER_PIN).
+
+-spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer()) -> binary().
 authorize(MSISDN, ServerAddress, ServerPort, MasterPin) ->
     {ok, ConnPid} = gun:open(ServerAddress, ServerPort, ?CONN_OPTS),
     case gun:await_up(ConnPid) of

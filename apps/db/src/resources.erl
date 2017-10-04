@@ -40,7 +40,6 @@ delete(Name) ->
     end.
 
 -spec list()-> [Group :: binary()].
--spec list(binary())-> [Name :: binary()].
 list() ->
     Fun = fun()->
                   mnesia:all_keys('resources')
@@ -49,6 +48,8 @@ list() ->
         {'atomic', Res} -> Res;
         _ -> []
     end.
+
+-spec list(binary())-> [Name :: binary()].
 list(Group) ->
     Q = qlc:q([Name || #resources{group = G, name = Name} <- mnesia:table('resources'), G == Group]),
     Fun = fun()->
