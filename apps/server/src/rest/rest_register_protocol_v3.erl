@@ -15,11 +15,11 @@
         ,allowed_groups/1]).
 
 %% Required fields:
-%% msisdn|sms_code
+%% msisdn
 %% Available fields:
-%% group|pwd_hash|fname|lname|age|is_male|access_level
+%% group|pwd_hash|fname|lname|age|is_male|access_level|sms_code
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
-handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_code">> := BSmsCode} = ReqBody} = State, Args) ->
+handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN} = ReqBody} = State, Args) ->
     {IP, _Port} = cowboy_req:peer(Req),
     Pwd = maps:get(<<"pwd_hash">>, ReqBody, <<>>),
     Group = case maps:get(<<"group">>, ReqBody, <<"users">>) of
@@ -41,7 +41,10 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN, <<"sms_co
              Num -> common:to_integer(Num)
          end,
     MSISDN = common:to_integer(BMSISDN),
-    SmsCode = common:to_integer(BSmsCode),
+    SmsCode = case  maps:get(<<"sms_code">>, ReqBody, 'undefined')  of
+                  'undefined' -> 0;
+                  BSmsCode -> common:to_integer(BSmsCode)
+              end,
     T = common:take_first(Args),
     NewState = case application:get_env(binary_to_atom(?APP_NAME, 'utf8'), 'register_with_sms', 'true') of
                    'true' ->
