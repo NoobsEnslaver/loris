@@ -14,7 +14,7 @@
 -include("ws_chat_protocol_v1_messages.hrl").
 -include("server.hrl").
 -import(tester,[connect_to_ws/2
-               ,authorize/1
+               ,authorize/1, authorize/2
                ,send_packet/3
                ,receive_packet/2
                ,get_chats_list/2
@@ -77,6 +77,9 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %% @end
 %%--------------------------------------------------------------------
+init_per_testcase('resources_set_get_list_delete_test', Config) ->
+    Env = init(<<"administrators">>),
+    [{env, Env} | Config];
 init_per_testcase(_TestCase, Config) ->
     Env = init(),
     [{env, Env} | Config].
@@ -148,7 +151,8 @@ groups() ->
                                   ,call_to_offline_test
                                   ]}
     ,{system, [], [%% system_logout_test,
-                  storage_test]}].
+                  storage_test]}
+    ,{resources, [], [resources_set_get_list_delete_test]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -165,6 +169,7 @@ all() ->
     ,{group, rooms}
     ,{group, system}
     ,{group, calls}
+    ,{group, resources}
     ].
 
 %%--------------------------------------------------------------------
@@ -1433,13 +1438,37 @@ storage_test(Config) ->
                           send_packet(ConPid1, ?R2M(#c2s_storage_capacity{}, c2s_storage_capacity), Transport),
                           #{<<"msg_type">> := ?S2C_STORAGE_CAPACITY_TYPE, <<"used">> := 1, <<"max">> := StorageCapacity} = receive_packet(ConPid1, Transport)
                   end, Env).
+
+%%--------------------------------------------------------------------
+%%      RESOURCES
+%%--------------------------------------------------------------------
+resources_set_get_list_delete_test(Config)->
+    Env = proplists:get_value(env, Config),
+    lists:foreach(fun(#{transport := Transport, connection := ConPid})->
+                          send_packet(ConPid, ?R2M(#c2s_resource_set{name = <<"key1">>, group = <<"test">>, value = 123}, c2s_resource_set), Transport),
+                          timer:sleep(100),
+                          send_packet(ConPid, maps:remove('name', ?R2M(#c2s_resource_get{group = <<"test">>}, c2s_resource_get)), Transport),        %with group
+                          #{<<"msg_type">> := ?S2C_RESOURCE_LIST_TYPE, <<"names">> := [<<"key1">>], <<"group">> := <<"test">>} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, maps:remove('name', maps:remove('group', ?R2M(#c2s_resource_get{}, c2s_resource_get))), Transport),                                        %without group
+                          #{<<"msg_type">> := ?S2C_RESOURCE_LIST_TYPE, <<"names">> := Names, <<"group">> := <<"undefined">>} = receive_packet(ConPid, Transport),
+                          'true' = lists:member(<<"key1">>, Names),
+                          send_packet(ConPid, ?R2M(#c2s_resource_get{group = <<"test">>, name = <<"key1">>}, c2s_resource_get), Transport),  %with group and name
+                          #{<<"msg_type">> := ?S2C_RESOURCE_TYPE, <<"name">> := <<"key1">>, <<"value">> := 123} = receive_packet(ConPid, Transport),
+                          send_packet(ConPid, ?R2M(#c2s_resource_delete{name = <<"key1">>}, c2s_resource_delete), Transport),
+                          timer:sleep(100),
+                          send_packet(ConPid, ?R2M(#c2s_resource_get{group = <<"test">>, name = <<"key1">>}, c2s_resource_get), Transport),
+                          #{<<"msg_type">> := ?S2C_ERROR_TYPE, <<"code">> := 404} = receive_packet(ConPid, Transport)
+                          end, Env).
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 init()->
+    init(<<"users">>).
+init(Group)->
     lists:map(fun(Transport)->
                       MSISDN = rand:uniform(89999999999) + 1000000000,
-                      {ok, Token} = authorize(MSISDN),
+                      {ok, Token} = authorize(MSISDN, Group),
                       {ok, ConPid} = connect_to_ws("/session/" ++ erlang:binary_to_list(Token) ++ "/ws/v1/chat", Transport),
                       #{group => users, msisdn => MSISDN, fname => <<"Nikita">>, lname => <<"Vorontsov">>, is_male => true, age => 25, token => Token, connection => ConPid, transport => Transport}
               end, ?SUPPORTED_TRANSPORT).

@@ -66,6 +66,6 @@ get(Name) ->
                   mnesia:read('resources', Name)
           end,
     case mnesia:transaction(Fun) of
-        {'atomic', [Res]} -> Res;
+        {'atomic', [#resources{value = V}]} -> V;
         _ -> 'false'
     end.

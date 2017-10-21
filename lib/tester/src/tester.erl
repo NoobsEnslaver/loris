@@ -29,7 +29,7 @@
         ,send_packet/3
         ,receive_packet/2
         ,disconnect/1
-        ,authorize/1, authorize/4
+        ,authorize/1, authorize/2, authorize/4, authorize/5
         ,flush_messages/0
         ,flush_messages_dbg/0
         ,get_chats_list/2
@@ -41,8 +41,16 @@
 authorize(MSISDN) ->
     authorize(MSISDN, ?DEFAULT_SERVER_ADDRESS, ?DEFAULT_SERVER_PORT, ?DEFAULT_MASTER_PIN).
 
+-spec authorize(non_neg_integer(), binary()) -> binary().
+authorize(MSISDN, Group) ->
+    authorize(MSISDN, ?DEFAULT_SERVER_ADDRESS, ?DEFAULT_SERVER_PORT, ?DEFAULT_MASTER_PIN, Group).
+
 -spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer()) -> binary().
 authorize(MSISDN, ServerAddress, ServerPort, MasterPin) ->
+    authorize(MSISDN, ServerAddress, ServerPort, MasterPin, <<"users">>).
+
+-spec authorize(non_neg_integer(), string(), non_neg_integer(), non_neg_integer(), binary()) -> binary().
+authorize(MSISDN, ServerAddress, ServerPort, MasterPin, Group) ->
     {ok, ConnPid} = gun:open(ServerAddress, ServerPort, ?CONN_OPTS),
     case gun:await_up(ConnPid) of
         {ok, _} ->
@@ -54,7 +62,8 @@ authorize(MSISDN, ServerAddress, ServerPort, MasterPin) ->
                                          ,<<"fname">> => <<"Nikita">>
                                          ,<<"lname">> => <<"Vorontsov">>
                                          ,<<"is_male">> => 'true'
-                                         ,<<"age">> => 25}, ?JSON),
+                                         ,<<"age">> => 25
+                                         ,<<"group">> => Group}, ?JSON),
             StreamRef2 = gun:post(ConnPid, "/v3/auth", [{<<"content-type">>, <<"application/", ?JSON/binary>>}], Body),
             Result = case gun:await_body(ConnPid, StreamRef2) of
                          {error, _} = Error ->
