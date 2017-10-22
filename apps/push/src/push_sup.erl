@@ -16,6 +16,22 @@
 %% Supervisor callbacks
 -export([init/1]).
 
+-ifdef(TEST).
+-define(MOCK, begin
+                  meck:new(fcm, [passthrough]),
+                  meck:expect(fcm, start, fun(_,_) -> ok end),
+                  meck:expect(fcm, sync_push, fun(_,_,_) -> [] end),
+                  meck:new(apns, [passthrough]),
+                  meck:expect(apns, connect, fun(_) -> {ok, self()} end),
+                  meck:expect(apns, push_notification, fun(_,_,_) -> {200, ok, ok} end),
+                  meck:expect(apns, push_notification, fun(_,_,_,_) -> {200, ok, ok} end),
+                  meck:expect(apns, get_feedback, fun(_) -> ok end)
+                  %% TODO: meck fcm
+              end).
+-else.
+-define(MOCK, ok).
+-endif.
+
 -define(SERVER, ?MODULE).
 
 %%%===================================================================
@@ -50,17 +66,15 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    ?MOCK,
+    {ok, FcmApiKey} = application:get_env('push', 'fcm_api_key'),
     SupFlags = #{strategy => 'one_for_one',
-                 intensity => 1,
-                 period => 5},
-    AChildParams = [{timeout,15000}],
-    AChild = #{id => 'push_apple_server',
-               start => {'push_apple_server', start_link, [AChildParams]},
-               restart => 'permanent',
-               shutdown => 5000,
-               type => 'worker',
-               modules => ['push_apple_server']},
-    {ok, {SupFlags, [AChild, ?WORKER('push_sender')]}}.
+                 intensity => 100,
+                 period => 1},
+    {ok, {SupFlags, [?SUPER('apns_sup')
+                    ,?WORKER('push_apple_server', 'push_apple_server', 'start_link', [[{'timeout', 15000}]])
+                    ,?WORKER('fcm', 'fcm', 'start_link', ['push_android_server', FcmApiKey])
+                    ,?WORKER('push_sender')]}}.
 
 %%%===================================================================
 %%% Internal functions

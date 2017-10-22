@@ -75,13 +75,18 @@ start(_StartType, _StartArgs) ->
                             timer:sleep(200),
                             copy_remote_tables(Node)
                     end;
-                _ ->
-                    lager:info("have my own cluster, joining"),
+                _MnesiaNodes ->
+                    lager:info("have my own cluster: ~p, joining", [_MnesiaNodes]),
                     mnesia:start(),
                     timer:sleep(1000),
-                    lager:info("comparing tables.."),
-                    ClusterNodes = mnesia:system_info(db_nodes),
-                    copy_remote_tables(hd(ClusterNodes))
+                    ClusterNodes = [N || N  <- mnesia:system_info(db_nodes), net_adm:ping(N) == 'pong', N /= node()],
+                    case ClusterNodes of
+                        [] ->
+                            lager:info("all cluster nodes offline, skip tables comparison");
+                        _ ->
+                            lager:info("comparing tables.."),
+                            copy_remote_tables(ClusterNodes)
+                    end
             end
     end,
     db_sup:start_link().
@@ -126,6 +131,7 @@ create_schema(Nodes)->
 copy_remote_tables(Node)->
     RemoteTables = mnesia:system_info(tables),
     [begin
+         lager:info("Get table info: ~p from node: ~p", [Table, Node]),
          Holders = rpc:call(Node, mnesia, table_info, [Table, where_to_commit]), %problems with local version
          case proplists:is_defined(node(), Holders) of %if we don't have local table copy
              false ->
@@ -133,6 +139,7 @@ copy_remote_tables(Node)->
                  lager:info("copying table ~p as ~p", [Table, Type]),
                  mnesia:add_table_copy(Table, node(), Type);
              true ->
+                 lager:info("table ~p already on this node, skiping", [Table]),
                  ok
          end
      end || Table <- RemoteTables, Table /= schema],                    %TODO: not all replicas needed

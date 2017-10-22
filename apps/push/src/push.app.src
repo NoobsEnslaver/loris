@@ -6,8 +6,9 @@
   {applications,
    [kernel,
     stdlib,
-    apns,
-    fcm
+    jsx,
+    chatterbox,
+    base64url
    ]},
   {env,[{'apns_get_feedback_interval', 120}     %2 min
        ,{'apns_get_feedback_timeout', 600}      %10 min
