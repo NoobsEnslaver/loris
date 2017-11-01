@@ -4,9 +4,9 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created :  4 May 2017
+%%% Created :  30 Oct 2017
 %%%-------------------------------------------------------------------
--module(rest_register_protocol_v3).
+-module(rest_register_protocol_v4).
 -behaviour(rest_protocol_behaviour).
 -include("server.hrl").
 
@@ -17,19 +17,22 @@
 %% Required fields:
 %% msisdn
 %% Available fields:
-%% group|pwd_hash|fname|lname|age|is_male|access_level|sms_code|city
+%% group|pwd_hash|fname|lname|age|is_male|access_level|city|sms_code
+%% group :: 'guest'|'sportsman'|'administrator'|'parent'|'trainer'
 -spec handle(method(), cowboy_req:req(), #q_state{}, [binary()]) -> {cowboy_req:req(), #q_state{}, [binary()]}.
 handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN} = ReqBody} = State, Args) ->
     {IP, _Port} = cowboy_req:peer(Req),
     Pwd = maps:get(<<"pwd_hash">>, ReqBody, <<>>),
-    Group = case maps:get(<<"group">>, ReqBody, <<"users">>) of
-                <<"users">> -> 'users';
-                <<"guests">>-> 'guests';
-                <<"administrators">> -> 'administrators';
-                <<"company">> -> 'company'
+    Group = case maps:get(<<"group">>, ReqBody, <<"guest">>) of
+                <<"guest">> -> 'guest';
+                <<"sportsman">> -> 'sportsman';
+                <<"administrator">> -> 'administrator';
+                <<"parent">> -> 'parent';
+                <<"trainer">> -> 'trainer'
             end,
     FName = maps:get(<<"fname">>, ReqBody, <<>>),
     LName = maps:get(<<"lname">>, ReqBody, <<>>),
+    City = maps:get(<<"city">>, ReqBody, <<>>),
     Age = common:to_integer(maps:get(<<"age">>, ReqBody, 0)),
     IsMale = case maps:get(<<"is_male">>, ReqBody, true) of
                  B when is_boolean(B) -> B;

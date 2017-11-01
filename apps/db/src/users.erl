@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -compile({no_auto_import,[get/1]}).
 -export([authorize/2
-        ,new/8, new/9
+        ,new/9, new/10
         ,delete/1
         ,get/1
         ,extract/2
@@ -43,8 +43,8 @@ authorize(MSISDN, Password)->
         _ -> 'false'
     end.
 
--spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer()) -> #user{} | 'false' | 'exists'.
-new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
+-spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), binary(), non_neg_integer()) -> #user{} | 'false' | 'exists'.
+new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, City, AccessLevel) ->
     Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
@@ -59,6 +59,7 @@ new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
                         ,age = Age
                         ,is_male = IsMale
                         ,created = Created
+                        ,city = City
                         ,access_level = AccessLevel},
             case mnesia:transaction(fun()-> mnesia:write(User) end) of
                 {'atomic', 'ok'} -> User;
@@ -66,8 +67,8 @@ new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, AccessLevel) ->
             end
     end.
 
--spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), non_neg_integer(), 'nohash') -> #user{} | 'false' | 'exists'.
-new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
+-spec new(non_neg_integer(), binary(), binary(), binary(), non_neg_integer(), boolean(), atom(), binary(), non_neg_integer(), 'nohash') -> #user{} | 'false' | 'exists'.
+new(MSISDN, PwdHash, FName, LName, Age, IsMale, City, Group, AccessLevel, 'nohash') ->
     Created = common:timestamp(),
     case get(MSISDN) of
         #user{} ->
@@ -81,6 +82,7 @@ new(MSISDN, PwdHash, FName, LName, Age, IsMale, Group, AccessLevel, 'nohash') ->
                         ,age = Age
                         ,is_male = IsMale
                         ,created = Created
+                        ,city = City
                         ,access_level = AccessLevel},
             case mnesia:transaction(fun()-> mnesia:write(User) end) of
                 {'atomic', 'ok'} -> User;
@@ -172,6 +174,7 @@ leave_chat(ChatId, MSISDN)->
     end.
 
 %% TODO: optimize it
+%% TODO: search by other fields
 search(FName, LName) when byte_size(FName) > 2 andalso byte_size(LName) > 2 ->
     Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
                                                          , binary:match(U#user.lname, LName) /= 'nomatch']),
@@ -248,6 +251,7 @@ set_info(MSISDN, Proplist) ->
                                             is_male -> User#user{is_male = Value};
                                             muted_chats -> User#user{muted_chats = Value};
                                             last_visit_timestamp -> User#user{last_visit_timestamp = Value};
+                                            city -> User#user{city = Value};
                                             access_level -> User#user{access_level = Value}
                                         end
                                 end, User0, Proplist),
@@ -338,5 +342,6 @@ extract(#user{lname = LName}, 'lname')-> LName;
 extract(#user{rooms = Rooms}, 'rooms')-> Rooms;
 extract(#user{is_male = IsMale}, 'is_male')-> IsMale;
 extract(#user{muted_chats = MC}, 'muted_chats')-> MC;
+extract(#user{city = C}, 'city')-> C;
 extract(#user{last_visit_timestamp = LVTS}, 'last_visit_timestamp')-> LVTS;
 extract(#user{access_level = AccessLevel}, 'access_level')-> AccessLevel.

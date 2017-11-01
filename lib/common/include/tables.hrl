@@ -1,7 +1,7 @@
 -ifndef(TABLES_HRL).
 -define(TABLES_HRL, 'true').
 
--type access_group() :: 'guests'|'users'|'administrators'|'company'.
+-type access_group() :: 'guest'|'sportsman'|'administrator'|'parent'|'trainer'.
 
 -record(file, {id :: non_neg_integer()
               ,hash :: binary()
@@ -24,7 +24,36 @@
               ,rooms = #{} :: #{non_neg_integer() => 0..7}
               ,is_male :: boolean()
               ,muted_chats = [] :: [binary()]
-              ,last_visit_timestamp :: non_neg_integer()}).
+              ,last_visit_timestamp :: non_neg_integer()
+              ,city :: binary()}).
+
+-record(tournament_participaton, {tournament_id :: non_neg_integer()
+                                 ,reward :: atom() %TODO: list rewards
+                                 ,points :: non_neg_integer()}). %TODO: add participation info
+
+-record(sportsman_info, {msisdn :: non_neg_integer()
+                        ,height :: non_neg_integer()
+                        ,weight :: non_neg_integer()
+                        ,kyu :: non_neg_integer()
+                        ,tournaments :: [#tournament_participaton{}]
+                        ,affiliate_id :: non_neg_integer()
+                        ,is_volunteer :: boolean()
+                        ,is_on_team :: boolean()}).
+
+-record(parent_info, {msisdn :: non_neg_integer()
+                     ,affiliate_id :: non_neg_integer()
+                     ,parental_committee :: boolean()
+                     ,is_volunteer :: boolean()}).
+
+-record(trainer_info, {msisdn :: non_neg_integer()
+                      ,affiliate_id :: non_neg_integer()
+                      ,trainer_committee :: boolean()
+                      ,is_judge :: boolean()
+                      ,is_department_head :: boolean()}).
+
+-record(tournaments, {id :: non_neg_integer()
+                     ,name :: binary()
+                     ,timestamp :: non_neg_integer()}). %TODO: add tournament fields
 
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()
