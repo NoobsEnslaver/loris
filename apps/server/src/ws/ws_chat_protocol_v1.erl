@@ -117,11 +117,31 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSI
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_status{user_msisdn = round(MSISDN)};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_TRAINER_INFO_TYPE, <<"msisdn">> := MSISDN, <<"affiliate_id">> := AId,<<"trainer_committee">> := TC,<<"is_judge">> := IsJ,<<"is_department_head">> := IsDH})->
+    #c2s_user_set_trainer_info{msisdn = round(MSISDN)
+                              ,affiliate_id = round(AId)
+                              ,trainer_committee = TC
+                              ,is_judge = IsJ
+                              ,is_department_head = IsDH};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_PARENT_INFO_TYPE, <<"msisdn">> := MSISDN,<<"affiliate_id">> := AId,<<"parental_committee">> := PC,<<"is_volunteer">> := IsV})->
+    #c2s_user_set_parent_info{msisdn = round(MSISDN)
+                             ,affiliate_id = round(AId)
+                             ,parental_committee = PC
+                             ,is_volunteer = IsV};
+unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, <<"msisdn">> := MSISDN, <<"height">> := Hei, <<"weight">> := Wei, <<"kyu">> := Kyu, <<"affiliate_id">> := AId, <<"is_volunteer">> := IsV, <<"is_on_team">> := IsOnT}) ->
+    #c2s_user_set_sportsman_info{msisdn = round(MSISDN)
+                                ,height = round(Hei)
+                                ,weight = round(Wei)
+                                ,kyu = round(Kyu)
+                                ,affiliate_id = round(AId)
+                                ,is_volunteer = IsV
+                                ,is_on_team = IsOnT};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
     #c2s_user_set_info{fname = maps:get(<<"fname">>, Msg, 'undefined')
                       ,lname = maps:get(<<"lname">>, Msg, 'undefined')
                       ,age = maps:get(<<"age">>, Msg, 'undefined')
-                      ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')};
+                      ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')
+                      ,city = maps:get(<<"city">>, Msg, 'undefined')};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE, <<"fname">> := FName, <<"lname">> := LName}) ->
     #c2s_user_search{fname = FName, lname = LName};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
@@ -234,9 +254,21 @@ wrap_msg(Msg) when is_record(Msg, s2c_chat_typing) -> ?R2M(Msg, s2c_chat_typing)
 wrap_msg(Msg) when is_record(Msg, s2c_message) -> ?R2M(Msg, s2c_message);
 wrap_msg(Msg) when is_record(Msg, s2c_message_update) -> ?R2M(Msg, s2c_message_update);
 wrap_msg(Msg) when is_record(Msg, s2c_message_update_status) -> ?R2M(Msg, s2c_message_update_status);
-wrap_msg(Msg) when is_record(Msg, s2c_user_info) -> ?R2M(Msg, s2c_user_info);
+wrap_msg(Msg) when is_record(Msg, s2c_user_info) ->
+    Msg2 = case Msg#s2c_user_info.special_info of
+               #sportsman_info{} = I ->
+                   TMapList = [?R2M(TRec, tournament_participaton) || TRec <- I#sportsman_info.tournaments],
+                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I#sportsman_info{tournaments = TMapList}, sportsman_info))};
+               #trainer_info{} = I ->
+                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I, trainer_info))};
+               #parent_info{} = I ->
+                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I, parent_info))};
+               _ ->
+                   Msg#s2c_user_info{special_info = #{}}
+           end,
+    ?R2M(Msg2, s2c_user_info);
 wrap_msg(Msg) when is_record(Msg, s2c_user_info_bulk) ->
-    UsersMap = [maps:remove(<<"msg_type">>, ?R2M(UserInfo, s2c_user_info)) || UserInfo <- Msg#s2c_user_info_bulk.users],
+    UsersMap = [maps:remove(<<"msg_type">>, wrap_msg(UserInfo)) || UserInfo <- Msg#s2c_user_info_bulk.users],
     ?R2M(Msg#s2c_user_info_bulk{users = UsersMap}, s2c_user_info_bulk);
 wrap_msg(Msg) when is_record(Msg, s2c_user_status) ->
     case Msg#s2c_user_status.last_visit_timestamp of
@@ -468,8 +500,8 @@ do_action(#c2s_user_upgrade_to_company{}, #user_state{msisdn = MSISDN} = _State)
     {ok, _State};
 do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
     Resp = case users:get(MSISDN) of
-               #user{fname = FName, lname = LName, age = Age, is_male = IsMale} ->
-                   #s2c_user_info{user_msisdn = MSISDN, fname = FName, lname = LName, age = Age, is_male = IsMale};
+               #user{fname = FName, lname = LName, age = Age, is_male = IsMale, group = Group, city = City, special_info = SpecialInfo} ->
+                   #s2c_user_info{user_msisdn = MSISDN, fname = FName, lname = LName, age = Age, is_male = IsMale, city = City, group = Group, special_info = SpecialInfo};
                'false' ->
                    #s2c_error{code = 404}
            end,
@@ -492,6 +524,15 @@ do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
                    end
            end,
     {Resp, _State};
+do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_committee = TC,is_judge = IsJ,is_department_head = IsDH}, #user_state{msisdn = MSISDN} = _State) ->
+    %% TODO
+    {ok, _State};
+do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_committee = PC,is_volunteer = IsV}, #user_state{msisdn = MSISDN} = _State) ->
+    %% TODO
+    {ok, _State};
+do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei,kyu = Kyu,affiliate_id = AId,is_volunteer = IsV,is_on_team = IsOnT}, #user_state{msisdn = MSISDN} = _State) ->
+    %% TODO
+    {ok, _State};
 do_action(#c2s_user_set_info{fname = FName, lname = LName, age = Age, is_male = IsMale}, #user_state{msisdn = MSISDN} = _State) ->
     Info = lists:filter(fun({_,'undefined'}) -> 'false';
                            ({_,_})-> 'true'

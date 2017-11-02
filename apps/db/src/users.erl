@@ -102,7 +102,7 @@ delete(MSISDN) ->
         _ -> 'false'
     end.
 
--spec get(binary()) -> #user{} | 'false'.
+-spec get(non_neg_integer()) -> #user{} | 'false'.
 get(MSISDN)->
     Fun = fun()-> mnesia:read('user', MSISDN) end,
     case mnesia:transaction(Fun) of

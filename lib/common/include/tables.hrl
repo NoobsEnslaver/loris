@@ -11,22 +11,6 @@
               ,owner_id :: non_neg_integer()
               ,size :: non_neg_integer()}).
 
--record(user, {msisdn :: non_neg_integer()
-              ,group :: access_group()
-              ,pwd_hash :: binary()
-              ,fname :: binary()
-              ,lname :: binary()
-              ,age :: non_neg_integer()
-              ,created :: non_neg_integer()
-              ,access_level :: non_neg_integer() | 'infinity'
-              ,chats_invatations = #{} :: #{binary() => 0..7}
-              ,chats = #{} :: #{binary() => 0..7}
-              ,rooms = #{} :: #{non_neg_integer() => 0..7}
-              ,is_male :: boolean()
-              ,muted_chats = [] :: [binary()]
-              ,last_visit_timestamp :: non_neg_integer()
-              ,city :: binary()}).
-
 -record(tournament_participaton, {tournament_id :: non_neg_integer()
                                  ,reward :: atom() %TODO: list rewards
                                  ,points :: non_neg_integer()}). %TODO: add participation info
@@ -54,6 +38,23 @@
 -record(tournaments, {id :: non_neg_integer()
                      ,name :: binary()
                      ,timestamp :: non_neg_integer()}). %TODO: add tournament fields
+
+-record(user, {msisdn :: non_neg_integer()
+              ,group :: access_group()
+              ,pwd_hash :: binary()
+              ,fname :: binary()
+              ,lname :: binary()
+              ,age :: non_neg_integer()
+              ,created :: non_neg_integer()
+              ,access_level :: non_neg_integer() | 'infinity'
+              ,chats_invatations = #{} :: #{binary() => 0..7}
+              ,chats = #{} :: #{binary() => 0..7}
+              ,rooms = #{} :: #{non_neg_integer() => 0..7}
+              ,is_male :: boolean()
+              ,muted_chats = [] :: [binary()]
+              ,last_visit_timestamp :: non_neg_integer()
+              ,city :: binary()
+              ,special_info :: #sportsman_info{}|#trainer_info{}|#parent_info{}|'undefined'}).
 
 -record(session, {token :: binary()
                  ,owner_id :: non_neg_integer()

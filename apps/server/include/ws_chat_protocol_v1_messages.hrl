@@ -53,6 +53,9 @@
 -define(C2S_RESOURCE_GET_TYPE, 51).
 -define(C2S_RESOURCE_SET_TYPE, 52).
 -define(C2S_RESOURCE_DELETE_TYPE, 53).
+-define(C2S_USER_SET_SPORTSMAN_INFO_TYPE, 54).
+-define(C2S_USER_SET_TRAINER_INFO_TYPE, 55).
+-define(C2S_USER_SET_PARENT_INFO_TYPE, 56).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -106,7 +109,10 @@
 -record(c2s_user_get_info, {msg_type = ?C2S_USER_GET_INFO_TYPE, user_msisdn :: non_neg_integer()}).
 -record(c2s_user_get_info_bulk, {msg_type = ?C2S_USER_GET_INFO_BULK_TYPE, msisdns :: [non_neg_integer()]}).
 -record(c2s_user_get_status, {msg_type = ?C2S_USER_GET_STATUS_TYPE, user_msisdn :: non_neg_integer()}).
--record(c2s_user_set_info, {msg_type = ?C2S_USER_SET_INFO_TYPE, fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
+-record(c2s_user_set_info, {msg_type = ?C2S_USER_SET_INFO_TYPE, fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean(), city :: binary()}).
+-record(c2s_user_set_sportsman_info, {msg_type = ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, msisdn :: non_neg_integer(),height :: non_neg_integer(),weight :: non_neg_integer(),kyu :: non_neg_integer(),affiliate_id :: non_neg_integer(),is_volunteer :: boolean(),is_on_team :: boolean()}).
+-record(c2s_user_set_parent_info, {msg_type = ?C2S_USER_SET_PARENT_INFO_TYPE, msisdn :: non_neg_integer(), affiliate_id :: non_neg_integer(), parental_committee :: boolean(),is_volunteer :: boolean()}).
+-record(c2s_user_set_trainer_info, {msg_type = ?C2S_USER_SET_TRAINER_INFO_TYPE,msisdn :: non_neg_integer(),affiliate_id :: non_neg_integer(),trainer_committee :: boolean(),is_judge :: boolean(),is_department_head :: boolean()}).
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
@@ -196,7 +202,7 @@
 -record(s2c_message_update, {msg_type = ?S2C_MESSAGE_UPDATE_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), msg_body :: binary()}).
 -record(s2c_message_update_status, {msg_type = ?S2C_MESSAGE_UPDATE_STATUS_TYPE, chat_id :: binary(), msg_id :: non_neg_integer(), status :: 'pending' | 'delivered' | 'read'}).
 -record(s2c_message_list, {msg_type = ?S2C_MESSAGE_LIST_TYPE, chat_id :: binary(), messages :: [#s2c_message{}]}).
--record(s2c_user_info, {msg_type = ?S2C_USER_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean()}).
+-record(s2c_user_info, {msg_type = ?S2C_USER_INFO_TYPE, user_msisdn :: non_neg_integer(), fname :: binary(), lname :: binary(), age :: non_neg_integer(), is_male :: boolean(), city :: binary(), group :: atom(), special_info :: #sportsman_info{}|#trainer_info{}|#parent_info{}|'undefined'}).
 -record(s2c_user_info_bulk, {msg_type = ?S2C_USER_INFO_BULK_TYPE, users :: [#s2c_user_info{}]}).
 -record(s2c_user_status, {msg_type = ?S2C_USER_STATUS_TYPE, msisdn :: non_neg_integer(), status :: atom(), last_visit_timestamp :: non_neg_integer()}).
 -record(s2c_user_search_result, {msg_type = ?S2C_USER_SEARCH_RESULT_TYPE, users :: [non_neg_integer()]}).
