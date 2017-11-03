@@ -43,7 +43,6 @@
 -define(C2S_DEVICE_REGISTER, 41).
 -define(C2S_USER_SUBSCRIBE_TYPE, 42).
 -define(C2S_USER_UNSUBSCRIBE_TYPE, 43).
--define(C2S_USER_UPGRADE_TO_COMPANY_TYPE, 44).
 -define(C2S_ROOM_SEND_RECURSIVE_MESSAGE_TYPE, 45).
 -define(C2S_STORAGE_SET_TYPE, 46).
 -define(C2S_STORAGE_GET_TYPE, 47).
@@ -56,6 +55,9 @@
 -define(C2S_USER_SET_SPORTSMAN_INFO_TYPE, 54).
 -define(C2S_USER_SET_TRAINER_INFO_TYPE, 55).
 -define(C2S_USER_SET_PARENT_INFO_TYPE, 56).
+-define(C2S_USER_UPGRADE_TO_TRAINER_TYPE, 57).
+-define(C2S_USER_UPGRADE_TO_PARENT_TYPE, 58).
+-define(C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, 59).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -116,7 +118,6 @@
 -record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
--record(c2s_user_upgrade_to_company, {msg_type = ?C2S_USER_UPGRADE_TO_COMPANY_TYPE}).
 -record(c2s_room_add_subroom, {msg_type = ?C2S_ROOM_ADD_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_del_subroom, {msg_type = ?C2S_ROOM_DEL_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_create, {msg_type = ?C2S_ROOM_CREATE_TYPE, name :: binary(), description :: binary(), room_access :: map(), chat_access :: map(), tags :: #room_tag{}}).
@@ -142,6 +143,9 @@
 -record(c2s_resource_get, {msg_type = ?C2S_RESOURCE_GET_TYPE, name :: binary(), group :: binary()}).
 -record(c2s_resource_set, {msg_type = ?C2S_RESOURCE_SET_TYPE, name :: binary(), group :: binary(), value :: any()}).
 -record(c2s_resource_delete, {msg_type = ?C2S_RESOURCE_DELETE_TYPE, name :: binary()}).
+-record(c2s_user_upgrade_to_trainer, {msg_type = ?C2S_USER_UPGRADE_TO_TRAINER_TYPE, msisdn :: non_neg_integer()}).
+-record(c2s_user_upgrade_to_parent, {msg_type = ?C2S_USER_UPGRADE_TO_PARENT_TYPE, msisdn :: non_neg_integer()}).
+-record(c2s_user_upgrade_to_sportsman, {msg_type = ?C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, msisdn :: non_neg_integer()}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -181,7 +185,6 @@
                            | #c2s_device_register{}
                            | #c2s_user_subscribe{}
                            | #c2s_user_unsubscribe{}
-                           | #c2s_user_upgrade_to_company{}
                            | #c2s_storage_set{}
                            | #c2s_storage_get{}
                            | #c2s_storage_delete{}
@@ -189,7 +192,10 @@
                            | #c2s_storage_keys{}
                            | #c2s_resource_get{}
                            | #c2s_resource_set{}
-                           | #c2s_resource_delete{}.
+                           | #c2s_resource_delete{}
+                           | #c2s_user_upgrade_to_trainer{}
+                           | #c2s_user_upgrade_to_sportsman{}
+                           | #c2s_user_upgrade_to_parent{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).

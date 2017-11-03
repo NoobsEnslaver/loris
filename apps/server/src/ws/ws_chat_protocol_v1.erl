@@ -111,24 +111,22 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_STATUS_TYPE, <<"chat_id">> := ChatId, <<"msg_id">> := MsgIdList}) ->
     #c2s_message_update_status{chat_id = ChatId, msg_id = [round(M) || M <- MsgIdList]};
 unwrap_msg(#{<<"msg_type">> := ?C2S_SYSTEM_LOGOUT_TYPE}) -> #c2s_system_logout{};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_COMPANY_TYPE}) ->
-    #c2s_user_upgrade_to_company{};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_INFO_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_info{user_msisdn = round(MSISDN)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := MSISDN}) ->
     #c2s_user_get_status{user_msisdn = round(MSISDN)};
-unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_TRAINER_INFO_TYPE, <<"msisdn">> := MSISDN, <<"affiliate_id">> := AId,<<"trainer_committee">> := TC,<<"is_judge">> := IsJ,<<"is_department_head">> := IsDH})->
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_TRAINER_INFO_TYPE, <<"msisdn">> := MSISDN, <<"affiliate_id">> := AId,<<"trainer_committee">> := TC,<<"is_judge">> := IsJ,<<"is_department_head">> := IsDH})->
     #c2s_user_set_trainer_info{msisdn = round(MSISDN)
                               ,affiliate_id = round(AId)
                               ,trainer_committee = TC
                               ,is_judge = IsJ
                               ,is_department_head = IsDH};
-unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_PARENT_INFO_TYPE, <<"msisdn">> := MSISDN,<<"affiliate_id">> := AId,<<"parental_committee">> := PC,<<"is_volunteer">> := IsV})->
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_PARENT_INFO_TYPE, <<"msisdn">> := MSISDN,<<"affiliate_id">> := AId,<<"parental_committee">> := PC,<<"is_volunteer">> := IsV})->
     #c2s_user_set_parent_info{msisdn = round(MSISDN)
                              ,affiliate_id = round(AId)
                              ,parental_committee = PC
                              ,is_volunteer = IsV};
-unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, <<"msisdn">> := MSISDN, <<"height">> := Hei, <<"weight">> := Wei, <<"kyu">> := Kyu, <<"affiliate_id">> := AId, <<"is_volunteer">> := IsV, <<"is_on_team">> := IsOnT}) ->
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, <<"msisdn">> := MSISDN, <<"height">> := Hei, <<"weight">> := Wei, <<"kyu">> := Kyu, <<"affiliate_id">> := AId, <<"is_volunteer">> := IsV, <<"is_on_team">> := IsOnT}) ->
     #c2s_user_set_sportsman_info{msisdn = round(MSISDN)
                                 ,height = round(Hei)
                                 ,weight = round(Wei)
@@ -238,6 +236,12 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_SET_TYPE, <<"name">> := Name, <<"gr
     #c2s_resource_set{name = Name, group = Group, value = Value};
 unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_DELETE_TYPE, <<"name">> := Name}) ->
     #c2s_resource_delete{name = Name};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, <<"msisdn">> := MSISDN}) ->
+    #c2s_user_upgrade_to_sportsman{msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_PARENT_TYPE, <<"msisdn">> := MSISDN}) ->
+    #c2s_user_upgrade_to_parent{msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_TRAINER_TYPE, <<"msisdn">> := MSISDN}) ->
+    #c2s_user_upgrade_to_trainer{msisdn = MSISDN};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -493,11 +497,46 @@ do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #use
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
-do_action(#c2s_user_upgrade_to_company{}, #user_state{msisdn = MSISDN} = _State) ->
-    users:set_info(MSISDN, [{'group', 'company'}]),
-    Session = sessions:get_by_owner_id(MSISDN),
-    sessions:set(Session#session{'group' = 'company'}),
-    {ok, _State};
+
+do_action(#c2s_user_upgrade_to_sportsman{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
+    Resp = case users:get(MyMSISDN) of
+               #user{group = G} when G == 'trainer' orelse G == 'administrator' ->
+                   users:set_info(MSISDN, [{'group', 'sportsman'}]),
+                   case sessions:get_by_owner_id(MSISDN) of
+                       #session{} = S ->
+                           sessions:set(S#session{'group' = 'sportsman'});
+                       'false' -> 'ok'
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_user_upgrade_to_parent{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
+    Resp = case users:get(MyMSISDN) of
+               #user{group = G} when G == 'trainer' orelse G == 'administrator' ->
+                   users:set_info(MSISDN, [{'group', 'parent'}]),
+                   case sessions:get_by_owner_id(MSISDN) of
+                       #session{} = S ->
+                           sessions:set(S#session{'group' = 'parent'});
+                       'false' -> 'ok'
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_user_upgrade_to_trainer{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
+    Resp = case users:get(MyMSISDN) of
+               #user{group = 'administrator'} ->
+                   users:set_info(MSISDN, [{'group', 'trainer'}]),
+                   case sessions:get_by_owner_id(MSISDN) of
+                       #session{} = S ->
+                           sessions:set(S#session{'group' = 'trainer'});
+                       'false' -> 'ok'
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
 do_action(#c2s_user_get_info{user_msisdn = MSISDN}, _State) ->
     Resp = case users:get(MSISDN) of
                #user{fname = FName, lname = LName, age = Age, is_male = IsMale, group = Group, city = City, special_info = SpecialInfo} ->
