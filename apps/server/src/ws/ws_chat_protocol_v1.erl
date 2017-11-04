@@ -236,12 +236,15 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_SET_TYPE, <<"name">> := Name, <<"gr
     #c2s_resource_set{name = Name, group = Group, value = Value};
 unwrap_msg(#{<<"msg_type">> := ?C2S_RESOURCE_DELETE_TYPE, <<"name">> := Name}) ->
     #c2s_resource_delete{name = Name};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, <<"msisdn">> := MSISDN}) ->
-    #c2s_user_upgrade_to_sportsman{msisdn = MSISDN};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_PARENT_TYPE, <<"msisdn">> := MSISDN}) ->
-    #c2s_user_upgrade_to_parent{msisdn = MSISDN};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_UPGRADE_TO_TRAINER_TYPE, <<"msisdn">> := MSISDN}) ->
-    #c2s_user_upgrade_to_trainer{msisdn = MSISDN};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_GROUP_TYPE, <<"msisdn">> := MSISDN, <<"group">> := BGroup}) ->
+    Group = case BGroup of
+                <<"administrator">> -> administrator;
+                <<"guest">> -> guest;
+                <<"sportsman">> -> sportsman;
+                <<"trainer">> -> trainer;
+                <<"parent">> -> parent
+            end,
+    #c2s_user_set_group{msisdn = round(MSISDN), group = Group};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -497,41 +500,28 @@ do_action(#c2s_message_update_status{chat_id = ChatId, msg_id = MsgIdList}, #use
     {Resp, _State};
 do_action(_Msg = #c2s_system_logout{}, _State) ->
     {ok, _State};
-
-do_action(#c2s_user_upgrade_to_sportsman{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
-    Resp = case users:get(MyMSISDN) of
-               #user{group = G} when G == 'trainer' orelse G == 'administrator' ->
-                   users:set_info(MSISDN, [{'group', 'sportsman'}]),
-                   case sessions:get_by_owner_id(MSISDN) of
-                       #session{} = S ->
-                           sessions:set(S#session{'group' = 'sportsman'});
-                       'false' -> 'ok'
-                   end;
-               _ ->
-                   #s2c_error{code = 403}
-           end,
-    {Resp, _State};
-do_action(#c2s_user_upgrade_to_parent{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
-    Resp = case users:get(MyMSISDN) of
-               #user{group = G} when G == 'trainer' orelse G == 'administrator' ->
-                   users:set_info(MSISDN, [{'group', 'parent'}]),
-                   case sessions:get_by_owner_id(MSISDN) of
-                       #session{} = S ->
-                           sessions:set(S#session{'group' = 'parent'});
-                       'false' -> 'ok'
-                   end;
-               _ ->
-                   #s2c_error{code = 403}
-           end,
-    {Resp, _State};
-do_action(#c2s_user_upgrade_to_trainer{msisdn = MSISDN}, #user_state{msisdn = MyMSISDN} = _State) ->
+do_action(#c2s_user_set_group{msisdn = MSISDN, group = Group}, #user_state{msisdn = MyMSISDN} = _State) ->
     Resp = case users:get(MyMSISDN) of
                #user{group = 'administrator'} ->
-                   users:set_info(MSISDN, [{'group', 'trainer'}]),
+                   users:set_info(MSISDN, [{'group', Group}]),
                    case sessions:get_by_owner_id(MSISDN) of
                        #session{} = S ->
-                           sessions:set(S#session{'group' = 'trainer'});
+                           sessions:set(S#session{'group' = Group});
                        'false' -> 'ok'
+                   end;
+               #user{group = 'trainer'} ->
+                   case users:get(MSISDN) of
+                       #user{group = 'guest'} ->
+                           users:set_info(MSISDN, [{'group', Group}]),
+                           case sessions:get_by_owner_id(MSISDN) of
+                               #session{} = S ->
+                                   sessions:set(S#session{'group' = Group});
+                               'false' -> 'ok'
+                           end;
+                       #user{} ->
+                           #s2c_error{code = 403};
+                       _ ->
+                           #s2c_error{code = 404}
                    end;
                _ ->
                    #s2c_error{code = 403}

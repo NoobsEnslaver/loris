@@ -55,9 +55,7 @@
 -define(C2S_USER_SET_SPORTSMAN_INFO_TYPE, 54).
 -define(C2S_USER_SET_TRAINER_INFO_TYPE, 55).
 -define(C2S_USER_SET_PARENT_INFO_TYPE, 56).
--define(C2S_USER_UPGRADE_TO_TRAINER_TYPE, 57).
--define(C2S_USER_UPGRADE_TO_PARENT_TYPE, 58).
--define(C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, 59).
+-define(C2S_USER_SET_GROUP_TYPE, 57).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -143,9 +141,7 @@
 -record(c2s_resource_get, {msg_type = ?C2S_RESOURCE_GET_TYPE, name :: binary(), group :: binary()}).
 -record(c2s_resource_set, {msg_type = ?C2S_RESOURCE_SET_TYPE, name :: binary(), group :: binary(), value :: any()}).
 -record(c2s_resource_delete, {msg_type = ?C2S_RESOURCE_DELETE_TYPE, name :: binary()}).
--record(c2s_user_upgrade_to_trainer, {msg_type = ?C2S_USER_UPGRADE_TO_TRAINER_TYPE, msisdn :: non_neg_integer()}).
--record(c2s_user_upgrade_to_parent, {msg_type = ?C2S_USER_UPGRADE_TO_PARENT_TYPE, msisdn :: non_neg_integer()}).
--record(c2s_user_upgrade_to_sportsman, {msg_type = ?C2S_USER_UPGRADE_TO_SPORTSMAN_TYPE, msisdn :: non_neg_integer()}).
+-record(c2s_user_set_group, {msg_type = ?C2S_USER_SET_GROUP_TYPE, msisdn :: non_neg_integer(), group :: binary()}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -193,9 +189,7 @@
                            | #c2s_resource_get{}
                            | #c2s_resource_set{}
                            | #c2s_resource_delete{}
-                           | #c2s_user_upgrade_to_trainer{}
-                           | #c2s_user_upgrade_to_sportsman{}
-                           | #c2s_user_upgrade_to_parent{}.
+                           | #c2s_user_set_group{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
