@@ -236,32 +236,33 @@ update_last_visit_timestamp(MSISDN) ->
 set_info(MSISDN, Proplist) ->
     case get(MSISDN) of
         User0 when is_record(User0, user) ->
-            User1 = lists:foldl(fun({Key, Value}, User)->
-                                        case Key of
-                                            msisdn when is_integer(Value) -> User#user{msisdn = Value};
-                                            group when Value == 'guest' orelse
-                                                       Value == 'sportsman' orelse
-                                                       Value == 'administrator' orelse
-                                                       Value == 'parent' orelse
-                                                       Value == 'trainer' -> User#user{group = Value};
-                                            pwd_hash -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
-                                            created when is_integer(Value) -> User#user{created = Value};
-                                            chats when is_list(Value) -> User#user{chats = Value};
-                                            chats_invatations when is_list(Value) -> User#user{chats_invatations = Value};
-                                            age when is_integer(Value) -> User#user{age = Value};
-                                            rooms when is_list(Value) -> User#user{rooms = Value};
-                                            fname when is_binary(Value)-> User#user{fname = Value};
-                                            lname when is_binary(Value)-> User#user{lname = Value};
-                                            is_male when is_boolean(Value)-> User#user{is_male = Value};
-                                            muted_chats when is_list(Value) -> User#user{muted_chats = Value};
-                                            last_visit_timestamp when is_integer(Value) -> User#user{last_visit_timestamp = Value};
-                                            city when is_integer(Value) -> User#user{city = Value};
-                                            access_level when is_integer(Value) -> User#user{access_level = Value};
-                                            special_info when is_record(Value, sportsman_info) orelse
-                                                              is_record(Value, trainer_info) orelse
-                                                              is_record(Value, parent_info) orelse
-                                                              Value == 'undefined' -> User#user{special_info = Value}
-                                        end
+            User1 = lists:foldl(fun ({msisdn, Value}, User) when is_integer(Value) -> User#user{msisdn = Value};
+                                    ({group, 'guest'}, User)-> User#user{group = 'guest', special_info = undefined};
+                                    ({group, 'sportsman'}, User)-> User#user{group = 'sportsman', special_info = undefined};
+                                    ({group, 'administrator'}, User)-> User#user{group = 'administrator', special_info = undefined};
+                                    ({group, 'parent'}, User)-> User#user{group = 'parent', special_info = undefined};
+                                    ({group, 'trainer'}, User)-> User#user{group = 'trainer', special_info = undefined};
+                                    ({pwd_hash, Value}, User) when is_binary(Value) -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
+                                    ({created, Value}, User) when is_integer(Value) -> User#user{created = Value};
+                                    ({chats, Value}, User) when is_list(Value) -> User#user{chats = Value};
+                                    ({chats_invatations, Value}, User) when is_list(Value) -> User#user{chats_invatations = Value};
+                                    ({age, Value}, User) when is_integer(Value) -> User#user{age = Value};
+                                    ({rooms, Value}, User) when is_list(Value) -> User#user{rooms = Value};
+                                    ({fname, Value}, User) when is_binary(Value)-> User#user{fname = Value};
+                                    ({lname, Value}, User) when is_binary(Value)-> User#user{lname = Value};
+                                    ({is_male, Value}, User) when is_boolean(Value)-> User#user{is_male = Value};
+                                    ({muted_chats, Value}, User) when is_list(Value) -> User#user{muted_chats = Value};
+                                    ({last_visit_timestamp, Value}, User) when is_integer(Value) -> User#user{last_visit_timestamp = Value};
+                                    ({city, Value}, User) when is_integer(Value) -> User#user{city = Value};
+                                    ({access_level, Value}, User) when is_integer(Value) -> User#user{access_level = Value};
+                                    ({special_info, #sportsman_info{} = Value}, User) ->
+                                        case User#user.special_info of
+                                            #sportsman_info{tournaments = T} -> User#user{special_info = Value#sportsman_info{tournaments = T}};
+                                            _ -> User#user{special_info = Value}
+                                        end;
+                                    ({special_info, #trainer_info{} = Value}, User)-> User#user{special_info = Value};
+                                    ({special_info, #parent_info{} = Value}, User) -> User#user{special_info = Value};
+                                    ({special_info, 'undefined'}, User) -> User#user{special_info = 'undefined'}
                                 end, User0, Proplist),
             case mnesia:transaction(fun()-> mnesia:write(User1) end) of
                 {'atomic', 'ok'} -> User1;
