@@ -118,22 +118,22 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_GET_STATUS_TYPE, <<"user_msisdn">> := M
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_TRAINER_INFO_TYPE, <<"msisdn">> := MSISDN, <<"affiliate_id">> := AId,<<"trainer_committee">> := TC,<<"is_judge">> := IsJ,<<"is_department_head">> := IsDH})->
     #c2s_user_set_trainer_info{msisdn = round(MSISDN)
                               ,affiliate_id = round(AId)
-                              ,trainer_committee = TC
-                              ,is_judge = IsJ
-                              ,is_department_head = IsDH};
+                              ,trainer_committee = (TC =:= 'true')
+                              ,is_judge = (IsJ =:= 'true')
+                              ,is_department_head = (IsDH =:= 'true')};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_PARENT_INFO_TYPE, <<"msisdn">> := MSISDN,<<"affiliate_id">> := AId,<<"parental_committee">> := PC,<<"is_volunteer">> := IsV})->
     #c2s_user_set_parent_info{msisdn = round(MSISDN)
                              ,affiliate_id = round(AId)
-                             ,parental_committee = PC
-                             ,is_volunteer = IsV};
+                             ,parental_committee = (PC =:= 'true')
+                             ,is_volunteer = (IsV =:= 'true')};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, <<"msisdn">> := MSISDN, <<"height">> := Hei, <<"weight">> := Wei, <<"kyu">> := Kyu, <<"affiliate_id">> := AId, <<"is_volunteer">> := IsV, <<"is_on_team">> := IsOnT}) ->
     #c2s_user_set_sportsman_info{msisdn = round(MSISDN)
-                                ,height = round(Hei)
-                                ,weight = round(Wei)
+                                ,height = Hei
+                                ,weight = Wei
                                 ,kyu = round(Kyu)
                                 ,affiliate_id = round(AId)
-                                ,is_volunteer = IsV
-                                ,is_on_team = IsOnT};
+                                ,is_volunteer = (IsV =:= 'true')
+                                ,is_on_team = (IsOnT =:= 'true')};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
     #c2s_user_set_info{fname = maps:get(<<"fname">>, Msg, 'undefined')
                       ,lname = maps:get(<<"lname">>, Msg, 'undefined')
@@ -553,19 +553,66 @@ do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
                    end
            end,
     {Resp, _State};
-do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_committee = TC,is_judge = IsJ,is_department_head = IsDH}, #user_state{msisdn = MSISDN} = _State) ->
-    %% TODO
-    {ok, _State};
-do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_committee = PC,is_volunteer = IsV}, #user_state{msisdn = MSISDN} = _State) ->
-    %% TODO
-    {ok, _State};
-do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei,kyu = Kyu,affiliate_id = AId,is_volunteer = IsV,is_on_team = IsOnT}, #user_state{msisdn = MSISDN} = _State) ->
-    %% TODO
-    {ok, _State};
-do_action(#c2s_user_set_info{fname = FName, lname = LName, age = Age, is_male = IsMale}, #user_state{msisdn = MSISDN} = _State) ->
+do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_committee = TC,is_judge = IsJ,is_department_head = IsDH}, #user_state{msisdn = MyMSISDN} = _State) ->
+    Resp = case users:get(MyMSISDN) of
+               #user{group = 'administrator'} ->
+                   case usres:get(MSISDN) of
+                       #user{group = 'trainer'} ->
+                           Info = #trainer_info{affiliate_id = AId %TODO: check exists
+                                               ,trainer_committee = TC
+                                               ,is_judge = IsJ
+                                               ,is_department_head = IsDH},
+                           users:set(MSISDN, [{special_info, Info}]),
+                           ok;
+                       _ ->
+                           #s2c_error{code = 400}
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_committee = PC,is_volunteer = IsV}, #user_state{msisdn = MyMSISDN} = _State) ->
+    Resp = case users:get(MyMSISDN) of
+               #user{group = G} when G == 'administrator' orelse G == 'trainer' ->
+                   case usres:get(MSISDN) of
+                       #user{group = 'parent'} ->
+                           Info = #parent_info{affiliate_id = AId
+                                              ,parental_committee = PC
+                                              ,is_volunteer = IsV},
+                           users:set(MSISDN, [{special_info, Info}]),
+                           ok;
+                       _ ->
+                           #s2c_error{code = 400}
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei,kyu = Kyu,affiliate_id = AId,is_volunteer = IsV,is_on_team = IsOnT}, #user_state{msisdn = MyMSISDN} = _State) ->
+        Resp = case users:get(MyMSISDN) of
+               #user{group = G} when G == 'administrator' orelse G == 'trainer' ->
+                   case usres:get(MSISDN) of
+                       #user{group = 'sportsman'} ->
+                           Info = #sportsman_info{height = Hei
+                                                 ,weight = Wei
+                                                 ,kyu = Kyu
+                                                 ,affiliate_id = AId
+                                                 ,is_volunteer = IsV
+                                                 ,is_on_team = IsOnT},
+                           users:set(MSISDN, [{special_info, Info}]),
+                           ok;
+                       _ ->
+                           #s2c_error{code = 400}
+                   end;
+               _ ->
+                   #s2c_error{code = 403}
+           end,
+    {Resp, _State};
+do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
+    PropList = lists:zip(record_info(fields, c2s_user_set_info), tl(tuple_to_list(SI))),
     Info = lists:filter(fun({_,'undefined'}) -> 'false';
                            ({_,_})-> 'true'
-                        end, [{fname, FName}, {lname, LName}, {age, Age}, {is_male, IsMale}]),
+                        end, PropList),
     users:set_info(MSISDN, Info),
     {ok, _State};
 do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->

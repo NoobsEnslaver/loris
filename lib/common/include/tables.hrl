@@ -15,8 +15,7 @@
                                  ,reward :: atom() %TODO: list rewards
                                  ,points :: non_neg_integer()}). %TODO: add participation info
 
--record(sportsman_info, {msisdn :: non_neg_integer()
-                        ,height :: non_neg_integer()
+-record(sportsman_info, {height :: non_neg_integer()
                         ,weight :: non_neg_integer()
                         ,kyu :: non_neg_integer()
                         ,tournaments :: [#tournament_participaton{}]
@@ -24,13 +23,11 @@
                         ,is_volunteer :: boolean()
                         ,is_on_team :: boolean()}).
 
--record(parent_info, {msisdn :: non_neg_integer()
-                     ,affiliate_id :: non_neg_integer()
+-record(parent_info, {affiliate_id :: non_neg_integer()
                      ,parental_committee :: boolean()
                      ,is_volunteer :: boolean()}).
 
--record(trainer_info, {msisdn :: non_neg_integer()
-                      ,affiliate_id :: non_neg_integer()
+-record(trainer_info, {affiliate_id :: non_neg_integer()
                       ,trainer_committee :: boolean()
                       ,is_judge :: boolean()
                       ,is_department_head :: boolean()}).

@@ -238,21 +238,29 @@ set_info(MSISDN, Proplist) ->
         User0 when is_record(User0, user) ->
             User1 = lists:foldl(fun({Key, Value}, User)->
                                         case Key of
-                                            msisdn -> User#user{msisdn = Value};
-                                            group -> User#user{group = Value};
+                                            msisdn when is_integer(Value) -> User#user{msisdn = Value};
+                                            group when Value == 'guest' orelse
+                                                       Value == 'sportsman' orelse
+                                                       Value == 'administrator' orelse
+                                                       Value == 'parent' orelse
+                                                       Value == 'trainer' -> User#user{group = Value};
                                             pwd_hash -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
-                                            created -> User#user{created = Value};
-                                            chats -> User#user{chats = Value};
-                                            chats_invatations -> User#user{chats_invatations = Value};
-                                            age -> User#user{age = Value};
-                                            rooms -> User#user{rooms = Value};
-                                            fname -> User#user{fname = Value};
-                                            lname -> User#user{lname = Value};
-                                            is_male -> User#user{is_male = Value};
-                                            muted_chats -> User#user{muted_chats = Value};
-                                            last_visit_timestamp -> User#user{last_visit_timestamp = Value};
-                                            city -> User#user{city = Value};
-                                            access_level -> User#user{access_level = Value}
+                                            created when is_integer(Value) -> User#user{created = Value};
+                                            chats when is_list(Value) -> User#user{chats = Value};
+                                            chats_invatations when is_list(Value) -> User#user{chats_invatations = Value};
+                                            age when is_integer(Value) -> User#user{age = Value};
+                                            rooms when is_list(Value) -> User#user{rooms = Value};
+                                            fname when is_binary(Value)-> User#user{fname = Value};
+                                            lname when is_binary(Value)-> User#user{lname = Value};
+                                            is_male when is_boolean(Value)-> User#user{is_male = Value};
+                                            muted_chats when is_list(Value) -> User#user{muted_chats = Value};
+                                            last_visit_timestamp when is_integer(Value) -> User#user{last_visit_timestamp = Value};
+                                            city when is_integer(Value) -> User#user{city = Value};
+                                            access_level when is_integer(Value) -> User#user{access_level = Value};
+                                            special_info when is_record(Value, sportsman_info) orelse
+                                                              is_record(Value, trainer_info) orelse
+                                                              is_record(Value, parent_info) orelse
+                                                              Value == 'undefined' -> User#user{special_info = Value}
                                         end
                                 end, User0, Proplist),
             case mnesia:transaction(fun()-> mnesia:write(User1) end) of
