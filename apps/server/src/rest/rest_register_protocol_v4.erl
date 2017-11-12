@@ -96,7 +96,7 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN} = ReqBody
 handle(<<"POST">>, _Req, State, _Args) ->
     {_Req, State#q_state{code = 400}, []};
 handle(<<"GET">>, Req, #q_state{headers = Hdrs, body = Body} = State, _Other) ->
-    {'ok', BData} = file:read_file(code:priv_dir(binary_to_atom(?APP_NAME, 'utf8')) ++ "/register2.html"),
+    {'ok', BData} = file:read_file(code:priv_dir(binary_to_atom(?APP_NAME, 'utf8')) ++ "/register4.html"),
     NewHeaders = Hdrs#{<<"content-type">> => <<"text/html">>},
     {Req, State#q_state{code = 200, body = <<Body/binary, BData/binary>>, headers = NewHeaders}, _Other};
 handle(_Method, Req, State, _Other)->
@@ -106,7 +106,7 @@ access_level(_Method) ->
     'infinity'.
 
 allowed_groups(_Method) ->
-    ['administrators', 'users', 'guests', 'company'].
+    ['guest','sportsman','administrator','parent','trainer'].
 
 %%====================================================================
 %% Internal functions

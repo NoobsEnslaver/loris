@@ -780,7 +780,7 @@ do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     {Resp, _State};
 do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of
-               #session{group = 'company'} ->
+               #session{group = 'administrator'} ->
                    case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
                        'false'-> #s2c_error{code = 500};
                        RoomId -> #s2c_room_create_result{room_id = RoomId}
@@ -1138,7 +1138,7 @@ terminate(#user_state{msisdn = MSISDN, storage = Storage} = _State) ->
 %%% Module access params
 %%%===================================================================
 allowed_groups() ->
-    ['users', 'administrators', 'company'].
+    ['guest','sportsman','administrator','parent','trainer'].
 
 access_level() ->
     10.

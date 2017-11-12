@@ -63,6 +63,9 @@ handle(_Method, Req, State, _Other)->
 access_level(_Method)->
     5.
 
+allowed_groups(_Method) ->
+    ['sportsman','administrator','parent','trainer'].
+
 %%%===================================================================
 %%% internal functions
 %%%===================================================================
@@ -99,6 +102,3 @@ stream_file(Req, Buffer, MaxFileSize) ->
             stream_file(Req1, NewBuf, MaxFileSize);
         _ -> {Req, 'error'}
     end.
-
-allowed_groups(_Method) ->
-    ['users', 'administrators', 'company'].
