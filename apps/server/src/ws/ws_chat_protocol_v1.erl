@@ -509,9 +509,23 @@ do_action(#c2s_user_set_group{msisdn = MSISDN, group = Group}, #user_state{msisd
                            sessions:set(S#session{'group' = Group});
                        'false' -> 'ok'
                    end;
-               #user{group = 'trainer'} ->
+               #user{group = 'trainer', special_info = #trainer_info{is_department_head = 'true'}} when Group /= 'administrator' ->
                    case users:get(MSISDN) of
-                       #user{group = 'guest'} ->
+                       #user{group = G} when G /= 'administrator' ->
+                           users:set_info(MSISDN, [{'group', Group}]),
+                           case sessions:get_by_owner_id(MSISDN) of
+                               #session{} = S ->
+                                   sessions:set(S#session{'group' = Group});
+                               'false' -> 'ok'
+                           end;
+                       #user{} ->
+                           #s2c_error{code = 403};
+                       _ ->
+                           #s2c_error{code = 404}
+                   end;
+               #user{group = 'trainer'} when Group /= 'administrator' orelse Group /= 'trainer' ->
+                   case users:get(MSISDN) of
+                       #user{group = G} when G /= 'administrator' orelse G /= 'trainer'  ->
                            users:set_info(MSISDN, [{'group', Group}]),
                            case sessions:get_by_owner_id(MSISDN) of
                                #session{} = S ->
