@@ -19,7 +19,7 @@
         ,access_level/0
         ,terminate/1]).
 
--record(user_state, {chats, muted_chats, msisdn, call, turn_server, storage}).
+-record(user_state, {chats, muted_chats, msisdn, call, turn_server, storage, group}).
 -record(call_info, {pid, msisdn, ref, state, sdp}).
 
 -define(ROOM_TO_ROOM_INFO(R), begin
@@ -56,7 +56,8 @@ default_user_state(MSISDN)->
     #user_state{chats = User#user.chats
                ,msisdn = MSISDN
                ,muted_chats = User#user.muted_chats
-               ,storage = Storage}.
+               ,storage = Storage
+               ,group = User#user.group}.
 
 %%%===================================================================
 %%% Parse users message
@@ -245,6 +246,28 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_GROUP_TYPE, <<"msisdn">> := MSISDN,
                 <<"parent">> -> parent
             end,
     #c2s_user_set_group{msisdn = round(MSISDN), group = Group};
+unwrap_msg(#{<<"msg_type">> := ?C2S_TOURNAMENT_CREATE,<<"city">> := C,<<"name">> := N,<<"judges">> := J, <<"timestamp">> := T, <<"participants">> := P}) ->
+    P1 = maps:fold(fun(MSISDN, #{<<"reward">> := Reward, <<"points">> := Points}, Acc) when is_number(MSISDN)->
+                           Acc#{round(MSISDN) => #participant{reward = Reward, points = round(Points)}};
+                      (MSISDN, #{<<"reward">> := Reward, <<"points">> := Points}, Acc) when is_binary(MSISDN)->
+                           Acc#{erlang:binary_to_integer(MSISDN, utf8) => #participant{reward = Reward, points = round(Points)}};
+                      (_, _, Acc) -> Acc
+                   end, #{}, P),
+    #c2s_tournament_create{city = C, name = N, judges = [round(X) || X <- J], timestamp = round(T), participants = P1};
+unwrap_msg(#{<<"msg_type">> := ?C2S_TOURNAMENT_UPDATE,<<"id">> := Id,<<"city">> := C,<<"name">> := N,<<"judges">> := J, <<"timestamp">> := T, <<"participants">> := P}) ->
+    P1 = maps:fold(fun(MSISDN, #{<<"reward">> := Reward, <<"points">> := Points}, Acc) when is_number(MSISDN)->
+                           Acc#{round(MSISDN) => #participant{reward = Reward, points = round(Points)}};
+                      (MSISDN, #{<<"reward">> := Reward, <<"points">> := Points}, Acc) when is_binary(MSISDN)->
+                           Acc#{erlang:binary_to_integer(MSISDN, utf8) => #participant{reward = Reward, points = round(Points)}};
+                      (_, _, Acc) -> Acc
+                   end, #{}, P),
+    #c2s_tournament_update{id = round(Id), city = C, name = N, judges = [round(X) || X <- J], timestamp = round(T), participants = P1};
+unwrap_msg(#{<<"msg_type">> := ?C2S_TOURNAMENT_READ,<<"id">> := Id}) ->
+    #c2s_tournament_read{id = round(Id)};
+unwrap_msg(#{<<"msg_type">> := ?C2S_TOURNAMENT_DELETE,<<"id">> := Id}) ->
+    #c2s_tournament_delete{id = round(Id)};
+unwrap_msg(#{<<"msg_type">> := ?C2S_TOURNAMENT_GET_LIST}) ->
+    #c2s_tournament_get_list{};
 unwrap_msg(_Msg) ->
     lager:debug("Can't unwrap msg: ~p~n", [_Msg]),
     'undefined'.
@@ -264,12 +287,11 @@ wrap_msg(Msg) when is_record(Msg, s2c_message_update_status) -> ?R2M(Msg, s2c_me
 wrap_msg(Msg) when is_record(Msg, s2c_user_info) ->
     Msg2 = case Msg#s2c_user_info.special_info of
                #sportsman_info{} = I ->
-                   TMapList = [?R2M(TRec, tournament_participaton) || TRec <- I#sportsman_info.tournaments],
-                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I#sportsman_info{tournaments = TMapList}, sportsman_info))};
+                   Msg#s2c_user_info{special_info = ?R2M(I, sportsman_info)};
                #trainer_info{} = I ->
-                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I, trainer_info))};
+                   Msg#s2c_user_info{special_info = ?R2M(I, trainer_info)};
                #parent_info{} = I ->
-                   Msg#s2c_user_info{special_info = maps:remove(<<"msisdn">>, ?R2M(I, parent_info))};
+                   Msg#s2c_user_info{special_info = ?R2M(I, parent_info)};
                _ ->
                    Msg#s2c_user_info{special_info = #{}}
            end,
@@ -310,6 +332,13 @@ wrap_msg(Msg) when is_record(Msg, s2c_storage_capacity) -> ?R2M(Msg, s2c_storage
 wrap_msg(Msg) when is_record(Msg, s2c_storage_get_result) -> ?R2M(Msg, s2c_storage_get_result);
 wrap_msg(Msg) when is_record(Msg, s2c_resource) -> ?R2M(Msg, s2c_resource);
 wrap_msg(Msg) when is_record(Msg, s2c_resource_list) -> ?R2M(Msg, s2c_resource_list);
+wrap_msg(Msg) when is_record(Msg, s2c_tournament_info) ->
+    Participants = maps:map(fun(_K,V)->
+                                 ?R2M(V, participant)
+                            end, Msg#s2c_tournament_info.participants),
+    ?R2M(Msg#s2c_tournament_info{participants = Participants}, s2c_tournament_info);
+wrap_msg(Msg) when is_record(Msg, s2c_tournament_list) -> ?R2M(Msg, s2c_tournament_list);
+wrap_msg(Msg) when is_record(Msg, s2c_tournament_create_result) -> ?R2M(Msg, s2c_tournament_create_result);
 wrap_msg(_) -> ?R2M(#s2c_error{code = 500}, s2c_error).
 
 %%%===================================================================
@@ -1009,7 +1038,7 @@ do_action(#c2s_resource_get{name = Name, group = Group}, _State) ->
     {Resp, _State};
 do_action(#c2s_resource_set{name = Name, group = Group, value = Value}, #user_state{msisdn = MSISDN} = _State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of
-               #session{group = 'administrators'} ->
+               #session{group = 'administrator'} ->
                    case resources:set(Group, Name, Value) of
                        'false'-> #s2c_error{code = 500};
                        'ok' -> 'ok'
@@ -1020,7 +1049,7 @@ do_action(#c2s_resource_set{name = Name, group = Group, value = Value}, #user_st
     {Resp, _State};
 do_action(#c2s_resource_delete{name = Name}, #user_state{msisdn = MSISDN} = _State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of
-               #session{group = 'administrators'} ->
+               #session{group = 'administrator'} ->
                    case resources:delete(Name) of
                        'false'-> #s2c_error{code = 500};
                        'ok' -> 'ok'
@@ -1029,6 +1058,41 @@ do_action(#c2s_resource_delete{name = Name}, #user_state{msisdn = MSISDN} = _Sta
                    #s2c_error{code = 403}
            end,
     {Resp, _State};
+do_action(#c2s_tournament_read{id = Id}, _State) ->
+    Resp = case tournaments:get(Id) of
+               #tournament{id = Id, city = City, name = Name ,judges = Judges, timestamp = Ts, participants = Ps} ->
+                   #s2c_tournament_info{id = Id, city = City, name = Name ,judges = Judges, timestamp = Ts, participants = Ps};
+               _ ->
+                   #s2c_error{code = 404}
+           end,
+    {Resp, _State};
+do_action(#c2s_tournament_create{city = C, name = N, judges = J, timestamp = T, participants = P}, #user_state{group = G} = _State) when G == 'administrator' orelse G == 'trainer' ->
+    Resp = case tournaments:new(N, C, J, T, P) of
+               false -> #s2c_error{code = 500};
+               Id -> #s2c_tournament_create_result{id = Id}
+           end,
+    {Resp, _State};
+do_action(#c2s_tournament_update{id = Id, city = C, name = N, judges = J, timestamp = T, participants = P}, #user_state{group = G} = _State) when G == 'administrator' orelse G == 'trainer' ->
+    Resp =  case tournaments:set(#tournament{id = Id, city = C, name = N, judges = J, timestamp = T, participants = P}) of
+                ok -> ok;
+                _ -> #s2c_error{code = 500}
+            end,
+    {Resp, _State};
+do_action(#c2s_tournament_delete{id = Id}, #user_state{group = G} = _State) when G == 'administrator' orelse G == 'trainer' ->
+    tournaments:delete(Id),
+    {ok, _State};
+do_action(#c2s_tournament_get_list{}, _State) ->
+    Resp =  case tournaments:detailed_list() of
+                false -> #s2c_error{code = 500};
+                Map -> #s2c_tournament_list{tournaments = Map}
+            end,
+    {Resp, _State};
+do_action(#c2s_tournament_create{}, _State) ->
+    {#s2c_error{code = 403}, _State};
+do_action(#c2s_tournament_update{}, _State) ->
+    {#s2c_error{code = 403}, _State};
+do_action(#c2s_tournament_delete{}, _State) ->
+    {#s2c_error{code = 403}, _State};
 do_action({call_offer, _CallerMSISDN, _Offer, CallerPid, _TurnServer}, #user_state{call = #call_info{}} = _State) -> % you are busy
     CallerPid ! {call_bye, 486},
     {ok, _State};

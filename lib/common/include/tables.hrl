@@ -11,14 +11,20 @@
               ,owner_id :: non_neg_integer()
               ,size :: non_neg_integer()}).
 
--record(tournament_participaton, {tournament_id :: non_neg_integer()
-                                 ,reward :: atom() %TODO: list rewards
-                                 ,points :: non_neg_integer()}). %TODO: add participation info
+-record(participant, {reward :: atom() %TODO: list rewards
+                     ,points :: non_neg_integer()}).
+
+-record(tournament, {id :: non_neg_integer()
+                    ,city :: binary()
+                    ,name :: binary()
+                    ,judges :: [non_neg_integer()]
+                    ,timestamp :: non_neg_integer()
+                    ,participants :: #{MSISDN :: non_neg_integer() => #participant{}}}).
 
 -record(sportsman_info, {height :: non_neg_integer()
                         ,weight :: non_neg_integer()
                         ,kyu :: non_neg_integer()
-                        ,tournaments :: [#tournament_participaton{}]
+                        ,tournaments :: [non_neg_integer()]
                         ,affiliate_id :: non_neg_integer()
                         ,is_volunteer :: boolean()
                         ,is_on_team :: boolean()}).
@@ -31,10 +37,6 @@
                       ,trainer_committee :: boolean()
                       ,is_judge :: boolean()
                       ,is_department_head :: boolean()}).
-
--record(tournaments, {id :: non_neg_integer()
-                     ,name :: binary()
-                     ,timestamp :: non_neg_integer()}). %TODO: add tournament fields
 
 -record(user, {msisdn :: non_neg_integer()
               ,group :: access_group()

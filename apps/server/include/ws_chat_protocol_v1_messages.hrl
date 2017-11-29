@@ -55,7 +55,12 @@
 -define(C2S_USER_SET_SPORTSMAN_INFO_TYPE, 54).
 -define(C2S_USER_SET_TRAINER_INFO_TYPE, 55).
 -define(C2S_USER_SET_PARENT_INFO_TYPE, 56).
--define(C2S_USER_SET_GROUP_TYPE, 57).
+-define(C2S_TOURNAMENT_CREATE, 57).
+-define(C2S_TOURNAMENT_READ, 58).
+-define(C2S_TOURNAMENT_UPDATE, 59).
+-define(C2S_TOURNAMENT_DELETE, 60).
+-define(C2S_TOURNAMENT_GET_LIST, 61).
+-define(C2S_USER_SET_GROUP_TYPE, 62).
 
 %% Server-To-Client message codes
 -define(S2C_CHAT_LIST_TYPE, 101).
@@ -88,6 +93,9 @@
 -define(S2C_STORAGE_KEYS_TYPE, 128).
 -define(S2C_RESOURCE_TYPE, 129).
 -define(S2C_RESOURCE_LIST_TYPE, 130).
+-define(S2C_TOURNAMENT_INFO, 131).
+-define(S2C_TOURNAMENT_LIST, 132).
+-define(S2C_TOURNAMENT_CREATE_RESULT, 133).
 
 %% Client-to-Server
 -record(c2s_chat_get_list, {msg_type = ?C2S_CHAT_GET_LIST_TYPE}).
@@ -142,6 +150,11 @@
 -record(c2s_resource_set, {msg_type = ?C2S_RESOURCE_SET_TYPE, name :: binary(), group :: binary(), value :: any()}).
 -record(c2s_resource_delete, {msg_type = ?C2S_RESOURCE_DELETE_TYPE, name :: binary()}).
 -record(c2s_user_set_group, {msg_type = ?C2S_USER_SET_GROUP_TYPE, msisdn :: non_neg_integer(), group :: binary()}).
+-record(c2s_tournament_create, {msg_type = ?C2S_TOURNAMENT_CREATE, city :: binary(), name :: binary(), judges :: [non_neg_integer()], timestamp :: non_neg_integer(), participants :: #{MSISDN :: non_neg_integer() => #participant{}}}).
+-record(c2s_tournament_read, {msg_type = ?C2S_TOURNAMENT_READ, id :: non_neg_integer()}).
+-record(c2s_tournament_update, {msg_type = ?C2S_TOURNAMENT_UPDATE, id :: non_neg_integer(), city :: binary(), name :: binary(), judges :: [non_neg_integer()], timestamp :: non_neg_integer(), participants :: #{MSISDN :: non_neg_integer() => #participant{}}}).
+-record(c2s_tournament_delete, {msg_type = ?C2S_TOURNAMENT_DELETE, id :: non_neg_integer()}).
+-record(c2s_tournament_get_list, {msg_type = ?C2S_TOURNAMENT_GET_LIST}).
 
 -type client_msg_type() ::   #c2s_chat_get_list{}
                            | #c2s_chat_get_info{}
@@ -189,7 +202,12 @@
                            | #c2s_resource_get{}
                            | #c2s_resource_set{}
                            | #c2s_resource_delete{}
-                           | #c2s_user_set_group{}.
+                           | #c2s_user_set_group{}
+                           | #c2s_tournament_create{}
+                           | #c2s_tournament_read{}
+                           | #c2s_tournament_update{}
+                           | #c2s_tournament_delete{}
+                           | #c2s_tournament_get_list{}.
 
 %% Server-to-Client
 -record(s2c_chat_list, {msg_type = ?S2C_CHAT_LIST_TYPE, chats :: map()}).
@@ -222,6 +240,9 @@
 -record(s2c_storage_capacity, {msg_type = ?S2C_STORAGE_CAPACITY_TYPE, used :: non_neg_integer(), max :: non_neg_integer()}).
 -record(s2c_resource, {msg_type = ?S2C_RESOURCE_TYPE, name :: binary(), value :: any()}).
 -record(s2c_resource_list, {msg_type = ?S2C_RESOURCE_LIST_TYPE, group :: binary(), names :: [binary()]}).
+-record(s2c_tournament_info, {msg_type = ?S2C_TOURNAMENT_INFO, id :: non_neg_integer(), city :: binary(), name :: binary(), judges :: [non_neg_integer()], timestamp :: non_neg_integer(), participants :: #{MSISDN :: non_neg_integer() => #participant{}}}).
+-record(s2c_tournament_list, {msg_type = ?S2C_TOURNAMENT_LIST, tournaments :: map()}). %tournaments :: #{Id :: non_neg_integer() => map(name => binary(), city => binary(), timestamp => non_neg_integer())}
+-record(s2c_tournament_create_result,{msg_type = ?S2C_TOURNAMENT_CREATE_RESULT, id :: non_neg_integer()}).
 
 -type server_msg_type() ::   #s2c_chat_list{}
                            | #s2c_chat_info{}
@@ -247,7 +268,10 @@
                            | #s2c_turn_server{}
                            | #s2c_storage_keys{}
                            | #s2c_storage_get_result{}
-                           | #s2c_storage_capacity{}.
+                           | #s2c_storage_capacity{}
+                           | #s2c_tournament_info{}
+                           | #s2c_tournament_list{}
+                           | #s2c_tournament_create_result{}.
 
 -type msg_type() :: server_msg_type()
                   | client_msg_type().
