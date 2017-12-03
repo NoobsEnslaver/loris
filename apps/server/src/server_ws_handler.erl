@@ -131,7 +131,10 @@ websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protoc
     case Protocol:do_action(Msg, US) of
         {'ok', NewUS} ->
             common:end_measure(MetricName, TC2),
-            {'ok', State#state{user_state = NewUS}, 'hibernate'};
+            Resp = if Ref == 'undefined' -> 'ok';
+                      true -> transport_lib:encode(#{<<"ref">> => Ref}, T)
+                   end,
+            {Resp, State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
             ?HARDLOG('debug', "<< ~p", if is_tuple(RawResp)-> element(1, RawResp); 'true' -> RawResp end),
             common:end_measure(MetricName, TC2),
