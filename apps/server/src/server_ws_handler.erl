@@ -50,7 +50,7 @@ init(Req, _Opts) ->
                         Session = sessions:get(Token),
                         GroupAccessGranted = case Session of                                % начинаем проверку доступов по группе и уровню доступа
                                                  'false' ->
-                                                     lists:member('guests', AllowedGroups);
+                                                     lists:member('guest', AllowedGroups);
                                                  _ ->
                                                      Group = sessions:extract(Session, 'group'),
                                                      lists:member(Group, AllowedGroups)

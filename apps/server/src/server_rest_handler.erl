@@ -51,7 +51,7 @@ fold(Req, Ver, State, [Mod | Args]) ->
             AllowedGroups = Module:allowed_groups(Method),
             GroupAccessGranted = case Session of
                                      'false' ->
-                                         lists:member('guests', AllowedGroups);
+                                         lists:member('guest', AllowedGroups);
                                      _ ->
                                          Group = sessions:extract(Session, 'group'),
                                          lists:member(Group, AllowedGroups)
