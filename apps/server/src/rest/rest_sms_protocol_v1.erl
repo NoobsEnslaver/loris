@@ -71,13 +71,16 @@ send_sms(AppId, MSISDN, Code) ->
             case erlang:list_to_integer(lists:takewhile(fun(X)-> X /= $\n end, RespBody)) of
                 100 ->
                     lager:debug("sms sended successfuly to MSISDN: ~p~n", [MSISDN]),
-                    200;
+                    case users:get(MSISDN) of
+                        false -> 201;
+                        _ -> 200
+                    end;
                 232 ->
                     lager:debug("sms not sended to MSISDN: ~p: day limit~n", [MSISDN]),
                     429;
                 _Other ->
                     lager:error("Error on send sms to MSISDN ~p, error: ~p~n", [MSISDN, _Other]),
-                    500
+                    503
             end;
         _Error ->
             lager:error("Error on send sms to MSISDN ~p, error: ~p~n", [MSISDN, _Error]),
