@@ -52,7 +52,7 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN} = ReqBody
                            SmsRecord ->
                                case sms:extract(SmsRecord, code) of
                                    SmsCode ->
-                                       case users:new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, City, AL, 'nohash') of
+                                       case users:new(MSISDN, Pwd, FName, LName, Age, IsMale, City, Group, AL, 'nohash') of
                                            'exists' ->
                                                State#q_state{code = 409};      % conflict
                                            'false' ->
@@ -75,7 +75,7 @@ handle(<<"POST">>, Req, #q_state{req_body = #{<<"msisdn">> := BMSISDN} = ReqBody
                                end
                        end;
                    _False ->                    %no-sms registration
-                       case users:new(MSISDN, Pwd, FName, LName, Age, IsMale, Group, City, AL, 'nohash') of
+                       case users:new(MSISDN, Pwd, FName, LName, Age, IsMale, City, Group, AL, 'nohash') of
                            'exists' ->
                                State#q_state{code = 409};      % conflict
                            'false' ->
