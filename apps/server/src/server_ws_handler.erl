@@ -134,7 +134,7 @@ websocket_handle({DataType, Data}, #state{transport = T, user_state = US, protoc
             Resp = if Ref == 'undefined' -> 'ok';
                       true -> transport_lib:encode(#{<<"ref">> => Ref}, T)
                    end,
-            {Resp, State#state{user_state = NewUS}, 'hibernate'};
+            {'reply', {DataType, Resp}, State#state{user_state = NewUS}, 'hibernate'};
         {RawResp, NewUS} ->
             ?HARDLOG('debug', "<< ~p", if is_tuple(RawResp)-> element(1, RawResp); 'true' -> RawResp end),
             common:end_measure(MetricName, TC2),
