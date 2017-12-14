@@ -253,7 +253,7 @@ set_info(MSISDN, Proplist) ->
                                     ({is_male, Value}, User) when is_boolean(Value)-> User#user{is_male = Value};
                                     ({muted_chats, Value}, User) when is_list(Value) -> User#user{muted_chats = Value};
                                     ({last_visit_timestamp, Value}, User) when is_integer(Value) -> User#user{last_visit_timestamp = Value};
-                                    ({city, Value}, User) when is_integer(Value) -> User#user{city = Value};
+                                    ({city, Value}, User) when is_binary(Value) -> User#user{city = Value};
                                     ({access_level, Value}, User) when is_integer(Value) -> User#user{access_level = Value};
                                     ({special_info, #sportsman_info{} = Value}, User) ->
                                         case User#user.special_info of

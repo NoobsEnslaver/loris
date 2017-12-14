@@ -654,6 +654,7 @@ do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei
 do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
     PropList = lists:zip(record_info(fields, c2s_user_set_info), tl(tuple_to_list(SI))),
     Info = lists:filter(fun({_,'undefined'}) -> 'false';
+                           ({'msg_type',_})-> 'false';
                            ({_,_})-> 'true'
                         end, PropList),
     users:set_info(MSISDN, Info),
