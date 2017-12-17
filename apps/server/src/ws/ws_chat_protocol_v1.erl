@@ -34,6 +34,34 @@
                                                 ,chat_access = R#room.chat_access
                                                 ,additional_info = R#room.additional_info}
                               end).
+
+-define(GET_ROOM_INFO_BY_CHAT_ACCESS(CA, MSISDN, G, R), case CA of
+                                                            #{MSISDN := AL} when ?MAY_ADMIN(AL) ->   % chat admin
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined'};
+                                                            #{MSISDN := 0} ->                        % it's user with baned chat
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                                                            #{MSISDN := _} ->                        % it's user with normal chat access
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
+                                                            #{G := AL} when ?MAY_ADMIN(AL) ->
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined'};
+                                                            #{G := 0} ->       % chat closed
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                                                            #{'default' := AL} when ?MAY_ADMIN(AL) -> % all chat admins
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined'};
+                                                            #{'default' := 0} ->       % chat closed
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
+                                                            _ ->                        % all users have normal chat access
+                                                                Resp = ?ROOM_TO_ROOM_INFO(R),
+                                                                Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'}
+                                                        end).
+
 -define(MAY_ADMIN(AL), AL div 4 == 1).
 -define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
 -define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
@@ -157,6 +185,11 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := R
                      'undefined' -> 'undefined';
                      Map1 when is_map(Map1) ->
                          maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                                      (<<"administrator">>,V,Acc)-> maps:put('administrator', common:to_integer(V), Acc);
+                                      (<<"guest">>,V,Acc)-> maps:put('guest', common:to_integer(V), Acc);
+                                      (<<"sportsman">>,V,Acc)-> maps:put('sportsman', common:to_integer(V), Acc);
+                                      (<<"parent">>,V,Acc)-> maps:put('parent', common:to_integer(V), Acc);
+                                      (<<"trainer">>,V,Acc)-> maps:put('trainer', common:to_integer(V), Acc);
                                       (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map1)
                  end,
@@ -164,6 +197,11 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := R
                      'undefined' -> 'undefined';
                      Map2 when is_map(Map2) ->
                          maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                                      (<<"administrator">>,V,Acc)-> maps:put('administrator', common:to_integer(V), Acc);
+                                      (<<"guest">>,V,Acc)-> maps:put('guest', common:to_integer(V), Acc);
+                                      (<<"sportsman">>,V,Acc)-> maps:put('sportsman', common:to_integer(V), Acc);
+                                      (<<"parent">>,V,Acc)-> maps:put('parent', common:to_integer(V), Acc);
+                                      (<<"trainer">>,V,Acc)-> maps:put('trainer', common:to_integer(V), Acc);
                                       (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map2)
                  end,
@@ -175,9 +213,19 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DEL_SUBROOM_TYPE, <<"room_id">> := Room
     #c2s_room_del_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := BRoomAccess, <<"chat_access">> := BChatAccess, <<"tags">> := BTags} = Msg) ->
     RoomAccess = maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                              (<<"administrator">>,V,Acc)-> maps:put('administrator', common:to_integer(V), Acc);
+                              (<<"guest">>,V,Acc)-> maps:put('guest', common:to_integer(V), Acc);
+                              (<<"sportsman">>,V,Acc)-> maps:put('sportsman', common:to_integer(V), Acc);
+                              (<<"parent">>,V,Acc)-> maps:put('parent', common:to_integer(V), Acc);
+                              (<<"trainer">>,V,Acc)-> maps:put('trainer', common:to_integer(V), Acc);
                               (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BRoomAccess),
     ChatAccess = maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
+                              (<<"administrator">>,V,Acc)-> maps:put('administrator', common:to_integer(V), Acc);
+                              (<<"guest">>,V,Acc)-> maps:put('guest', common:to_integer(V), Acc);
+                              (<<"sportsman">>,V,Acc)-> maps:put('sportsman', common:to_integer(V), Acc);
+                              (<<"parent">>,V,Acc)-> maps:put('parent', common:to_integer(V), Acc);
+                              (<<"trainer">>,V,Acc)-> maps:put('trainer', common:to_integer(V), Acc);
                               (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BChatAccess),
     Tags = map_to_record(room_tag, BTags),
@@ -666,7 +714,7 @@ do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
     Users = users:search(FName, LName),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
-do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = State) ->
+do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN, group = G} = State) ->
     Response = case rooms:get(RoomId) of
                    'false' ->                               % not found
                        #s2c_error{code = 404};
@@ -675,56 +723,24 @@ do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = S
                    #room{room_access = #{MSISDN := AL}} = R when ?MAY_ADMIN(AL) ->  %it's admin
                        ?ROOM_TO_ROOM_INFO(R);
                    #room{room_access = #{MSISDN := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) ->     % have access to the room...
-                       case CA of
-                           #{MSISDN := AL} when ?MAY_ADMIN(AL) ->   % chat admin
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined'};
-                           #{MSISDN := 0} ->                        % it's user with baned chat
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
-                           #{MSISDN := _} ->                        % it's user with normal chat access
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
-                           #{'default' := AL} when ?MAY_ADMIN(AL) -> % all chat admins
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined'};
-                           #{'default' := 0} ->       % chat closed
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
-                           _ ->                        % all users have normal chat access
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'}
-                       end;
+                       ?GET_ROOM_INFO_BY_CHAT_ACCESS(CA, MSISDN, G, R);
                    #room{room_access = #{MSISDN := _}} ->
+                       #s2c_error{code = 403};
+                   #room{room_access = #{G := AL}} = R when ?MAY_ADMIN(AL) ->       %all group admins
+                       ?ROOM_TO_ROOM_INFO(R);
+                   #room{room_access = #{G := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) ->     % have access to the room...
+                       ?GET_ROOM_INFO_BY_CHAT_ACCESS(CA, MSISDN, G, R);
+                   #room{room_access = #{G := _}} ->
                        #s2c_error{code = 403};
                    #room{room_access = #{'default' := AL}} = R when ?MAY_ADMIN(AL) ->       %all admins
                        ?ROOM_TO_ROOM_INFO(R);
                    #room{room_access = #{'default' := RoomAL}, chat_access = CA} = R when ?MAY_READ(RoomAL) -> % have common access to the room...
-                       case CA of
-                           #{MSISDN := AL} when ?MAY_ADMIN(AL) ->   % chat admin
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined'};
-                           #{MSISDN := AL} when ?MAY_READ(AL) ->    % it's user with normal chat access
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
-                           #{MSISDN := _} ->                        % it's user with baned chat
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'};
-                           #{'default' := AL} when ?MAY_ADMIN(AL) -> % all chat admins
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined'};
-                           #{'default' := AL} when ?MAY_READ(AL) ->  % all users have normal chat access
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined'};
-                           #{'default' := _} ->                     % chat closed
-                               Resp = ?ROOM_TO_ROOM_INFO(R),
-                               Resp#s2c_room_info{room_access = 'undefined', chat_access = 'undefined', chat_id = 'undefined'}
-                       end;
+                       ?GET_ROOM_INFO_BY_CHAT_ACCESS(CA, MSISDN, G, R);
                    _ ->
                        #s2c_error{code = 403}
                end,
     {Response, State};
-do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,room_access=RA,chat_access=CA, additional_info = AI},#user_state{msisdn=MSISDN}=_State)->
+do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,room_access=RA,chat_access=CA, additional_info = AI},#user_state{msisdn=MSISDN,group=G}=_State)->
     UpdateRoom = fun(Room)->
                          Room1 = case Name of
                                      'undefined' -> Room;
@@ -761,6 +777,10 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                    UpdateRoom(Room);
                #room{room_access = #{MSISDN := _}} ->
                    #s2c_error{code = 403};
+               #room{room_access = #{G := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   UpdateRoom(Room);
+               #room{room_access = #{G := _}} ->
+                   #s2c_error{code = 403};
                #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
                    UpdateRoom(Room);
                #room{chat_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
@@ -769,6 +789,13 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                        _ -> #s2c_error{code = 403}
                    end;
                #room{chat_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{chat_access = #{G := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   case CA of
+                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
+                       _ -> #s2c_error{code = 403}
+                   end;
+               #room{chat_access = #{G := _}} ->
                    #s2c_error{code = 403};
                #room{chat_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
                    case CA of
@@ -781,13 +808,17 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                    #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(#c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN} = _State) ->
+do_action(#c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN, group = G} = _State) ->
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN} = Room ->
                    rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
                #room{room_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
                    rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
                #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
+               #room{room_access = #{G := _}} ->
                    #s2c_error{code = 403};
                #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
                    rooms:set(Room#room{subrooms = lists:usort([SubroomId | Room#room.subrooms])}), ok;
@@ -797,13 +828,17 @@ do_action(#c2s_room_add_subroom{room_id = RoomId, subroom_id = SubroomId}, #user
                    #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(#c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN} = _State) ->
+do_action(#c2s_room_del_subroom{room_id = RoomId, subroom_id = SubroomId}, #user_state{msisdn = MSISDN, group = G} = _State) ->
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN} = Room ->
                    rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
                #room{room_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
                    rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
                #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := AL}} = Room when ?MAY_ADMIN(AL) ->
+                   rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
+               #room{room_access = #{G := _}} ->
                    #s2c_error{code = 403};
                #room{room_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
                    rooms:set(Room#room{subrooms = Room#room.subrooms -- [SubroomId]}), ok;
@@ -829,9 +864,9 @@ do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
     Resp = #s2c_room_search_result{rooms = Intersection},
     {Resp, _State};
-do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags, additional_info = AdInfo},#user_state{msisdn=MSISDN}=State) ->
-    Resp = case sessions:get_by_owner_id(MSISDN) of
-               #session{group = 'administrator'} ->
+do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags, additional_info = AdInfo},#user_state{msisdn=MSISDN, group=G}=State) ->
+    Resp = case G of
+               'administrator' ->
                    case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags, AdInfo) of
                        'false'-> #s2c_error{code = 500};
                        RoomId -> #s2c_room_create_result{room_id = RoomId}
@@ -847,7 +882,7 @@ do_action(#c2s_room_delete{room_id = RoomId}, #user_state{msisdn = MSISDN} = _St
                _ -> #s2c_error{code = 404}
            end,
     {Resp, _State};
-do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN} = _State) ->
+do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN, group = G} = _State) ->
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN, chat_id = ChatId} when ChatId /= 'undefined' ->
                    chats:invite_to_chat(ChatId, MSISDN, 7), ok;
@@ -857,15 +892,41 @@ do_action(#c2s_room_join_to_chat{room_id = RoomId}, #user_state{msisdn = MSISDN}
                    #s2c_error{code = 403};
                #room{room_access = #{MSISDN := _}, chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
                    chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{MSISDN := _}, chat_access = #{G := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{MSISDN := _}, chat_access = #{G := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{MSISDN := _}, chat_access = #{'default' := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{MSISDN := _}, chat_access = #{'default' := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{G := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := _}, chat_access = #{MSISDN := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := _}, chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{G := _}, chat_access = #{G := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := _}, chat_access = #{G := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{G := _}, chat_access = #{'default' := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := _}, chat_access = #{'default' := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
                #room{room_access = #{'default' := 0}} ->
                    #s2c_error{code = 403};
-               #room{chat_access = #{MSISDN := 0}} ->
+               #room{room_access = #{'default' := _}, chat_access = #{MSISDN := 0}} ->
                    #s2c_error{code = 403};
-               #room{chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+               #room{room_access = #{'default' := _}, chat_access = #{MSISDN := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
                    chats:invite_to_chat(ChatId, MSISDN, AL), ok;
-               #room{chat_access = #{'default' := 0}} ->
+               #room{room_access = #{'default' := _}, chat_access = #{G := 0}} ->
                    #s2c_error{code = 403};
-               #room{chat_access = #{'default' := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+               #room{room_access = #{'default' := _}, chat_access = #{G := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
+                   chats:invite_to_chat(ChatId, MSISDN, AL), ok;
+               #room{room_access = #{'default' := _}, chat_access = #{'default' := 0}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{'default' := _}, chat_access = #{'default' := AL}, chat_id = ChatId} when ChatId /= 'undefined' ->
                    chats:invite_to_chat(ChatId, MSISDN, AL), ok;
                _ ->
                    #s2c_error{code = 404}
@@ -875,7 +936,7 @@ do_action(#c2s_room_get_my_rooms{}, #user_state{msisdn = MSISDN} = State) ->
     #user{rooms = Rooms} = users:get(MSISDN),
     Resp = #s2c_room_list{rooms = maps:keys(Rooms)},
     {Resp, State};
-do_action(#c2s_room_send_recursive_message{msg = Msg, room_id = RoomId}, #user_state{msisdn = MSISDN} = State) ->
+do_action(#c2s_room_send_recursive_message{msg = Msg, room_id = RoomId}, #user_state{msisdn = MSISDN, group=G} = State) ->
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN} ->
                    case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of
@@ -888,6 +949,13 @@ do_action(#c2s_room_send_recursive_message{msg = Msg, room_id = RoomId}, #user_s
                        _ -> #s2c_error{code = 500}
                    end;
                #room{room_access = #{MSISDN := _}} ->
+                   #s2c_error{code = 403};
+               #room{room_access = #{G := AL}} when ?MAY_ADMIN(AL) ->
+                   case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of
+                       ok -> ok;
+                       _ -> #s2c_error{code = 500}
+                   end;
+               #room{room_access = #{G := _}} ->
                    #s2c_error{code = 403};
                #room{room_access = #{'default' := AL}} when ?MAY_ADMIN(AL) ->
                    case rooms:send_msg_to_room(RoomId, Msg, MSISDN, true) of

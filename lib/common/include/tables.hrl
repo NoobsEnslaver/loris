@@ -101,8 +101,8 @@
               ,description :: binary()
               ,subrooms :: [non_neg_integer()]
               ,owner_id :: non_neg_integer()
-              ,room_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
-              ,chat_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
+              ,room_access :: map()                  %#{default => 0..7, access_group() => 0..7, MSISDN => 0..7} - access level for all, group, exclusions
+              ,chat_access :: map()                  %#{default => 0..7, access_group() => 0..7, MSISDN => 0..7} - access level for all, group, exclusions
               ,chat_id :: binary()
               ,additional_info :: any()}).
 
