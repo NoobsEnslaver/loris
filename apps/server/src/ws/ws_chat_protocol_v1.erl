@@ -31,7 +31,8 @@
                                                 ,subrooms = R#room.subrooms
                                                 ,chat_id = R#room.chat_id
                                                 ,room_access = R#room.room_access
-                                                ,chat_access = R#room.chat_access}
+                                                ,chat_access = R#room.chat_access
+                                                ,additional_info = R#room.additional_info}
                               end).
 -define(MAY_ADMIN(AL), AL div 4 == 1).
 -define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
@@ -166,12 +167,13 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := R
                                       (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                                    end, #{}, Map2)
                  end,
-    #c2s_room_set_info{name = Name, description = Desc, room_id = round(RoomId), tags = Tags, room_access = RoomAccess, chat_access = ChatAccess};
+    AdInfo = maps:get(<<"additional_info">>, Msg, 'undefined'),
+    #c2s_room_set_info{name = Name, description = Desc, room_id = round(RoomId), tags = Tags, room_access = RoomAccess, chat_access = ChatAccess, additional_info = AdInfo};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_ADD_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
     #c2s_room_add_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DEL_SUBROOM_TYPE, <<"room_id">> := RoomId, <<"subroom_id">> := SubroomId}) ->
     #c2s_room_del_subroom{room_id = round(RoomId), subroom_id = round(SubroomId)};
-unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := BRoomAccess, <<"chat_access">> := BChatAccess, <<"tags">> := BTags}) ->
+unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"description">> := Desc, <<"room_access">> := BRoomAccess, <<"chat_access">> := BChatAccess, <<"tags">> := BTags} = Msg) ->
     RoomAccess = maps:fold(fun(<<"default">>,V,Acc)-> maps:put('default', common:to_integer(V), Acc);
                               (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BRoomAccess),
@@ -179,7 +181,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_CREATE_TYPE, <<"name">> := Name, <<"des
                               (K,V,Acc)-> maps:put(common:to_integer(K), common:to_integer(V), Acc)
                            end, #{}, BChatAccess),
     Tags = map_to_record(room_tag, BTags),
-    #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags};
+    AdInfo = maps:get(<<"additional_info">>, Msg, 'undefined'),
+    #c2s_room_create{name=Name, description=Desc, room_access=RoomAccess, chat_access=ChatAccess, tags=Tags, additional_info = AdInfo};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_DELETE_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_delete{room_id = round(RoomId)};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SEARCH_TYPE}) ->
@@ -721,10 +724,10 @@ do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN} = S
                        #s2c_error{code = 403}
                end,
     {Response, State};
-do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,room_access=RA,chat_access=CA},#user_state{msisdn=MSISDN}=_State)->
+do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,room_access=RA,chat_access=CA, additional_info = AI},#user_state{msisdn=MSISDN}=_State)->
     UpdateRoom = fun(Room)->
                          Room1 = case Name of
-                                     undefined -> Room;
+                                     'undefined' -> Room;
                                      _ -> Room#room{name = Name}
                                  end,
                          Room2 = case Desc of
@@ -740,11 +743,15 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                                      _ -> Room3#room{chat_access = CA}
                                  end,
                          case T of
-                             undefined -> ok;
+                             'undefined' -> ok;
                              _ when is_record(T, 'room_tag')->
                                  rooms:set_tag(T#room_tag{room_id = RoomId, name = Room4#room.name})
                          end,
-                         rooms:set(Room4),
+                         Room5 = case AI of
+                                     'undefined' -> Room4;
+                                     _ -> Room4#room{additional_info = AI}
+                                 end,
+                         rooms:set(Room5),
                          ok
                  end,
     Resp = case rooms:get(RoomId) of
@@ -822,10 +829,10 @@ do_action(#c2s_room_search{name = Name, tags = Tags}, _State) ->
     Intersection = [R || R <- Rooms1, lists:member(R, Rooms2)],
     Resp = #s2c_room_search_result{rooms = Intersection},
     {Resp, _State};
-do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags},#user_state{msisdn=MSISDN}=State) ->
+do_action(#c2s_room_create{name=Name,description=Desc,room_access=RoomAccess,chat_access = ChatAccess,tags = Tags, additional_info = AdInfo},#user_state{msisdn=MSISDN}=State) ->
     Resp = case sessions:get_by_owner_id(MSISDN) of
                #session{group = 'administrator'} ->
-                   case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags) of
+                   case rooms:new(MSISDN, Name, Desc, RoomAccess, ChatAccess, Tags, AdInfo) of
                        'false'-> #s2c_error{code = 500};
                        RoomId -> #s2c_room_create_result{room_id = RoomId}
                    end;

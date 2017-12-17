@@ -11,7 +11,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 -compile({no_auto_import,[get/1
                          ,set/1]}).
--export([new/6
+-export([new/7
         ,delete/1
         ,get/1
         ,get_tag/1
@@ -28,8 +28,8 @@
 -define(MAY_WRITE(AL), (AL rem 4) div 2 == 1).
 -define(MAY_READ(AL), ((AL rem 4) rem 2) == 1).
 
--spec new(non_neg_integer(), binary(), binary(), map(), map(), #room_tag{}) -> #room{} | 'false'.
-new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
+-spec new(non_neg_integer(), binary(), binary(), map(), map(), #room_tag{}, any()) -> #room{} | 'false'.
+new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags, Info) ->
     Id = mnesia:dirty_update_counter('index', 'room', 1),
     {ok, ChatId} = chats:new(),
     chat_info:new(ChatId, Name, OwnerId, Id),
@@ -40,7 +40,8 @@ new(OwnerId, Name, Description, RoomAccessMap, ChatAccessMap, Tags) ->
                 ,owner_id = OwnerId
                 ,room_access = RoomAccessMap
                 ,chat_access = ChatAccessMap
-                ,chat_id = ChatId},
+                ,chat_id = ChatId
+                ,additional_info = Info},
     Fun = fun()->
                   mnesia:write(Room),
                   mnesia:write(Tags#room_tag{room_id = Id, name = Name}),

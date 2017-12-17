@@ -126,9 +126,9 @@
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_room_add_subroom, {msg_type = ?C2S_ROOM_ADD_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
 -record(c2s_room_del_subroom, {msg_type = ?C2S_ROOM_DEL_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).
--record(c2s_room_create, {msg_type = ?C2S_ROOM_CREATE_TYPE, name :: binary(), description :: binary(), room_access :: map(), chat_access :: map(), tags :: #room_tag{}}).
+-record(c2s_room_create, {msg_type = ?C2S_ROOM_CREATE_TYPE, name :: binary(), description :: binary(), room_access :: map(), chat_access :: map(), tags :: #room_tag{}, additional_info :: any()}).
 -record(c2s_room_delete, {msg_type = ?C2S_ROOM_DELETE_TYPE, room_id :: non_neg_integer()}).
--record(c2s_room_set_info, {msg_type = ?C2S_ROOM_SET_INFO_TYPE, room_id :: non_neg_integer(), description :: binary(), name :: binary(), tags :: #room_tag{}, room_access :: map(), chat_access :: map()}).
+-record(c2s_room_set_info, {msg_type = ?C2S_ROOM_SET_INFO_TYPE, room_id :: non_neg_integer(), description :: binary(), name :: binary(), tags :: #room_tag{}, room_access :: map(), chat_access :: map(), additional_info :: any()}).
 -record(c2s_room_get_info, {msg_type = ?C2S_ROOM_GET_INFO_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_join_to_chat, {msg_type = ?C2S_ROOM_JOIN_TO_CHAT_TYPE, room_id :: non_neg_integer()}).
 -record(c2s_room_search, {msg_type = ?C2S_ROOM_SEARCH_TYPE, room_id :: non_neg_integer(), tags :: #room_tag{}, name :: binary()}).
@@ -225,7 +225,7 @@
 -record(s2c_user_status, {msg_type = ?S2C_USER_STATUS_TYPE, msisdn :: non_neg_integer(), status :: atom(), last_visit_timestamp :: non_neg_integer()}).
 -record(s2c_user_search_result, {msg_type = ?S2C_USER_SEARCH_RESULT_TYPE, users :: [non_neg_integer()]}).
 -record(s2c_room_create_result, {msg_type = ?S2C_ROOM_CREATE_RESULT_TYPE, room_id :: non_neg_integer()}).
--record(s2c_room_info, {msg_type = ?S2C_ROOM_INFO_TYPE, room_id :: non_neg_integer(), name :: binary(), description :: binary(), tags :: #room_tag{}, subrooms :: [non_neg_integer()], chat_id :: binary(),room_access :: map(), chat_access :: map()}).
+-record(s2c_room_info, {msg_type = ?S2C_ROOM_INFO_TYPE, room_id :: non_neg_integer(), name :: binary(), description :: binary(), tags :: #room_tag{}, subrooms :: [non_neg_integer()], chat_id :: binary(),room_access :: map(), chat_access :: map(), additional_info :: any()}).
 -record(s2c_room_list, {msg_type = ?S2C_ROOM_LIST_TYPE, rooms :: [non_neg_integer()]}).
 -record(s2c_room_search_result, {msg_type = ?S2C_ROOM_SEARCH_RESULT_TYPE, rooms :: map()}).
 -record(s2c_message_send_result, {msg_type = ?S2C_MESSAGE_SEND_RESULT_TYPE, msg_id :: non_neg_integer(), chat_id :: non_neg_integer()}).

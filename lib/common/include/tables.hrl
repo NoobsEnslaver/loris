@@ -103,7 +103,8 @@
               ,owner_id :: non_neg_integer()
               ,room_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
               ,chat_access :: map()                  %#{default => 0..7, MSISDN => 0..7} - access level for all, and exclusions
-              ,chat_id :: binary()}).
+              ,chat_id :: binary()
+              ,additional_info :: any()}).
 
 -record(room_tag, {room_id,tag1 ='false',tag2 ='false',tag3 ='false',tag4 ='false',tag5 ='false',tag6 ='false',tag7 ='false',tag8 ='false',tag9 ='false',tag10='false'
                           ,tag11='false',tag12='false',tag13='false',tag14='false',tag15='false',tag16='false',tag17='false',tag18='false',tag19='false',tag20='false'
