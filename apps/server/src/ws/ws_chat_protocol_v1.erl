@@ -708,8 +708,13 @@ do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
                            ({'msg_type',_})-> 'false';
                            ({_,_})-> 'true'
                         end, PropList),
-    users:set_info(MSISDN, Info),
-    {ok, _State};
+    Resp = case users:set_info(MSISDN, Info) of
+        #user{fname = FName, lname = LName, age = Age, is_male = IsMale, group = Group, city = City, special_info = SpecialInfo} ->
+            #s2c_user_info{user_msisdn = MSISDN, fname = FName, lname = LName, age = Age, is_male = IsMale, city = City, group = Group, special_info = SpecialInfo};
+        'false' ->
+            #s2c_error{code = 500}
+    end,
+    {Resp, _State};
 do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
     Users = users:search(FName, LName),
     Resp = #s2c_user_search_result{users = Users},
@@ -768,7 +773,7 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                                      _ -> Room4#room{additional_info = AI}
                                  end,
                          rooms:set(Room5),
-                         ok
+                         ?ROOM_TO_ROOM_INFO(Room5)
                  end,
     Resp = case rooms:get(RoomId) of
                #room{owner_id = MSISDN} = Room ->
@@ -785,22 +790,34 @@ do_action(#c2s_room_set_info{name=Name,description=Desc,room_id=RoomId,tags=T,ro
                    UpdateRoom(Room);
                #room{chat_access = #{MSISDN := AL}} = Room when ?MAY_ADMIN(AL) ->
                    case CA of
-                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
-                       _ -> #s2c_error{code = 403}
+                       _ when is_map(CA) ->
+                           RoomX = Room#room{chat_access = CA},
+                           rooms:set(RoomX),
+                           ?ROOM_TO_ROOM_INFO(RoomX);
+                       _ ->
+                           #s2c_error{code = 403}
                    end;
                #room{chat_access = #{MSISDN := _}} ->
                    #s2c_error{code = 403};
                #room{chat_access = #{G := AL}} = Room when ?MAY_ADMIN(AL) ->
                    case CA of
-                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
-                       _ -> #s2c_error{code = 403}
+                       _ when is_map(CA) ->
+                           RoomX = Room#room{chat_access = CA},
+                           rooms:set(RoomX),
+                           ?ROOM_TO_ROOM_INFO(RoomX);
+                       _ ->
+                           #s2c_error{code = 403}
                    end;
                #room{chat_access = #{G := _}} ->
                    #s2c_error{code = 403};
                #room{chat_access = #{'default' := AL}} = Room when ?MAY_ADMIN(AL) ->
                    case CA of
-                       _ when is_map(CA) -> rooms:set(Room#room{chat_access = CA}), ok;
-                       _ -> #s2c_error{code = 403}
+                       _ when is_map(CA) ->
+                           RoomX = Room#room{chat_access = CA},
+                           rooms:set(RoomX),
+                           ?ROOM_TO_ROOM_INFO(RoomX);
+                       _ ->
+                           #s2c_error{code = 403}
                    end;
                #room{} ->
                    #s2c_error{code = 403};
