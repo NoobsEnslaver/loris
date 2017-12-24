@@ -121,7 +121,7 @@
 -record(c2s_user_set_sportsman_info, {msg_type = ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, msisdn :: non_neg_integer(),height :: non_neg_integer(),weight :: non_neg_integer(),kyu :: non_neg_integer(),affiliate_id :: non_neg_integer(),is_volunteer :: boolean(),is_on_team :: boolean()}).
 -record(c2s_user_set_parent_info, {msg_type = ?C2S_USER_SET_PARENT_INFO_TYPE, msisdn :: non_neg_integer(), affiliate_id :: non_neg_integer(), parental_committee :: boolean(),is_volunteer :: boolean()}).
 -record(c2s_user_set_trainer_info, {msg_type = ?C2S_USER_SET_TRAINER_INFO_TYPE,msisdn :: non_neg_integer(),affiliate_id :: non_neg_integer(),trainer_committee :: boolean(),is_judge :: boolean(),is_department_head :: boolean()}).
--record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary()}).
+-record(c2s_user_search, {msg_type = ?C2S_USER_SEARCH_TYPE, fname :: binary(), lname :: binary(), city :: binary(), group :: access_group() | undefined}).
 -record(c2s_user_subscribe, {msg_type = ?C2S_USER_SUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_user_unsubscribe, {msg_type = ?C2S_USER_UNSUBSCRIBE_TYPE, msisdn :: [non_neg_integer()]}).
 -record(c2s_room_add_subroom, {msg_type = ?C2S_ROOM_ADD_SUBROOM_TYPE, room_id :: non_neg_integer(), subroom_id :: non_neg_integer()}).

@@ -19,7 +19,7 @@
         ,accept_invatation/2
         ,reject_invatatoin/2
         ,leave_chat/2
-        ,search/2
+        ,search/4
         ,mute_chat/2
         ,unmute_chat/2
         ,update_last_visit_timestamp/1
@@ -175,21 +175,86 @@ leave_chat(ChatId, MSISDN)->
 
 %% TODO: optimize it
 %% TODO: search by other fields
-search(FName, LName) when byte_size(FName) > 2 andalso byte_size(LName) > 2 ->
+search(FName, LName, Group, City) when byte_size(FName) > 2 andalso byte_size(LName) > 2 andalso Group /= 'undefined' andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.group == Group
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(FName, LName, Group, _City) when byte_size(FName) > 2 andalso byte_size(LName) > 2 andalso Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(FName, LName, _Group, City) when byte_size(FName) > 2 andalso byte_size(LName) > 2 andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(FName, _LName, Group, City) when byte_size(FName) > 2 andalso Group /= 'undefined' andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , U#user.group == Group
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+
+search(_FName, LName, Group, City) when byte_size(LName) > 2 andalso Group /= 'undefined' andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.group == Group
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(FName, LName, _Group, _City) when byte_size(FName) > 2 andalso byte_size(LName) > 2 ->
     Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
                                                          , binary:match(U#user.lname, LName) /= 'nomatch']),
-    Fun = common:get_limited_amount_from_query(Q, 20),
+    Fun = common:get_limited_amount_from_query(Q, 40),
     mnesia:sync_dirty(Fun);
-search(_, LName) when byte_size(LName) > 2 ->
+search(FName, _LName, Group, _City) when byte_size(FName) > 2 andalso Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_FName, LName, Group, _City) when byte_size(LName) > 2 andalso Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_FName, LName, _Group, _City) when byte_size(LName) > 2 ->
     Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch']),
-    Fun = common:get_limited_amount_from_query(Q, 20),
+    Fun = common:get_limited_amount_from_query(Q, 40),
     mnesia:sync_dirty(Fun);
-search(FName, _) when byte_size(FName) > 2 ->
-    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch']),
-    Fun = common:get_limited_amount_from_query(Q, 20),
+search(FName, _LName, Group, _City) when byte_size(FName) > 2 andalso Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
     mnesia:sync_dirty(Fun);
-search(_, _) -> [].
-
+search(_FName, LName, Group, _City) when byte_size(LName) > 2 andalso Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_FName, _LName, Group, _City) when  Group /= 'undefined' ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), U#user.group == Group]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_FName, _LName, _Group, City) when byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(FName, _LName, _Group, City) when byte_size(FName) > 2 andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.fname, FName) /= 'nomatch'
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_FName, LName, _Group, City) when byte_size(LName) > 2 andalso byte_size(City) > 2 ->
+    Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), binary:match(U#user.lname, LName) /= 'nomatch'
+                                                         , U#user.city == City]),
+    Fun = common:get_limited_amount_from_query(Q, 40),
+    mnesia:sync_dirty(Fun);
+search(_, _, _, _) -> [].
 
 mute_chat(MSISDN, ChatId) ->
     Fun = fun()->

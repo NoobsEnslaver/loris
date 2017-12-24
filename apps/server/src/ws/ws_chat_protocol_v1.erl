@@ -170,8 +170,19 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
                       ,age = maps:get(<<"age">>, Msg, 'undefined')
                       ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')
                       ,city = maps:get(<<"city">>, Msg, 'undefined')};
-unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE, <<"fname">> := FName, <<"lname">> := LName}) ->
-    #c2s_user_search{fname = FName, lname = LName};
+unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE} = Msg) ->
+    Group = case maps:get(<<"group">>, Msg, <<>>) of
+                <<"guest">> -> 'guest';
+                <<"sportsman">> -> 'sportsman';
+                <<"administrator">> -> 'administrator';
+                <<"parent">> -> 'parent';
+                <<"trainer">> -> 'trainer';
+                _ -> 'undefined'
+            end,
+    FName = maps:get(<<"fname">>, Msg, <<>>),
+    LName = maps:get(<<"lname">>, Msg, <<>>),
+    City = maps:get(<<"city">>, Msg, <<>>),
+    #c2s_user_search{fname = FName, lname = LName, city = City, group = Group};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_get_info{room_id = round(RoomId)};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := RoomId}) ->
@@ -715,8 +726,8 @@ do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
             #s2c_error{code = 500}
     end,
     {Resp, _State};
-do_action(#c2s_user_search{fname = FName, lname = LName}, _State) ->
-    Users = users:search(FName, LName),
+do_action(#c2s_user_search{fname = FName, lname = LName, city = City, group = Group}, _State) ->
+    Users = users:search(FName, LName, City, Group),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
 do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN, group = G} = State) ->
