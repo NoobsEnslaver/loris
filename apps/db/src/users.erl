@@ -309,10 +309,10 @@ set_info(MSISDN, Proplist) ->
                                     ({group, 'trainer'}, User)-> User#user{group = 'trainer', special_info = undefined};
                                     ({pwd_hash, Value}, User) when is_binary(Value) -> User#user{pwd_hash = list_to_binary(string:to_upper(binary_to_list(Value)))};
                                     ({created, Value}, User) when is_integer(Value) -> User#user{created = Value};
-                                    ({chats, Value}, User) when is_list(Value) -> User#user{chats = Value};
-                                    ({chats_invatations, Value}, User) when is_list(Value) -> User#user{chats_invatations = Value};
+                                    ({chats, Value}, User) when is_map(Value) -> User#user{chats = Value};
+                                    ({chats_invatations, Value}, User) when is_map(Value) -> User#user{chats_invatations = Value};
                                     ({age, Value}, User) when is_integer(Value) -> User#user{age = Value};
-                                    ({rooms, Value}, User) when is_list(Value) -> User#user{rooms = Value};
+                                    ({rooms, Value}, User) when is_map(Value) -> User#user{rooms = Value};
                                     ({fname, Value}, User) when is_binary(Value)-> User#user{fname = Value};
                                     ({lname, Value}, User) when is_binary(Value)-> User#user{lname = Value};
                                     ({is_male, Value}, User) when is_boolean(Value)-> User#user{is_male = Value};
