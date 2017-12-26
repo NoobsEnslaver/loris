@@ -661,7 +661,7 @@ do_action(#c2s_user_get_status{user_msisdn = MSISDN}, _State) ->
 do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_committee = TC,is_judge = IsJ,is_department_head = IsDH}, #user_state{msisdn = MyMSISDN} = _State) ->
     Resp = case users:get(MyMSISDN) of
                #user{group = 'administrator'} ->
-                   case usres:get(MSISDN) of
+                   case users:get(MSISDN) of
                        #user{group = 'trainer'} ->
                            Info = #trainer_info{affiliate_id = AId %TODO: check exists
                                                ,trainer_committee = TC
@@ -679,7 +679,7 @@ do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_
 do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_committee = PC,is_volunteer = IsV}, #user_state{msisdn = MyMSISDN} = _State) ->
     Resp = case users:get(MyMSISDN) of
                #user{group = G} when G == 'administrator' orelse G == 'trainer' ->
-                   case usres:get(MSISDN) of
+                   case users:get(MSISDN) of
                        #user{group = 'parent'} ->
                            Info = #parent_info{affiliate_id = AId
                                               ,parental_committee = PC
@@ -696,7 +696,7 @@ do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_
 do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei,kyu = Kyu,affiliate_id = AId,is_volunteer = IsV,is_on_team = IsOnT}, #user_state{msisdn = MyMSISDN} = _State) ->
         Resp = case users:get(MyMSISDN) of
                #user{group = G} when G == 'administrator' orelse G == 'trainer' ->
-                   case usres:get(MSISDN) of
+                   case users:get(MSISDN) of
                        #user{group = 'sportsman'} ->
                            Info = #sportsman_info{height = Hei
                                                  ,weight = Wei
