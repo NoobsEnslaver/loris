@@ -667,7 +667,7 @@ do_action(#c2s_user_set_trainer_info{msisdn = MSISDN,affiliate_id = AId,trainer_
                                                ,trainer_committee = TC
                                                ,is_judge = IsJ
                                                ,is_department_head = IsDH},
-                           users:set(MSISDN, [{special_info, Info}]),
+                           users:set_info(MSISDN, [{special_info, Info}]),
                            ok;
                        _ ->
                            #s2c_error{code = 400}
@@ -684,7 +684,7 @@ do_action(#c2s_user_set_parent_info{msisdn = MSISDN,affiliate_id = AId,parental_
                            Info = #parent_info{affiliate_id = AId
                                               ,parental_committee = PC
                                               ,is_volunteer = IsV},
-                           users:set(MSISDN, [{special_info, Info}]),
+                           users:set_info(MSISDN, [{special_info, Info}]),
                            ok;
                        _ ->
                            #s2c_error{code = 400}
@@ -704,7 +704,7 @@ do_action(#c2s_user_set_sportsman_info{msisdn = MSISDN,height = Hei,weight = Wei
                                                  ,affiliate_id = AId
                                                  ,is_volunteer = IsV
                                                  ,is_on_team = IsOnT},
-                           users:set(MSISDN, [{special_info, Info}]),
+                           users:set_info(MSISDN, [{special_info, Info}]),
                            ok;
                        _ ->
                            #s2c_error{code = 400}
