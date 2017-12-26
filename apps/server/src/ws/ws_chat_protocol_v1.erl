@@ -182,7 +182,11 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE} = Msg) ->
     FName = maps:get(<<"fname">>, Msg, <<>>),
     LName = maps:get(<<"lname">>, Msg, <<>>),
     City = maps:get(<<"city">>, Msg, <<>>),
-    #c2s_user_search{fname = FName, lname = LName, city = City, group = Group};
+    AffiliateId = case maps:get(<<"affiliate_id">>, Msg, 'undefined') of
+                      'undefined' -> 'undefined';
+                      Num -> round(Num)
+                  end,
+    #c2s_user_search{fname = FName, lname = LName, city = City, group = Group, affiliate_id = AffiliateId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
     #c2s_room_get_info{room_id = round(RoomId)};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_ROOM_SET_INFO_TYPE, <<"room_id">> := RoomId}) ->
@@ -726,8 +730,8 @@ do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
             #s2c_error{code = 500}
     end,
     {Resp, _State};
-do_action(#c2s_user_search{fname = FName, lname = LName, city = City, group = Group}, _State) ->
-    Users = users:search(FName, LName, City, Group),
+do_action(#c2s_user_search{fname = FName, lname = LName, city = City, group = Group, affiliate_id = AffiliateId}, _State) ->
+    Users = users:search(FName, LName, City, Group, AffiliateId),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
 do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN, group = G} = State) ->
