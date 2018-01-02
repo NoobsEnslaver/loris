@@ -735,7 +735,7 @@ do_action(#c2s_user_set_info{} = SI, #user_state{msisdn = MSISDN} = _State) ->
     end,
     {Resp, _State};
 do_action(#c2s_user_search{fname = FName, lname = LName, city = City, group = Group, affiliate_id = AffiliateId}, _State) ->
-    Users = users:search(FName, LName, City, Group, AffiliateId),
+    Users = users:search(FName, LName, Group, City, AffiliateId),
     Resp = #s2c_user_search_result{users = Users},
     {Resp, _State};
 do_action(#c2s_room_get_info{room_id = RoomId}, #user_state{msisdn = MSISDN, group = G} = State) ->

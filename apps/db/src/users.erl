@@ -180,16 +180,16 @@ search(<<>>, <<>>, undefined, <<>>, undefined) ->
     [];
 search(FName, LName, Group, City, AffiliateId) ->
     Pred = fun(#user{} = U)->
-                   P1 = byte_size(FName) =< 2 orelse binary:match(U#user.fname, FName) /= 'nomatch',
-                   P2 = byte_size(LName) =< 2 orelse binary:match(U#user.lname, LName) /= 'nomatch',
-                   P3 = Group == undefined orelse Group == U#user.group,
-                   P4 = byte_size(City) =< 2 orelse City == U#user.city,
-                   P5 = AffiliateId == undefined orelse case U#user.special_info of
-                                                            #trainer_info{affiliate_id = AffiliateId} -> true;
-                                                            #sportsman_info{affiliate_id = AffiliateId} -> true;
-                                                            #parent_info{affiliate_id = AffiliateId} -> true;
-                                                            _ -> false
-                                                        end,
+                   P1 = (byte_size(FName) =< 2) orelse (binary:match(U#user.fname, FName) /= 'nomatch'),
+                   P2 = (byte_size(LName) =< 2) orelse (binary:match(U#user.lname, LName) /= 'nomatch'),
+                   P3 = (Group == undefined) orelse (Group == U#user.group),
+                   P4 = (byte_size(City) =< 2) orelse (City == U#user.city),
+                   P5 = (AffiliateId == undefined) orelse (case U#user.special_info of
+                                                               #trainer_info{affiliate_id = AffiliateId} -> true;
+                                                               #sportsman_info{affiliate_id = AffiliateId} -> true;
+                                                               #parent_info{affiliate_id = AffiliateId} -> true;
+                                                               _ -> false
+                                                           end),
                    P1 and P2 and P3 and P4 and P5
            end,
     Q = qlc:q([U#user.msisdn || U <- mnesia:table('user'), Pred(U)]),
