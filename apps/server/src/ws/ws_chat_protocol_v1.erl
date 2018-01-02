@@ -132,8 +132,8 @@ unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_MESSAGE_GET_LIST_TYPE, <<"chat_id">> :
                 _ -> 50
             end,
     MsgId = case maps:get(<<"msg_id">>,Msg, 'undefined') of
-                'undefined' -> 'undefined';
-                Num when is_number(Num) -> round(Num)
+                Num when is_number(Num) -> round(Num);
+                _ -> 'undefined'
             end,
     #c2s_message_get_list{chat_id = ChatId, msg_id = MsgId, count = Count, direction = Direction};
 unwrap_msg(#{<<"msg_type">> := ?C2S_MESSAGE_UPDATE_TYPE, <<"chat_id">> := ChatId, <<"msg_body">> := MsgBody, <<"msg_id">> := MsgId}) ->
@@ -165,9 +165,13 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SET_SPORTSMAN_INFO_TYPE, <<"msisdn">> :
                                 ,is_volunteer = (IsV =:= 'true')
                                 ,is_on_team = (IsOnT =:= 'true')};
 unwrap_msg(Msg = #{<<"msg_type">> := ?C2S_USER_SET_INFO_TYPE}) ->
+    Age = case maps:get(<<"age">>, Msg, 'undefined') of
+              Num when is_number(Num) -> round(Num);
+              _ -> 'undefined'
+          end,
     #c2s_user_set_info{fname = maps:get(<<"fname">>, Msg, 'undefined')
                       ,lname = maps:get(<<"lname">>, Msg, 'undefined')
-                      ,age = maps:get(<<"age">>, Msg, 'undefined')
+                      ,age = Age
                       ,is_male = maps:get(<<"is_male">>, Msg, 'undefined')
                       ,city = maps:get(<<"city">>, Msg, 'undefined')};
 unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE} = Msg) ->
@@ -183,8 +187,8 @@ unwrap_msg(#{<<"msg_type">> := ?C2S_USER_SEARCH_TYPE} = Msg) ->
     LName = maps:get(<<"lname">>, Msg, <<>>),
     City = maps:get(<<"city">>, Msg, <<>>),
     AffiliateId = case maps:get(<<"affiliate_id">>, Msg, 'undefined') of
-                      'undefined' -> 'undefined';
-                      Num -> round(Num)
+                      Num when is_number(Num) -> round(Num);
+                      _ -> 'undefined'
                   end,
     #c2s_user_search{fname = FName, lname = LName, city = City, group = Group, affiliate_id = AffiliateId};
 unwrap_msg(#{<<"msg_type">> := ?C2S_ROOM_GET_INFO_TYPE, <<"room_id">> := RoomId}) ->
