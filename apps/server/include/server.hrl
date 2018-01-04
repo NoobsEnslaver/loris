@@ -2,6 +2,7 @@
 -define(SERVER_HRL, 'true').
 
 -include_lib("common/include/transport_lib.hrl").
+-include_lib("common/include/tables.hrl").
 
 -define(APP_NAME, <<"server">>).
 -define(TIMEOUT, 600000).

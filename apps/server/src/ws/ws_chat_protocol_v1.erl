@@ -9,7 +9,6 @@
 -module(ws_chat_protocol_v1).
 -include("ws_chat_protocol_v1_messages.hrl").
 -include("server.hrl").
--include_lib("common/include/tables.hrl").
 -behaviour(ws_protocol_behaviour).
 -export([unwrap_msg/1
         ,do_action/2
@@ -1328,7 +1327,7 @@ terminate(#user_state{msisdn = MSISDN, storage = Storage} = _State) ->
 %%% Module access params
 %%%===================================================================
 allowed_groups() ->
-    ['guest','sportsman','administrator','parent','trainer'].
+    ?ALL_GROUPS.
 
 access_level() ->
     10.

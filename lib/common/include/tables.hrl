@@ -2,6 +2,7 @@
 -define(TABLES_HRL, 'true').
 
 -type access_group() :: 'guest'|'sportsman'|'administrator'|'parent'|'trainer'.
+-define(ALL_GROUPS, ['guest','sportsman','administrator','parent','trainer']).
 
 -record(file, {id :: non_neg_integer()
               ,hash :: binary()

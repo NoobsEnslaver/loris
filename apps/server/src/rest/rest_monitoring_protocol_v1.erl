@@ -53,7 +53,7 @@ access_level(_Method) ->
     'infinity'.
 
 allowed_groups(_Method) ->
-    ['administrator'].
+    ?ALL_GROUPS.
 
 %%
 %% folsom_metrics:get_metric_value(<<"rest_monitoring_protocol_v1_meter">>).

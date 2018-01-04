@@ -64,7 +64,7 @@ access_level(_Method)->
     5.
 
 allowed_groups(_Method) ->
-    ['sportsman','administrator','parent','trainer'].
+    ?ALL_GROUPS.
 
 %%%===================================================================
 %%% internal functions

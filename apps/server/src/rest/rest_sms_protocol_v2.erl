@@ -64,7 +64,7 @@ access_level(_Method) ->
     'infinity'.
 
 allowed_groups(_Method) ->
-    ['guest','sportsman','administrator','parent','trainer'].
+    ?ALL_GROUPS.
 
 %%====================================================================
 %% Internal functions
