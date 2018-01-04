@@ -462,7 +462,7 @@ do_action(#c2s_chat_create{name = ChatName, users = Users}, #user_state{msisdn =
             chats:subscribe(ChatId),
             maps:fold(fun(U,AL,_)->
                               chats:invite_to_chat(ChatId, U, AL), ok
-                      end, ok, Users),
+                      end, ok, maps:without([MSISDN] ,Users)),
             {#s2c_chat_create_result{chat_id = ChatId}, State#user_state{chats = OldChats#{ChatId => 7}}};
         _ ->
             {#s2c_error{code = 500}, State}
@@ -483,7 +483,13 @@ do_action(#c2s_chat_delete{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats
         'undefined' ->
             {#s2c_error{code = 404}, State};
         _ ->
-            {#s2c_error{code = 403}, State}
+            case chat_info:get(ChatId) of
+                #chat_info{chat_owner = MSISDN} ->
+                    chats:delete(ChatId, MSISDN),
+                    {ok, State#user_state{chats = maps:remove(ChatId, Chats)}};
+                _ ->
+                    {#s2c_error{code = 403}, State}
+            end
     end;
 do_action(#c2s_chat_accept_invatation{chat_id = ChatId}, #user_state{msisdn = MSISDN, chats = OldChats} = State) ->
     case chats:accept_invatation(ChatId, MSISDN) of
