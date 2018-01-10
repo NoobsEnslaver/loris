@@ -12,7 +12,7 @@
 -export([bin2hex/1
         ,get_body_data/1
         ,timestamp/0
-        ,trace_it/1, trace_it/2
+        ,trace_it/1, trace_it/2, trace_it/3
         ,to_integer/1
         ,take_first/1, take_first/2
         ,start_measure/1
@@ -56,14 +56,16 @@ get_body_data(Req)->
 timestamp()->
     os:system_time('millisecond').
 
+%% Если WhatPrint - строка, то указываем pid строкой "<X.Y.Z>" - будет трассироваться он.
+-spec trace_it(module(), atom(), 'processes'|'new_processes'|'existing_processes'|string())-> any().
 trace_it(Module)->
-    dbg:tracer(),
-    dbg:p(all, c),
-    dbg:tpl(Module, '_', '_', []).
+    trace_it(Module, '_').
 trace_it(Module, Func)->
+    trace_it(Module, Func, processes).
+trace_it(Module, Func, WhatPrint)->
     dbg:tracer(),
-    dbg:p(all, c),
-    dbg:tpl(Module, Func, '_', []).
+    dbg:p(WhatPrint, c),
+    dbg:tpl(Module, Func, '_', [{'_',[],[{return_trace}]}]).
 
 to_integer(X) when is_integer(X) -> X;
 to_integer(X) when is_binary(X) -> binary_to_integer(X);
