@@ -281,17 +281,19 @@ do_action(#c2s_chat_get_list{}, #user_state{chats = Chats} = State) ->
     ChatsList = [{ChatId, chat_info:extract(chat_info:get(ChatId), name)} || ChatId <- maps:keys(Chats)],
     Resp = #s2c_chat_list{chats = maps:from_list(ChatsList)},
     {Resp, State};
-do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{muted_chats = MC} = State) ->
+do_action(#c2s_chat_get_info{chat_id = ChatId}, #user_state{muted_chats = MC, chats = Chats} = State) ->
     Resp = case chat_info:get(ChatId) of
                'false' ->
                    #s2c_error{code = 404};
-               #chat_info{name = Name, users = Users, chat_owner = ChatOwner} ->
+               #chat_info{name = Name, users = Users, chat_owner = ChatOwner, on_room = OnRoom} ->
                    #s2c_chat_info{chat_id = ChatId
                                  ,name = Name
                                  ,users = Users
                                  ,is_muted = lists:member(ChatId, MC)
                                  ,chat_owner = ChatOwner
-                                 ,last_msg_id = chats:get_last_msg_id(ChatId)}
+                                 ,last_msg_id = chats:get_last_msg_id(ChatId)
+                                 ,access_level = maps:get(ChatId, Chats, 'undefined')
+                                 ,on_room = OnRoom}
            end,
     {Resp, State};
 do_action(#c2s_chat_create{users = UsersMap, name = ChatName, is_p2p = 'true'}, #user_state{msisdn = MyMSISDN, chats = OldChats} = State) ->
