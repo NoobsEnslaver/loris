@@ -16,7 +16,8 @@
 %% API
 -export([start_link/0
         ,sms_cleaning/0
-        ,sessions_cleaning/0]).
+        ,sessions_cleaning/0
+        ,rooms_cleaning/0]).
 
 %% gen_server callbacks
 -export([init/1
@@ -61,9 +62,11 @@ init([]) ->
     SessionsCleaningInterval = application:get_env('singleton', 'sessions_cleaning_interval', 3600) * 1000, %default: 1h
     SmsCleaningInterval = application:get_env('singleton', 'sms_cleaning_interval', 900) * 1000,  %default: 15 min
     ResourcesUpdateInterval = application:get_env('singleton', 'resources_update_interval', 900) * 1000,  %default: 15 min
+    RoomCleaningInterval = application:get_env('singleton', 'rooms_cleaning_interval', 86400) * 1000,  %default: 1 day
     erlang:send_after(SessionsCleaningInterval, self(), 'clean_sessions'),
     erlang:send_after(SmsCleaningInterval, self(), 'clean_sms'),
     erlang:send_after(ResourcesUpdateInterval, self(), 'update_resources'),
+    erlang:send_after(RoomCleaningInterval, self(), 'clean_room'),
     lager:info("db cleaner started"),
     {'ok', #{sms => SmsCleaningInterval, session => SessionsCleaningInterval, resources_update_interval => ResourcesUpdateInterval}}.
 
@@ -120,6 +123,10 @@ handle_info('clean_sessions', #{session := CleaningInterval} = Map) ->
 handle_info('clean_sms', #{sms := CleaningInterval} = Map) ->
     erlang:send_after(CleaningInterval, self(), 'clean_sms'),
     sms_cleaning(),
+    {'noreply', Map};
+handle_info('clean_room', #{room := CleaningInterval} = Map) ->
+    erlang:send_after(CleaningInterval, self(), 'clean_room'),
+    rooms_cleaning(),
     {'noreply', Map};
 handle_info(_Info, _State) ->
     lager:debug("unexpected message ~p", [_Info]),
@@ -257,3 +264,39 @@ maybe_update_resource(Group, FileName, Cwd) ->
         _ ->      %undefined resource format, ignore (maybe rewrite?)
             ok
     end.
+
+rooms_cleaning() ->
+    lager:debug("start rooms cleaning"),
+    Fun = fun()->
+                  AllRoomsIds = mnesia:all_keys(room),
+                  lists:foreach(fun(Id) ->
+                                        [#room{subrooms = SbR, owner_id = OwnerId, chat_id = ChatId} = Room] = mnesia:dirty_read('room', Id),
+                                        case users:get(OwnerId) of
+                                            false ->
+                                                lager:debug("deleting room ~p, reason: no owner", [Id]),
+                                                rooms:delete(Id);
+                                            _ ->
+                                                case [Sr || Sr <- SbR, lists:member(Sr, AllRoomsIds)] of
+                                                    NewSbR when length(NewSbR) /= length(SbR) ->
+                                                        lager:debug("deleting subrooms ~p on room ~p, reason: subroom_id not found", [[SbR -- NewSbR], Id]),
+                                                        case chat_info:get(ChatId) of
+                                                            false ->
+                                                                lager:debug("deleting chat_id ~p on room ~p, reason: chat_id not found", [ChatId, Id]),
+                                                                mnesia:write(Room#room{chat_id = undefined, subrooms = NewSbR});
+                                                            _ ->
+                                                                mnesia:write(Room#room{subrooms = NewSbR})
+                                                        end;
+                                                    _  ->
+                                                        case chat_info:get(ChatId) of
+                                                            false ->
+                                                                lager:debug("deleting chat_id ~p on room ~p, reason: chat_id not found", [ChatId, Id]),
+                                                                mnesia:write(Room#room{chat_id = undefined});
+                                                            _ ->
+                                                                ok
+                                                        end
+                                                end
+                                        end
+                                end, AllRoomsIds)
+          end,
+    mnesia:transaction(Fun),
+    ok.

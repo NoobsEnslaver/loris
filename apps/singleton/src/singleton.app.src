@@ -10,8 +10,9 @@
    ]},
   {env,[{'sessions_cleaning_interval', 3600}      %1 hour
        ,{'sms_cleaning_interval', 1800}           %30 min
+       ,{'rooms_cleaning_interval', 86400}        %1 day
        ,{'sms_live_time',  60}
-       ,{'resources_update_interval', 60}        %15 min
+       ,{'resources_update_interval', 60}         %15 min
        ,{'resources_path', 'priv'}                %atom 'priv' or full path as string
        ,{'specific_resources', [                  %tupele/3, {Group, Name, Value} or {Group, Name, {M,F,A}}, where func must return int,bin,list,atom or map
                                 {<<"system">>, <<"live_nodes">>, {erlang, nodes, []}}
